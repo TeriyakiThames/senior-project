@@ -1,0 +1,78 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  merge-and-freshness-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check if branch is up to date with main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor origin/main HEAD || (echo "Branch is not up to date with main. Please rebase or merge main first." && exit 1)
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Format check
+        run: pnpm format:check
+      - name: Lint check
+        run: pnpm lint
+      - name: Type check
+        run: pnpm type-check
+      # Automated tests will be enabled in Phase 2 once feature test suites are introduced
+      # - name: Run tests
+      #   run: pnpm test:run
+      - name: Build Next.js application
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_APP_URL: https://example.com
+          NEXT_PUBLIC_LIFF_ID: placeholder_liff_id
+
+  versioning-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - name: Verify semantic version bump
+        run: |
+          git fetch origin main
+          node -e "
+            const current = require('./package.json').version;
+            const prev = JSON.parse(require('child_process').execSync('git show origin/main:package.json')).version;
+            const branch = process.env.GITHUB_HEAD_REF || '';
+            const semver = require('semver');
+            console.log(\`Comparing base version \${prev} with current version \${current} on branch \${branch}\`);
+            if (branch.startsWith('feat/') || branch.startsWith('feat')) {
+              if (semver.diff(prev, current) !== 'minor' && semver.diff(prev, current) !== 'major') {
+                console.error('Feature branches must increment minor version (e.g. 0.1.0 -> 0.2.0)');
+                process.exit(1);
+              }
+            } else if (['fix/', 'chore/', 'style/', 'refactor/'].some(p => branch.startsWith(p))) {
+              if (semver.diff(prev, current) !== 'patch') {
+                console.error('Fix/chore/style/refactor branches must increment patch version (e.g. 0.1.0 -> 0.1.1)');
+                process.exit(1);
+              }
+            }
+          "
+        env:
+          GITHUB_HEAD_REF: ${{ github.head_ref }}

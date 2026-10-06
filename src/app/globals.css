@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+@config "../../tailwind.config.ts";
+
+/* Elderly-friendly defaults */
+html {
+  font-size: 20px; /* 1.25rem base for senior readability */
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+/* Large touch targets globally */
+button,
+a,
+[role='button'] {
+  min-height: 48px;
+  min-width: 48px;
+}

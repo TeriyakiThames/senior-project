@@ -1,0 +1,24 @@
+{
+  "dashboard": {
+    "greeting": "Hello, {name}",
+    "todaySchedule": "Home",
+    "alarms": "Alarms",
+    "reminders": "Reminders",
+    "notes": "Notes",
+    "settings": "Settings",
+    "noItems": "No items yet",
+    "snooze": "Snooze",
+    "done": "Done",
+    "delete": "Delete",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading..."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "voiceNotUnderstood": "Sorry, I couldn't understand the audio. Please try again 🙏",
+    "networkError": "Unable to connect. Please try again."
+  }
+}
