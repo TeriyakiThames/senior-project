@@ -133,7 +133,10 @@ flowchart TB
 
 ```
 senior-project/
-├── .github/workflows/ci.yml     # Automated CI pipeline
+├── .github/workflows/
+│   ├── ci.yml                   # Automated CI pipeline
+│   ├── lint-pr.yml              # Conventional PR title validation
+│   └── release.yml              # Automated semantic-release on main
 ├── .env.example                 # Environment template
 ├── .gitignore                   # Excludes plans, build artifacts, envs
 ├── .prettierrc                  # Prettier code formatting rules
@@ -158,6 +161,7 @@ senior-project/
 │       └── jev.ts               # Intent classification types
 ├── next.config.ts               # Next.js configuration
 ├── package.json                 # pnpm dependencies and scripts
+├── release.config.js            # Semantic release rules and plugins
 ├── tailwind.config.ts           # Elder design system tokens
 ├── tsconfig.json                # TypeScript strict configuration
 └── vitest.config.ts             # Vitest test runner configuration

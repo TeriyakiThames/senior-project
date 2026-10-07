@@ -83,15 +83,15 @@ Every PR must pass:
 3. **TypeScript Validation:** `pnpm type-check` (`tsc --noEmit`) with 0 errors.
 4. **Unit Tests:** `pnpm test:run` with external SDKs mocked in Vitest.
 5. **Production Build:** `pnpm build` must compile cleanly.
-6. **Semantic Versioning & Branch Prefixes:**
-   - The CI checks the branch name prefix (`GITHUB_HEAD_REF`) to enforce `package.json` version bumping:
-     - `feat/*`: Minor version bump (`0.1.0` → `0.2.0`).
-     - `fix/*`, `chore/*`, `style/*`, `refactor/*`: Patch bump (`0.1.0` → `0.1.1`).
-   - Branch names only need the semantic prefix (e.g., `feat/line-client-signature`, `fix/webhook-route`) — ticket IDs are not required in branch names.
-7. **Pull Request Naming Convention:**
-   - PR titles must prefix the ticket key and include standard semantic commit types:
-     - Format: `[<TICKET-ID>] <type>: <description>`
-     - Example: `[LINE-01] feat: set up LINE client singleton and signature verification`
+6. **Automated Semantic Releases:**
+   - Versions and GitHub Releases are automated upon merging to `main` via `semantic-release` (`.github/workflows/release.yml`).
+   - Every merged PR generates a release according to Conventional Commits:
+     - `feat`: Minor bump.
+     - `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `build`: Patch bump.
+7. **Pull Request Naming Convention (`.github/workflows/lint-pr.yml`):**
+   - PR titles must strictly follow Conventional Commits format with the ticket ID in the scope:
+     - Format: `<type>(<TICKET-ID>): <description>`
+     - Example: `feat(LINE-01): set up LINE client singleton and signature verification`
 
 ### Unit Testing Rule
 
@@ -117,7 +117,7 @@ After completing work and verifying each individual ticket, the AI assistant mus
 
 **Recommended PR title:**
 
-- The recommended PR title following the ticket standard (e.g. `[LINE-01] feat: set up LINE client singleton and signature verification`).
+- The recommended PR title following the ticket standard (e.g. `feat(LINE-01): set up LINE client singleton and signature verification`).
 
 **Recommended commit message:**
 
