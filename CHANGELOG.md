@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/TeriyakiThames/senior-project/compare/v1.4.0...v1.5.0) (2026-10-07)
+
+
+### Features
+
+* **STT-02:** add speech transcription with persona fallbacks ([#49](https://github.com/TeriyakiThames/senior-project/issues/49)) ([1db878b](https://github.com/TeriyakiThames/senior-project/commit/1db878b07b118f258f05ad8069e39c681889085d))
+
 # [1.4.0](https://github.com/TeriyakiThames/senior-project/compare/v1.3.0...v1.4.0) (2026-10-07)
 
 
