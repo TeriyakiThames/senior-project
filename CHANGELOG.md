@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/TeriyakiThames/senior-project/compare/v1.0.0...v1.1.0) (2026-10-07)
+
+
+### Features
+
+* **LINE-01:** set up LINE client singleton and signature verification ([#45](https://github.com/TeriyakiThames/senior-project/issues/45)) ([4bd2832](https://github.com/TeriyakiThames/senior-project/commit/4bd283286ea15e62934f6eb05db83954df274a1a))
+
 # 1.0.0 (2026-10-07)
 
 
