@@ -1,18 +1,22 @@
 import { webhook } from '@line/bot-sdk';
 import { lineClient } from './client';
+import { processAudioMessage } from '@/lib/speech/handler';
 
 /**
  * Handles incoming text messages by replying with an echo / acknowledgement.
+ * Accepts optional transcribedText to process recognized audio input.
  */
 export async function handleTextMessage(
   event: webhook.MessageEvent & { message: webhook.TextMessageContent },
+  transcribedText?: string,
 ): Promise<void> {
   const replyToken = event.replyToken;
   if (!replyToken) {
     return;
   }
 
-  const userText = event.message.text.trim();
+  const rawText = transcribedText ?? event.message.text;
+  const userText = rawText.trim();
   const replyText = `ได้รับข้อความแล้ว: "${userText}"`;
 
   await lineClient.replyMessage({
@@ -27,27 +31,17 @@ export async function handleTextMessage(
 }
 
 /**
- * Handles incoming audio messages with a polite placeholder acknowledgement until STT is integrated.
+ * Handles incoming audio messages by processing voice download, STT transcription,
+ * and forwarding recognized text to the conversational text pipeline.
  */
 export async function handleAudioMessage(
   event: webhook.MessageEvent & { message: webhook.AudioMessageContent },
 ): Promise<void> {
-  const replyToken = event.replyToken;
-  if (!replyToken) {
-    return;
-  }
-
-  const replyText =
-    'ได้รับข้อความเสียงแล้วค่ะ ระบบกำลังพัฒนาการรับฟังเสียง กรุณาส่งเป็นข้อความก่อนนะคะ 🙏';
-
-  await lineClient.replyMessage({
-    replyToken,
-    messages: [
-      {
-        type: 'text',
-        text: replyText,
-      },
-    ],
+  await processAudioMessage(event, async (transcribedText) => {
+    await handleTextMessage(
+      event as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent },
+      transcribedText,
+    );
   });
 }
 
