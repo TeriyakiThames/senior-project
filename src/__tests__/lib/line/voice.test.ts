@@ -38,4 +38,18 @@ describe('downloadVoiceMessage', () => {
 
     await expect(downloadVoiceMessage('voice_msg_102')).rejects.toThrow(LineVoiceDownloadError);
   });
+
+  it('handles mid-stream async read network failures without unhandled rejection', async () => {
+    const errorStream = new Readable({
+      async read() {
+        throw new Error('Socket closed unexpectedly');
+      },
+    });
+
+    vi.mocked(lineBlobClient.getMessageContent).mockResolvedValueOnce(
+      errorStream as unknown as Awaited<ReturnType<typeof lineBlobClient.getMessageContent>>,
+    );
+
+    await expect(downloadVoiceMessage('voice_msg_103')).rejects.toThrow(LineVoiceDownloadError);
+  });
 });

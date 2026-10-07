@@ -56,6 +56,25 @@ export async function downloadVoiceMessage(
 
   try {
     const stream = await lineBlobClient.getMessageContent(trimmedId);
+
+    // Guard against unhandled promise rejections inside @line/bot-sdk's async read implementation
+    const streamWithRead = stream as unknown as {
+      _read?: (size: number) => unknown;
+      destroy: (err?: Error) => void;
+    };
+    if (typeof streamWithRead._read === 'function') {
+      const originalRead = streamWithRead._read;
+      streamWithRead._read = function (size: number) {
+        const result = originalRead.call(this, size);
+        if (result && typeof (result as Promise<unknown>).catch === 'function') {
+          (result as Promise<unknown>).catch((err: unknown) => {
+            this.destroy(err instanceof Error ? err : new Error(String(err)));
+          });
+        }
+        return result;
+      };
+    }
+
     const chunks: Buffer[] = [];
     let totalBytes = 0;
 
