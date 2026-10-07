@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/TeriyakiThames/senior-project/compare/v1.2.0...v1.3.0) (2026-10-07)
+
+
+### Features
+
+* **LINE-03:** create webhook entry point ([#47](https://github.com/TeriyakiThames/senior-project/issues/47)) ([bade3b6](https://github.com/TeriyakiThames/senior-project/commit/bade3b6cabf2db7792056d8496b5e5229d215311))
+
 # [1.2.0](https://github.com/TeriyakiThames/senior-project/compare/v1.1.0...v1.2.0) (2026-10-07)
 
 
