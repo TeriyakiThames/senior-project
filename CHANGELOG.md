@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/TeriyakiThames/senior-project/compare/v1.1.0...v1.2.0) (2026-10-07)
+
+
+### Features
+
+* **LINE-02:** add Line voice download ([#46](https://github.com/TeriyakiThames/senior-project/issues/46)) ([7a2fe28](https://github.com/TeriyakiThames/senior-project/commit/7a2fe28887ccc5b71df75e4bc6765de2cd8b5de6))
+
 # [1.1.0](https://github.com/TeriyakiThames/senior-project/compare/v1.0.0...v1.1.0) (2026-10-07)
 
 
