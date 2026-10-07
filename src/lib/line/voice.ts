@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import { lineBlobClient } from './client';
 
 /**
@@ -55,7 +56,26 @@ export async function downloadVoiceMessage(
   const maxSizeBytes = options?.maxSizeBytes ?? DEFAULT_MAX_SIZE_BYTES;
 
   try {
-    const stream = await lineBlobClient.getMessageContent(trimmedId);
+    let stream: Readable;
+    let httpStatusCode: number | undefined;
+
+    if (typeof lineBlobClient.getMessageContentWithHttpInfo === 'function') {
+      const result = await lineBlobClient.getMessageContentWithHttpInfo(trimmedId);
+      if (result && 'httpResponse' in result && result.httpResponse) {
+        httpStatusCode = result.httpResponse.status;
+        if (httpStatusCode === 202) {
+          throw new LineVoiceDownloadError(
+            'Voice message is still being prepared by LINE (HTTP 202 Accepted).',
+            { messageId: trimmedId, statusCode: 202 },
+          );
+        }
+        stream = result.body;
+      } else {
+        stream = await lineBlobClient.getMessageContent(trimmedId);
+      }
+    } else {
+      stream = await lineBlobClient.getMessageContent(trimmedId);
+    }
 
     // Guard against unhandled promise rejections inside @line/bot-sdk's async read implementation
     const streamWithRead = stream as unknown as {
@@ -93,6 +113,13 @@ export async function downloadVoiceMessage(
       }
 
       chunks.push(bufferChunk);
+    }
+
+    if (chunks.length === 0 || totalBytes === 0) {
+      throw new LineVoiceDownloadError('Received empty audio payload from LINE Blob storage.', {
+        messageId: trimmedId,
+        statusCode: httpStatusCode,
+      });
     }
 
     return Buffer.concat(chunks);

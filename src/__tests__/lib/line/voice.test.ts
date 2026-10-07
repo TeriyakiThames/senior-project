@@ -6,6 +6,7 @@ import { lineBlobClient } from '@/lib/line/client';
 vi.mock('@/lib/line/client', () => ({
   lineBlobClient: {
     getMessageContent: vi.fn(),
+    getMessageContentWithHttpInfo: vi.fn(),
   },
 }));
 
@@ -51,5 +52,31 @@ describe('downloadVoiceMessage', () => {
     );
 
     await expect(downloadVoiceMessage('voice_msg_103')).rejects.toThrow(LineVoiceDownloadError);
+  });
+
+  it('rejects with LineVoiceDownloadError when content is still transcoding (HTTP 202)', async () => {
+    vi.mocked(lineBlobClient.getMessageContentWithHttpInfo).mockResolvedValueOnce({
+      httpResponse: { status: 202 } as Response,
+      body: Readable.from([]) as unknown as Readable,
+    });
+
+    const promise = downloadVoiceMessage('voice_msg_202');
+    await expect(promise).rejects.toThrow(LineVoiceDownloadError);
+    await expect(promise).rejects.toMatchObject({
+      statusCode: 202,
+      message: expect.stringContaining('still being prepared'),
+    });
+  });
+
+  it('rejects with LineVoiceDownloadError when stream payload is empty (0 bytes)', async () => {
+    vi.mocked(lineBlobClient.getMessageContent).mockResolvedValueOnce(
+      Readable.from([]) as unknown as Awaited<ReturnType<typeof lineBlobClient.getMessageContent>>,
+    );
+
+    const promise = downloadVoiceMessage('voice_msg_empty');
+    await expect(promise).rejects.toThrow(LineVoiceDownloadError);
+    await expect(promise).rejects.toMatchObject({
+      message: expect.stringContaining('Received empty audio payload'),
+    });
   });
 });
