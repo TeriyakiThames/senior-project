@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/TeriyakiThames/senior-project/compare/v1.3.0...v1.4.0) (2026-10-07)
+
+
+### Features
+
+* **STT-01:** add  Speech-to-Text v2 client singleton and transcribeThaiAudio ([#48](https://github.com/TeriyakiThames/senior-project/issues/48)) ([7454efc](https://github.com/TeriyakiThames/senior-project/commit/7454efc157ce75c659874e1d46ff70826c95b832))
+
 # [1.3.0](https://github.com/TeriyakiThames/senior-project/compare/v1.2.0...v1.3.0) (2026-10-07)
 
 
