@@ -10,4 +10,13 @@ describe('LINE client singletons', () => {
   it('exports lineBlobClient as an instance of MessagingApiBlobClient', () => {
     expect(lineBlobClient).toBeInstanceOf(messagingApi.MessagingApiBlobClient);
   });
+
+  it('preserves singletons on globalThis in non-production environments', () => {
+    const globalForLine = globalThis as unknown as {
+      lineClient?: messagingApi.MessagingApiClient;
+      lineBlobClient?: messagingApi.MessagingApiBlobClient;
+    };
+    expect(globalForLine.lineClient).toBe(lineClient);
+    expect(globalForLine.lineBlobClient).toBe(lineBlobClient);
+  });
 });
