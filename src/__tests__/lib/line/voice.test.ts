@@ -79,4 +79,18 @@ describe('downloadVoiceMessage', () => {
       message: expect.stringContaining('Received empty audio payload'),
     });
   });
+
+  it('rejects with LineVoiceDownloadError when messageId is empty, whitespace, or invalid type', async () => {
+    // @ts-expect-error testing undefined input
+    await expect(downloadVoiceMessage(undefined)).rejects.toThrow(LineVoiceDownloadError);
+    // @ts-expect-error testing null input
+    await expect(downloadVoiceMessage(null)).rejects.toThrow(LineVoiceDownloadError);
+    // @ts-expect-error testing numeric input
+    await expect(downloadVoiceMessage(12345)).rejects.toThrow(LineVoiceDownloadError);
+    // @ts-expect-error testing object input
+    await expect(downloadVoiceMessage({})).rejects.toThrow(LineVoiceDownloadError);
+
+    await expect(downloadVoiceMessage('')).rejects.toThrow(LineVoiceDownloadError);
+    await expect(downloadVoiceMessage('   ')).rejects.toThrow(LineVoiceDownloadError);
+  });
 });

@@ -46,12 +46,13 @@ export async function downloadVoiceMessage(
   messageId: string,
   options?: DownloadVoiceOptions,
 ): Promise<Buffer> {
-  const trimmedId = messageId?.trim();
-  if (!trimmedId) {
+  if (!messageId || typeof messageId !== 'string' || !messageId.trim()) {
     throw new LineVoiceDownloadError('Invalid or empty messageId provided for voice download.', {
-      messageId,
+      messageId: typeof messageId === 'string' ? messageId : String(messageId ?? ''),
     });
   }
+
+  const trimmedId = messageId.trim();
 
   const maxSizeBytes = options?.maxSizeBytes ?? DEFAULT_MAX_SIZE_BYTES;
 
