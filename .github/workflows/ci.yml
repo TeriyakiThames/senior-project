@@ -37,9 +37,8 @@ jobs:
         run: pnpm lint
       - name: Type check
         run: pnpm type-check
-      # Automated tests will be enabled in Phase 2 once feature test suites are introduced
-      # - name: Run tests
-      #   run: pnpm test:run
+      - name: Run tests
+        run: pnpm test:run
       - name: Build Next.js application
         run: pnpm build
         env:

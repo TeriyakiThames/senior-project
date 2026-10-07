@@ -14,6 +14,10 @@ vi.mock('@/lib/line/client', () => ({
   },
 }));
 
+vi.mock('@/lib/speech/handler', () => ({
+  processAudioMessage: vi.fn(),
+}));
+
 describe('LINE Webhook Dispatcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,10 +63,35 @@ describe('LINE Webhook Dispatcher', () => {
 
       expect(lineClient.replyMessage).not.toHaveBeenCalled();
     });
+
+    it('dispatches reply with transcribedText when provided', async () => {
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-transcribe-123',
+        message: {
+          id: 'msg-voice-1',
+          type: 'text' as const,
+          text: '',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event, 'เตือนกินยาบ่ายสอง');
+
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-transcribe-123',
+        messages: [
+          {
+            type: 'text',
+            text: 'ได้รับข้อความแล้ว: "เตือนกินยาบ่ายสอง"',
+          },
+        ],
+      });
+    });
   });
 
   describe('handleAudioMessage', () => {
-    it('dispatches voice placeholder message when audio event is received', async () => {
+    it('delegates audio event to processAudioMessage and forwards transcript to handleTextMessage', async () => {
       const event = {
         type: 'message' as const,
         replyToken: 'token-voice-456',
@@ -72,32 +101,27 @@ describe('LINE Webhook Dispatcher', () => {
         },
       } as unknown as webhook.MessageEvent & { message: webhook.AudioMessageContent };
 
+      const { processAudioMessage } = await import('@/lib/speech/handler');
+      vi.mocked(processAudioMessage).mockImplementation(async (evt, callback) => {
+        if (callback) {
+          await callback('ถอดรหัสเสียงสำเร็จ');
+        }
+        return 'ถอดรหัสเสียงสำเร็จ';
+      });
+
       await handleAudioMessage(event);
 
+      expect(processAudioMessage).toHaveBeenCalledWith(event, expect.any(Function));
       expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-voice-456',
         messages: [
           {
             type: 'text',
-            text: 'ได้รับข้อความเสียงแล้วค่ะ ระบบกำลังพัฒนาการรับฟังเสียง กรุณาส่งเป็นข้อความก่อนนะคะ 🙏',
+            text: 'ได้รับข้อความแล้ว: "ถอดรหัสเสียงสำเร็จ"',
           },
         ],
       });
-    });
-
-    it('does not send reply if replyToken is missing', async () => {
-      const event = {
-        type: 'message' as const,
-        message: {
-          id: 'audio-msg-2',
-          type: 'audio' as const,
-        },
-      } as unknown as webhook.MessageEvent & { message: webhook.AudioMessageContent };
-
-      await handleAudioMessage(event);
-
-      expect(lineClient.replyMessage).not.toHaveBeenCalled();
     });
   });
 
