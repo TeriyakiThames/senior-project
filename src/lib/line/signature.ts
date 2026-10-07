@@ -18,6 +18,11 @@ export function verifyLineSignature(
       return false;
     }
 
+    const trimmedSignature = signature.trim();
+    if (!trimmedSignature) {
+      return false;
+    }
+
     const secret = channelSecret ?? process.env.LINE_CHANNEL_SECRET;
     if (!secret) {
       return false;
@@ -26,7 +31,7 @@ export function verifyLineSignature(
     const expectedSignature = crypto.createHmac('SHA256', secret).update(body).digest('base64');
 
     const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-    const actualBuffer = Buffer.from(signature, 'utf8');
+    const actualBuffer = Buffer.from(trimmedSignature, 'utf8');
 
     if (expectedBuffer.length !== actualBuffer.length) {
       return false;

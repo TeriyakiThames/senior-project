@@ -35,6 +35,12 @@ describe('verifyLineSignature', () => {
     expect(result).toBe(true);
   });
 
+  it('returns true for a valid signature with surrounding whitespace', () => {
+    const validSignature = createValidSignature(testPayload, testSecret);
+    const result = verifyLineSignature(testPayload, `  ${validSignature} \n`);
+    expect(result).toBe(true);
+  });
+
   it('returns false when signature does not match payload', () => {
     const tamperedPayload = testPayload + 'tampered';
     const validSignature = createValidSignature(testPayload, testSecret);
@@ -50,10 +56,11 @@ describe('verifyLineSignature', () => {
     expect(resultLong).toBe(false);
   });
 
-  it('returns false safely when signature is missing, null, undefined, or empty', () => {
+  it('returns false safely when signature is missing, null, undefined, empty, or whitespace', () => {
     expect(verifyLineSignature(testPayload, null)).toBe(false);
     expect(verifyLineSignature(testPayload, undefined)).toBe(false);
     expect(verifyLineSignature(testPayload, '')).toBe(false);
+    expect(verifyLineSignature(testPayload, '   ')).toBe(false);
     // @ts-expect-error testing invalid input types
     expect(verifyLineSignature(testPayload, 12345)).toBe(false);
   });
