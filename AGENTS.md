@@ -15,7 +15,7 @@ Any AI assistant or agent operating in this repository must strictly adhere to t
    - After code changes and local checks pass, the AI pauses and presents the diff to the human developer.
    - The human developer performs all commits, pushes, and PR creations.
 3. **Granular Feature Branches:**
-   - Each individual sub-feature must belong to its own dedicated branch targeting `main` (e.g. `feat/line-client-signature`, `feat/ai-gemini-client`).
+   - Each individual ticket must belong to its own dedicated branch targeting `main` (e.g. `feat/line-client-signature`, `feat/firestore-models`, `fix/webhook-route`).
 4. **Manual External Setup:**
    - Whenever external console configurations are required (LINE Developers, Firebase Console, Google Cloud Console, Vercel), the AI must outline clear, step-by-step instructions and wait for the developer to perform them.
 5. **Package Manager:**
@@ -83,9 +83,15 @@ Every PR must pass:
 3. **TypeScript Validation:** `pnpm type-check` (`tsc --noEmit`) with 0 errors.
 4. **Unit Tests:** `pnpm test:run` with external SDKs mocked in Vitest.
 5. **Production Build:** `pnpm build` must compile cleanly.
-6. **Semantic Versioning:**
-   - `feat/*`: Minor version bump (`0.1.0` → `0.2.0`).
-   - `fix/*`, `chore/*`, `style/*`, `refactor/*`: Patch bump (`0.1.0` → `0.1.1`).
+6. **Semantic Versioning & Branch Prefixes:**
+   - The CI checks the branch name prefix (`GITHUB_HEAD_REF`) to enforce `package.json` version bumping:
+     - `feat/*`: Minor version bump (`0.1.0` → `0.2.0`).
+     - `fix/*`, `chore/*`, `style/*`, `refactor/*`: Patch bump (`0.1.0` → `0.1.1`).
+   - Branch names only need the semantic prefix (e.g., `feat/line-client-signature`, `fix/webhook-route`) — ticket IDs are not required in branch names.
+7. **Pull Request Naming Convention:**
+   - PR titles must prefix the ticket key and include standard semantic commit types:
+     - Format: `[<TICKET-ID>] <type>: <description>`
+     - Example: `[LINE-01] feat: set up LINE client singleton and signature verification`
 
 ### Unit Testing Rule
 
@@ -93,22 +99,30 @@ Every PR must pass:
 
 ---
 
-## 5. Phase Completion Summary Protocol
+## 5. Ticket Completion Summary Protocol
 
-After finishing building and verifying each phase or sub-feature, the AI assistant must summarize everything done in short, concise bullet points without numbering or blank line breaks between items. Section headers must not have bullets in front; instead, each section's contents are listed in bullets, strictly following these sections:
+After completing work and verifying each individual ticket, the AI assistant must summarize everything done in short, concise bullet points without numbering or blank line breaks between items. Section headers must not have bullets in front; instead, each section's contents are listed in bullets, strictly following these sections:
+
+**Ticket:**
+
+- [<TICKET-ID>] - <Ticket Title> (e.g. `[LINE-01] - Set up LINE client singleton and signature verification`)
 
 **Problem that we are fixing:**
 
-- Brief explanation of the issue, requirement, or feature objective addressed.
+- Brief explanation of the issue, requirement, or ticket objective addressed.
 
 **File by file changes:**
 
 - List each modified/created file with its change described in exactly 1 sentence only.
 
-**Commit name:**
+**Recommended PR title:**
 
-- The recommended semantic commit message (e.g. `feat: ...`, `fix: ...`).
+- The recommended PR title following the ticket standard (e.g. `[LINE-01] feat: set up LINE client singleton and signature verification`).
+
+**Recommended commit message:**
+
+- Normal semantic commit message for changes inside the branch/PR (e.g. `feat: implement line client singleton and signature validation`).
 
 **Leftover/handoff tasks if any:**
 
-- Actionable manual steps for the developer (console setups, env vars, PR reviews, handoff notes for next phase).
+- Actionable manual steps for the developer (console setups, env vars, PR reviews, moving ticket to Done on GitHub Projects board).
