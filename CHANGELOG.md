@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/TeriyakiThames/senior-project/compare/v1.10.0...v1.11.0) (2026-10-15)
+
+
+### Features
+
+* **AI-05:** implement three-tier memory manager ([#55](https://github.com/TeriyakiThames/senior-project/issues/55)) ([aaa244b](https://github.com/TeriyakiThames/senior-project/commit/aaa244bc548c9b9ff0c9d841c3d8a87dafd73751))
+
 # [1.10.0](https://github.com/TeriyakiThames/senior-project/compare/v1.9.0...v1.10.0) (2026-10-15)
 
 
