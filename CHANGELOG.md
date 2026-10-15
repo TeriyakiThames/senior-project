@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/TeriyakiThames/senior-project/compare/v1.7.0...v1.8.0) (2026-10-15)
+
+
+### Features
+
+* **AI-02:** implement gemini 3.5 flash-lite client and helpers ([#52](https://github.com/TeriyakiThames/senior-project/issues/52)) ([0f2f7ec](https://github.com/TeriyakiThames/senior-project/commit/0f2f7ec98600c9a059c2e210b7ee6289e5472678))
+
 # [1.7.0](https://github.com/TeriyakiThames/senior-project/compare/v1.6.0...v1.7.0) (2026-10-15)
 
 
