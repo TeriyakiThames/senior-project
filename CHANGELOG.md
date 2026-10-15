@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/TeriyakiThames/senior-project/compare/v1.6.0...v1.7.0) (2026-10-15)
+
+
+### Features
+
+* **AI-01:** add elderly Thai system prompt builder ([#51](https://github.com/TeriyakiThames/senior-project/issues/51)) ([497ca41](https://github.com/TeriyakiThames/senior-project/commit/497ca41759c0bdee164bbb4c606ee6e1099e828d))
+
 # [1.6.0](https://github.com/TeriyakiThames/senior-project/compare/v1.5.0...v1.6.0) (2026-10-15)
 
 
