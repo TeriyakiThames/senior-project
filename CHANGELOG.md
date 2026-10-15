@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/TeriyakiThames/senior-project/compare/v1.12.0...v1.13.0) (2026-10-15)
+
+
+### Features
+
+* **SCHED-02:** implement recurrence calculation utility ([#57](https://github.com/TeriyakiThames/senior-project/issues/57)) ([7dec486](https://github.com/TeriyakiThames/senior-project/commit/7dec486776697937d66a5375e2af3833f8460a6e))
+
 # [1.12.0](https://github.com/TeriyakiThames/senior-project/compare/v1.11.0...v1.12.0) (2026-10-15)
 
 
