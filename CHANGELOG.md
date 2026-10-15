@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/TeriyakiThames/senior-project/compare/v1.8.0...v1.9.0) (2026-10-15)
+
+
+### Features
+
+* **AI-03:** build typesafe jev deterministic intent classifier ([#53](https://github.com/TeriyakiThames/senior-project/issues/53)) ([44b911b](https://github.com/TeriyakiThames/senior-project/commit/44b911beb3ccd104bb2b460e6bb83026172cd47b))
+
 # [1.8.0](https://github.com/TeriyakiThames/senior-project/compare/v1.7.0...v1.8.0) (2026-10-15)
 
 
