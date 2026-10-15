@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/TeriyakiThames/senior-project/compare/v1.13.0...v1.14.0) (2026-10-15)
+
+
+### Features
+
+* **SCHED-03:** implement alarm tool handler and dispatcher ([#58](https://github.com/TeriyakiThames/senior-project/issues/58)) ([fe9f8db](https://github.com/TeriyakiThames/senior-project/commit/fe9f8db745745e85a2c48fb098b7f1bb621ff27d))
+
 # [1.13.0](https://github.com/TeriyakiThames/senior-project/compare/v1.12.0...v1.13.0) (2026-10-15)
 
 
