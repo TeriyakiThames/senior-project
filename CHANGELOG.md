@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/TeriyakiThames/senior-project/compare/v1.9.0...v1.10.0) (2026-10-15)
+
+
+### Features
+
+* **AI-04:** implement structured parameter extractor ([#54](https://github.com/TeriyakiThames/senior-project/issues/54)) ([5417f04](https://github.com/TeriyakiThames/senior-project/commit/5417f0409bfb3553948f72c8aba87b7db43b802c))
+
 # [1.9.0](https://github.com/TeriyakiThames/senior-project/compare/v1.8.0...v1.9.0) (2026-10-15)
 
 
