@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/TeriyakiThames/senior-project/compare/v1.11.0...v1.12.0) (2026-10-15)
+
+
+### Features
+
+* **SCHED-01:** implement Google Cloud Tasks scheduling client ([#56](https://github.com/TeriyakiThames/senior-project/issues/56)) ([e731663](https://github.com/TeriyakiThames/senior-project/commit/e7316631c04fd49934683efa2a4c9040807561f1))
+
 # [1.11.0](https://github.com/TeriyakiThames/senior-project/compare/v1.10.0...v1.11.0) (2026-10-15)
 
 
