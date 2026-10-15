@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/TeriyakiThames/senior-project/compare/v1.5.0...v1.6.0) (2026-10-15)
+
+
+### Features
+
+* add skills to implement ticket ([#50](https://github.com/TeriyakiThames/senior-project/issues/50)) ([fc34dbf](https://github.com/TeriyakiThames/senior-project/commit/fc34dbfb0e8929fe2e5507d1588828a13d104f32))
+
 # [1.5.0](https://github.com/TeriyakiThames/senior-project/compare/v1.4.0...v1.5.0) (2026-10-07)
 
 
