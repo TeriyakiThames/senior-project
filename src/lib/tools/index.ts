@@ -2,6 +2,14 @@ import type { IntentClassification } from '@/types/jev';
 import type { UserDoc } from '@/types/firestore';
 import { handleSetAlarm, type HandleSetAlarmOptions } from './alarm';
 import { handleSetReminder, type HandleSetReminderOptions } from './reminder';
+import {
+  handleSaveNote,
+  handleConfirmNote,
+  handleCancelAction,
+  type HandleSaveNoteOptions,
+  type HandleConfirmNoteOptions,
+  type HandleCancelActionOptions,
+} from './notes';
 
 export interface ToolResult {
   success: boolean;
@@ -18,6 +26,9 @@ export interface ExecuteToolOptions {
   now?: Date;
   alarmOptions?: HandleSetAlarmOptions;
   reminderOptions?: HandleSetReminderOptions;
+  noteOptions?: HandleSaveNoteOptions;
+  confirmNoteOptions?: HandleConfirmNoteOptions;
+  cancelActionOptions?: HandleCancelActionOptions;
 }
 
 /**
@@ -32,6 +43,9 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     now,
     alarmOptions,
     reminderOptions,
+    noteOptions,
+    confirmNoteOptions,
+    cancelActionOptions,
   } = options;
 
   switch (intent.intent) {
@@ -48,11 +62,26 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
       });
 
     case 'save_note':
+      return handleSaveNote(userText, geminiResponse, user, {
+        now,
+        ...noteOptions,
+      });
+
+    case 'confirm_action':
+      return handleConfirmNote(user, {
+        now,
+        ...confirmNoteOptions,
+      });
+
+    case 'cancel_action':
+      return handleCancelAction(user, {
+        now,
+        ...cancelActionOptions,
+      });
+
     case 'list_items':
     case 'delete_item':
     case 'update_item':
-    case 'confirm_action':
-    case 'cancel_action':
     case 'snooze':
     case 'dismiss':
       // Graceful pass-through until respective tool tickets are implemented
@@ -72,3 +101,4 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
 
 export * from './alarm';
 export * from './reminder';
+export * from './notes';
