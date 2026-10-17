@@ -1,3 +1,10 @@
+# [1.17.0](https://github.com/TeriyakiThames/senior-project/compare/v1.16.0...v1.17.0) (2026-10-17)
+
+
+### Features
+
+* **SCHED-06:** implement list and delete item handlers ([#61](https://github.com/TeriyakiThames/senior-project/issues/61)) ([bb25402](https://github.com/TeriyakiThames/senior-project/commit/bb254023b80bb4886dd8c51fce3e26653a7047ff))
+
 # [1.16.0](https://github.com/TeriyakiThames/senior-project/compare/v1.15.0...v1.16.0) (2026-10-17)
 
 
