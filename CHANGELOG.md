@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/TeriyakiThames/senior-project/compare/v1.15.0...v1.16.0) (2026-10-17)
+
+
+### Features
+
+* **SCHED-05:** implement two-step note confirmation handlers ([#60](https://github.com/TeriyakiThames/senior-project/issues/60)) ([f921d7e](https://github.com/TeriyakiThames/senior-project/commit/f921d7e504bb317c27e0ff6cfa7f934f1d0f0719))
+
 # [1.15.0](https://github.com/TeriyakiThames/senior-project/compare/v1.14.0...v1.15.0) (2026-10-17)
 
 
