@@ -1,6 +1,7 @@
 import type { IntentClassification } from '@/types/jev';
 import type { UserDoc } from '@/types/firestore';
 import { handleSetAlarm, type HandleSetAlarmOptions } from './alarm';
+import { handleSetReminder, type HandleSetReminderOptions } from './reminder';
 
 export interface ToolResult {
   success: boolean;
@@ -16,13 +17,22 @@ export interface ExecuteToolOptions {
   user: UserDoc;
   now?: Date;
   alarmOptions?: HandleSetAlarmOptions;
+  reminderOptions?: HandleSetReminderOptions;
 }
 
 /**
  * Main tool dispatcher routing classified intents to their respective handlers.
  */
 export async function executeTool(options: ExecuteToolOptions): Promise<ToolResult> {
-  const { intent, userText, geminiResponse = '', user, now, alarmOptions } = options;
+  const {
+    intent,
+    userText,
+    geminiResponse = '',
+    user,
+    now,
+    alarmOptions,
+    reminderOptions,
+  } = options;
 
   switch (intent.intent) {
     case 'set_alarm':
@@ -32,6 +42,11 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
       });
 
     case 'set_reminder':
+      return handleSetReminder(userText, geminiResponse, user, {
+        now,
+        ...reminderOptions,
+      });
+
     case 'save_note':
     case 'list_items':
     case 'delete_item':
@@ -56,3 +71,4 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
 }
 
 export * from './alarm';
+export * from './reminder';
