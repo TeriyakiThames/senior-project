@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/TeriyakiThames/senior-project/compare/v1.14.0...v1.15.0) (2026-10-17)
+
+
+### Features
+
+* **SCHED-04:** implement reminder tool handler ([#59](https://github.com/TeriyakiThames/senior-project/issues/59)) ([b83eaef](https://github.com/TeriyakiThames/senior-project/commit/b83eaef4de331f9f01653de81472a56c78af9b6f))
+
 # [1.14.0](https://github.com/TeriyakiThames/senior-project/compare/v1.13.0...v1.14.0) (2026-10-15)
 
 
