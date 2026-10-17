@@ -10,6 +10,8 @@ import {
   type HandleConfirmNoteOptions,
   type HandleCancelActionOptions,
 } from './notes';
+import { handleListItems, type HandleListItemsOptions } from './list';
+import { handleDeleteItem, type HandleDeleteItemOptions } from './delete';
 
 export interface ToolResult {
   success: boolean;
@@ -29,6 +31,8 @@ export interface ExecuteToolOptions {
   noteOptions?: HandleSaveNoteOptions;
   confirmNoteOptions?: HandleConfirmNoteOptions;
   cancelActionOptions?: HandleCancelActionOptions;
+  listOptions?: HandleListItemsOptions;
+  deleteOptions?: HandleDeleteItemOptions;
 }
 
 /**
@@ -46,6 +50,8 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     noteOptions,
     confirmNoteOptions,
     cancelActionOptions,
+    listOptions,
+    deleteOptions,
   } = options;
 
   switch (intent.intent) {
@@ -80,7 +86,11 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
       });
 
     case 'list_items':
+      return handleListItems(userText, geminiResponse, user, listOptions);
+
     case 'delete_item':
+      return handleDeleteItem(userText, geminiResponse, user, deleteOptions);
+
     case 'update_item':
     case 'snooze':
     case 'dismiss':
@@ -102,3 +112,5 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
 export * from './alarm';
 export * from './reminder';
 export * from './notes';
+export * from './list';
+export * from './delete';
