@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/TeriyakiThames/senior-project/compare/v1.18.0...v1.19.0) (2026-10-18)
+
+
+### Features
+
+* **LINE-04:** build interactive flex message templates ([#63](https://github.com/TeriyakiThames/senior-project/issues/63)) ([6a3153a](https://github.com/TeriyakiThames/senior-project/commit/6a3153a7478a75da00162a32ce0547e83872629c))
+
 # [1.18.0](https://github.com/TeriyakiThames/senior-project/compare/v1.17.0...v1.18.0) (2026-10-18)
 
 
