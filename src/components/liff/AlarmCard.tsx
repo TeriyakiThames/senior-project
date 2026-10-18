@@ -1,13 +1,9 @@
+'use client';
+
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useTranslations } from 'next-intl';
-
-const recurrenceLabel: Record<string, string> = {
-  once: '',
-  daily: 'ทุกวัน',
-  weekly: 'ทุกสัปดาห์',
-  monthly: 'ทุกเดือน',
-};
+import { useTranslations, useLocale } from 'next-intl';
+import { formatRecurrenceLabel } from '@/lib/utils/date';
 
 export interface AlarmItem {
   id: string;
@@ -24,6 +20,8 @@ export interface AlarmCardProps {
 
 export function AlarmCard({ alarm, onDelete }: AlarmCardProps) {
   const t = useTranslations('dashboard');
+  const locale = useLocale();
+  const recurrenceText = formatRecurrenceLabel(alarm.recurrence, locale);
 
   return (
     <Card>
@@ -33,9 +31,9 @@ export function AlarmCard({ alarm, onDelete }: AlarmCardProps) {
           {alarm.label && (
             <p className="text-senior-sm text-senior-muted truncate mt-0.5">{alarm.label}</p>
           )}
-          {alarm.recurrence && alarm.recurrence !== 'once' && (
+          {recurrenceText && (
             <span className="inline-block mt-1 px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full font-medium">
-              {recurrenceLabel[alarm.recurrence] || alarm.recurrence}
+              {recurrenceText}
             </span>
           )}
         </div>

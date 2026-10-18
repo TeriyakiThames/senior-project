@@ -16,7 +16,17 @@
     "confirm": "Confirm",
     "confirmDeleteTitle": "Confirm Deletion",
     "confirmDeleteMessage": "Are you sure you want to delete this item?",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "back": "Back to Home",
+    "emptyAlarmsTitle": "No alarms set yet",
+    "emptyAlarmsHint": "Try saying \"Set an alarm for 7 AM\" in chat",
+    "emptyRemindersTitle": "No reminders set yet",
+    "emptyRemindersHint": "Try saying \"Remind me to take medicine at 2 PM\" in chat",
+    "snoozed": "Snoozed",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "once": "Once"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
