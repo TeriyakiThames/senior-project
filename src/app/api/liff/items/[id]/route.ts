@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { alarmsRef, remindersRef, notesRef } from '@/lib/firebase/collections';
 import { cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
+import { deleteMockItem } from '@/lib/liff/mock-items';
 
 const VALID_TYPES = ['alarm', 'reminder', 'note'] as const;
 type ItemType = (typeof VALID_TYPES)[number];
@@ -23,6 +24,17 @@ export async function DELETE(
       { error: 'Invalid or missing type parameter. Expected alarm, reminder, or note.' },
       { status: 400 },
     );
+  }
+
+  if (
+    userId === 'mock-user-123' ||
+    (process.env.NODE_ENV !== 'production' && userId.startsWith('mock-'))
+  ) {
+    const deleted = deleteMockItem(id, type);
+    if (!deleted) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, status: 'deleted' });
   }
 
   try {
