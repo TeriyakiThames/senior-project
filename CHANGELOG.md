@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/TeriyakiThames/senior-project/compare/v1.22.0...v1.23.0) (2026-10-18)
+
+
+### Features
+
+* **FE-03:** build LIFF dashboard page ([#67](https://github.com/TeriyakiThames/senior-project/issues/67)) ([64e3229](https://github.com/TeriyakiThames/senior-project/commit/64e322985189901c9448c62c24435de2c1668195))
+
 # [1.22.0](https://github.com/TeriyakiThames/senior-project/compare/v1.21.0...v1.22.0) (2026-10-18)
 
 
