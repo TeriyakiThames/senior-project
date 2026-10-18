@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/TeriyakiThames/senior-project/compare/v1.23.0...v1.24.0) (2026-10-18)
+
+
+### Features
+
+* **FE-04:** build liff alarms and reminders management pages ([#68](https://github.com/TeriyakiThames/senior-project/issues/68)) ([a51c177](https://github.com/TeriyakiThames/senior-project/commit/a51c1773863905622bcfceaa04f561e24d6f5aba))
+
 # [1.23.0](https://github.com/TeriyakiThames/senior-project/compare/v1.22.0...v1.23.0) (2026-10-18)
 
 
