@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/TeriyakiThames/senior-project/compare/v1.19.0...v1.20.0) (2026-10-18)
+
+
+### Features
+
+* **SCHED-08:** create Cloud Tasks notify callback route ([#64](https://github.com/TeriyakiThames/senior-project/issues/64)) ([592d0bf](https://github.com/TeriyakiThames/senior-project/commit/592d0bf51698c884249b53f9fe032b44f5940055))
+
 # [1.19.0](https://github.com/TeriyakiThames/senior-project/compare/v1.18.0...v1.19.0) (2026-10-18)
 
 
