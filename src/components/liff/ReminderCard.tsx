@@ -1,6 +1,9 @@
+'use client';
+
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
+import { parseTimestamp, formatReminderDate, formatRecurrenceLabel } from '@/lib/utils/date';
 
 export interface ReminderItem {
   id: string;
@@ -17,22 +20,10 @@ export interface ReminderCardProps {
 
 export function ReminderCard({ reminder, onDelete }: ReminderCardProps) {
   const t = useTranslations('dashboard');
+  const locale = useLocale();
 
-  let fireDate: Date | null = null;
-  if (reminder.nextFireAt) {
-    if (
-      typeof reminder.nextFireAt === 'object' &&
-      reminder.nextFireAt !== null &&
-      '_seconds' in reminder.nextFireAt &&
-      typeof reminder.nextFireAt._seconds === 'number'
-    ) {
-      fireDate = new Date(reminder.nextFireAt._seconds * 1000);
-    } else if (reminder.nextFireAt instanceof Date) {
-      fireDate = reminder.nextFireAt;
-    } else if (typeof reminder.nextFireAt === 'string') {
-      fireDate = new Date(reminder.nextFireAt);
-    }
-  }
+  const fireDate = parseTimestamp(reminder.nextFireAt);
+  const recurrenceText = formatRecurrenceLabel(reminder.recurrence, locale);
 
   return (
     <Card>
@@ -42,20 +33,22 @@ export function ReminderCard({ reminder, onDelete }: ReminderCardProps) {
             {reminder.message}
           </p>
           {fireDate && (
-            <p className="text-senior-sm text-senior-muted mt-1">
-              {fireDate.toLocaleDateString('th-TH', {
-                day: 'numeric',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+            <p className="text-senior-sm text-senior-muted mt-1 tabular-nums">
+              {formatReminderDate(fireDate, locale)}
             </p>
           )}
-          {reminder.status === 'snoozed' && (
-            <span className="inline-block mt-1 px-2.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded-full font-medium">
-              Snoozed
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            {recurrenceText && (
+              <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full font-medium">
+                {recurrenceText}
+              </span>
+            )}
+            {reminder.status === 'snoozed' && (
+              <span className="inline-block px-2.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded-full font-medium">
+                {t('snoozed')}
+              </span>
+            )}
+          </div>
         </div>
         <Button
           type="button"

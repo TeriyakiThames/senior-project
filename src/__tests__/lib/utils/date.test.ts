@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { formatDashboardDate } from '@/lib/utils/date';
+import {
+  formatDashboardDate,
+  parseTimestamp,
+  formatReminderDate,
+  formatRecurrenceLabel,
+} from '@/lib/utils/date';
 
 describe('formatDashboardDate (FE-03)', () => {
   it('formats dates in Thai using Buddhist Era', () => {
@@ -28,5 +33,60 @@ describe('formatDashboardDate (FE-03)', () => {
 
     const formattedOther = formatDashboardDate(testDate, 'fr');
     expect(formattedOther).toContain('2026');
+  });
+});
+
+describe('parseTimestamp (FE-04)', () => {
+  it('correctly parses Firestore timestamp objects with _seconds', () => {
+    const timestamp = { _seconds: 1729300000 };
+    const date = parseTimestamp(timestamp);
+    expect(date).toBeInstanceOf(Date);
+    expect(date?.getTime()).toBe(1729300000 * 1000);
+  });
+
+  it('correctly parses Date instances and ISO strings', () => {
+    const now = new Date();
+    expect(parseTimestamp(now)?.getTime()).toBe(now.getTime());
+
+    const isoString = '2026-10-19T07:30:00.000Z';
+    const parsed = parseTimestamp(isoString);
+    expect(parsed).toBeInstanceOf(Date);
+    expect(parsed?.toISOString()).toBe(isoString);
+  });
+
+  it('returns null for null, undefined, or invalid inputs', () => {
+    expect(parseTimestamp(null)).toBeNull();
+    expect(parseTimestamp(undefined)).toBeNull();
+    expect(parseTimestamp('invalid-date')).toBeNull();
+  });
+});
+
+describe('formatReminderDate (FE-04)', () => {
+  it('formats scheduled date/time in 24-hour format', () => {
+    const testDate = new Date(2026, 9, 19, 14, 5); // 14:05 (2:05 PM)
+    const formattedEn = formatReminderDate(testDate, 'en');
+    expect(formattedEn).toContain('14:05');
+
+    const formattedTh = formatReminderDate(testDate, 'th');
+    expect(formattedTh).toContain('14:05');
+  });
+});
+
+describe('formatRecurrenceLabel (FE-04)', () => {
+  it('maps recurrence frequencies to localized labels', () => {
+    expect(formatRecurrenceLabel('daily', 'th')).toBe('ทุกวัน');
+    expect(formatRecurrenceLabel('weekly', 'th')).toBe('ทุกสัปดาห์');
+    expect(formatRecurrenceLabel('monthly', 'th')).toBe('ทุกเดือน');
+    expect(formatRecurrenceLabel('once', 'th')).toBe('');
+
+    expect(formatRecurrenceLabel('daily', 'en')).toBe('Daily');
+    expect(formatRecurrenceLabel('weekly', 'en')).toBe('Weekly');
+    expect(formatRecurrenceLabel('monthly', 'en')).toBe('Monthly');
+    expect(formatRecurrenceLabel('once', 'en')).toBe('');
+  });
+
+  it('returns fallback or empty string for unknown or missing recurrence', () => {
+    expect(formatRecurrenceLabel(undefined)).toBe('');
+    expect(formatRecurrenceLabel('custom-yearly', 'th')).toBe('custom-yearly');
   });
 });
