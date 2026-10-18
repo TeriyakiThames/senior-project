@@ -18,7 +18,7 @@ export function buildNoteConfirmation(summary: string): messagingApi.FlexMessage
           type: 'text',
           text: '📝 สรุปบันทึก',
           weight: 'bold',
-          size: 'lg',
+          size: 'xl',
           color: '#6A1B9A',
           align: 'center',
         },
@@ -32,15 +32,15 @@ export function buildNoteConfirmation(summary: string): messagingApi.FlexMessage
         {
           type: 'text',
           text: summary,
-          size: 'md',
+          size: 'lg',
           wrap: true,
-          color: '#333333',
+          color: '#2D2D2D',
         },
         {
           type: 'text',
           text: 'ต้องการบันทึกไหมคะ?',
-          size: 'sm',
-          color: '#888888',
+          size: 'md',
+          color: '#4A4A4A',
           margin: 'lg',
           align: 'center',
         },
@@ -48,31 +48,29 @@ export function buildNoteConfirmation(summary: string): messagingApi.FlexMessage
     },
     footer: {
       type: 'box',
-      layout: 'horizontal',
+      layout: 'vertical',
       spacing: 'md',
       paddingAll: 'lg',
       contents: [
         {
           type: 'button',
-          style: 'secondary',
-          height: 'md',
-          flex: 1,
-          action: {
-            type: 'message',
-            label: '✕ ยกเลิก',
-            text: 'ยกเลิก',
-          },
-        },
-        {
-          type: 'button',
           style: 'primary',
           color: '#06C755',
           height: 'md',
-          flex: 1,
           action: {
             type: 'message',
             label: '✓ บันทึกเลย',
             text: 'บันทึกเลย',
+          },
+        },
+        {
+          type: 'button',
+          style: 'secondary',
+          height: 'md',
+          action: {
+            type: 'message',
+            label: '✕ ยกเลิก',
+            text: 'ยกเลิก',
           },
         },
       ],
@@ -119,7 +117,7 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
         {
           type: 'text',
           text: label,
-          size: 'lg',
+          size: 'xl',
           wrap: true,
           align: 'center',
           weight: 'bold',
@@ -129,7 +127,7 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
     },
     footer: {
       type: 'box',
-      layout: 'horizontal',
+      layout: 'vertical',
       spacing: 'md',
       paddingAll: 'lg',
       contents: [
@@ -137,7 +135,6 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
           type: 'button',
           style: 'secondary',
           height: 'md',
-          flex: 1,
           action: {
             type: 'message',
             label: '⏸ เลื่อน 5 นาที',
@@ -149,7 +146,6 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
           style: 'primary',
           color: '#06C755',
           height: 'md',
-          flex: 1,
           action: {
             type: 'message',
             label: '✓ ปิดปลุก',
@@ -203,8 +199,9 @@ export function buildReminderNotification(
         {
           type: 'text',
           text: message,
-          size: 'lg',
+          size: 'xl',
           wrap: true,
+          align: 'center',
           weight: 'bold',
           color: '#2D2D2D',
         },
@@ -212,7 +209,7 @@ export function buildReminderNotification(
     },
     footer: {
       type: 'box',
-      layout: 'horizontal',
+      layout: 'vertical',
       spacing: 'md',
       paddingAll: 'lg',
       contents: [
@@ -220,7 +217,6 @@ export function buildReminderNotification(
           type: 'button',
           style: 'secondary',
           height: 'md',
-          flex: 1,
           action: {
             type: 'message',
             label: '⏸ เลื่อน 15 นาที',
@@ -232,7 +228,6 @@ export function buildReminderNotification(
           style: 'primary',
           color: '#06C755',
           height: 'md',
-          flex: 1,
           action: {
             type: 'message',
             label: '✓ เรียบร้อย',
