@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/TeriyakiThames/senior-project/compare/v1.17.0...v1.18.0) (2026-10-18)
+
+
+### Features
+
+* **SCHED-07:** implement snooze and dismiss action handlers ([#62](https://github.com/TeriyakiThames/senior-project/issues/62)) ([56da52f](https://github.com/TeriyakiThames/senior-project/commit/56da52f783859f4b6ce0f562a1993c3ae5d111fd))
+
 # [1.17.0](https://github.com/TeriyakiThames/senior-project/compare/v1.16.0...v1.17.0) (2026-10-17)
 
 
