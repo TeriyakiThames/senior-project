@@ -1,3 +1,10 @@
+# [1.21.0](https://github.com/TeriyakiThames/senior-project/compare/v1.20.0...v1.21.0) (2026-10-18)
+
+
+### Features
+
+* **FE-01:** configure liff provider and rest data endpoints ([#65](https://github.com/TeriyakiThames/senior-project/issues/65)) ([8550735](https://github.com/TeriyakiThames/senior-project/commit/855073536e6862da23cb41b388dda0c306b6f7e3))
+
 # [1.20.0](https://github.com/TeriyakiThames/senior-project/compare/v1.19.0...v1.20.0) (2026-10-18)
 
 
