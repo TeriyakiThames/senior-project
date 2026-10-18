@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/TeriyakiThames/senior-project/compare/v1.21.0...v1.22.0) (2026-10-18)
+
+
+### Features
+
+* **FE-02:** build accessible elder-friendly UI components ([#66](https://github.com/TeriyakiThames/senior-project/issues/66)) ([2ee9369](https://github.com/TeriyakiThames/senior-project/commit/2ee9369a3a0f59e43be3dd5562f4cc4eaa3d422c))
+
 # [1.21.0](https://github.com/TeriyakiThames/senior-project/compare/v1.20.0...v1.21.0) (2026-10-18)
 
 
