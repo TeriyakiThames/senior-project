@@ -12,6 +12,7 @@ import {
 } from './notes';
 import { handleListItems, type HandleListItemsOptions } from './list';
 import { handleDeleteItem, type HandleDeleteItemOptions } from './delete';
+import { handleSnooze, handleDismiss, type HandleActionOptions } from './actions';
 
 export interface ToolResult {
   success: boolean;
@@ -33,6 +34,8 @@ export interface ExecuteToolOptions {
   cancelActionOptions?: HandleCancelActionOptions;
   listOptions?: HandleListItemsOptions;
   deleteOptions?: HandleDeleteItemOptions;
+  snoozeOptions?: HandleActionOptions;
+  dismissOptions?: HandleActionOptions;
 }
 
 /**
@@ -52,6 +55,8 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     cancelActionOptions,
     listOptions,
     deleteOptions,
+    snoozeOptions,
+    dismissOptions,
   } = options;
 
   switch (intent.intent) {
@@ -91,9 +96,19 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     case 'delete_item':
       return handleDeleteItem(userText, geminiResponse, user, deleteOptions);
 
-    case 'update_item':
     case 'snooze':
+      return handleSnooze(userText, user, {
+        now,
+        ...snoozeOptions,
+      });
+
     case 'dismiss':
+      return handleDismiss(userText, user, {
+        now,
+        ...dismissOptions,
+      });
+
+    case 'update_item':
       // Graceful pass-through until respective tool tickets are implemented
       return {
         success: true,
@@ -114,3 +129,4 @@ export * from './reminder';
 export * from './notes';
 export * from './list';
 export * from './delete';
+export * from './actions';
