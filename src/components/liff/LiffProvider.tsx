@@ -30,6 +30,12 @@ const LiffContext = createContext<LiffContextType>({
   error: null,
 });
 
+function isPlaceholderLiffId(id?: string | null): boolean {
+  if (!id) return true;
+  const trimmed = id.trim().toLowerCase();
+  return trimmed === '' || trimmed.includes('placeholder') || trimmed.includes('<your-');
+}
+
 export function LiffProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LiffContextType>({
     isReady: false,
@@ -44,8 +50,13 @@ export function LiffProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
-    // Fallback to mock user if LIFF ID is not configured
-    if (!liffId) {
+    // Fallback to mock user if LIFF ID is not configured or is a placeholder
+    if (isPlaceholderLiffId(liffId)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.info(
+          '[LIFF] Placeholder or unconfigured LIFF ID detected; activating mock user for local development.',
+        );
+      }
       setState(MOCK_USER);
       return;
     }
@@ -82,11 +93,15 @@ export function LiffProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (err: unknown) {
-        console.error('LIFF initialization error:', err);
         // In local development, fallback gracefully to mock user on init error
         if (process.env.NODE_ENV !== 'production' && isMounted) {
+          console.warn(
+            '[LIFF] Initialization failed in development, falling back to mock user:',
+            err,
+          );
           setState(MOCK_USER);
         } else if (isMounted) {
+          console.error('LIFF initialization error:', err);
           setState((prev) => ({
             ...prev,
             isReady: true,

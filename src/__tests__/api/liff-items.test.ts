@@ -111,6 +111,22 @@ describe('LIFF Items API Routes (FE-01)', () => {
       expect(remindersRef).not.toHaveBeenCalled();
       expect(notesRef).not.toHaveBeenCalled();
     });
+
+    it('returns mock data without accessing Firestore when user is mock-user-123', async () => {
+      const request = new NextRequest('http://localhost:3000/api/liff/items', {
+        headers: { 'x-line-userid': 'mock-user-123' },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.alarms).toBeDefined();
+      expect(data.reminders).toBeDefined();
+      expect(data.notes).toBeDefined();
+      expect(alarmsRef).not.toHaveBeenCalled();
+      expect(remindersRef).not.toHaveBeenCalled();
+      expect(notesRef).not.toHaveBeenCalled();
+    });
   });
 
   describe('DELETE /api/liff/items/[id]', () => {
@@ -214,6 +230,39 @@ describe('LIFF Items API Routes (FE-01)', () => {
       expect(response.status).toBe(200);
       expect(cancelScheduledTask).toHaveBeenCalledWith('tasks/task-reminder-1');
       expect(docMock.update).toHaveBeenCalledWith({ status: 'done', enabled: false });
+    });
+
+    it('deletes mock items and returns 200 for mock-user-123', async () => {
+      const request = new NextRequest(
+        'http://localhost:3000/api/liff/items/mock-alarm-1?type=alarm',
+        {
+          method: 'DELETE',
+          headers: { 'x-line-userid': 'mock-user-123' },
+        },
+      );
+
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: 'mock-alarm-1' }),
+      });
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({ success: true, status: 'deleted' });
+      expect(alarmsRef).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when deleting nonexistent mock item for mock-user-123', async () => {
+      const request = new NextRequest(
+        'http://localhost:3000/api/liff/items/non-existent-item?type=alarm',
+        {
+          method: 'DELETE',
+          headers: { 'x-line-userid': 'mock-user-123' },
+        },
+      );
+
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: 'non-existent-item' }),
+      });
+      expect(response.status).toBe(404);
     });
   });
 });

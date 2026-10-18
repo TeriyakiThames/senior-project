@@ -32,7 +32,14 @@ export function useLiffData<T = LiffItemsData>(
         },
       });
       if (!res.ok) {
-        throw new Error(`Failed to fetch items: ${res.statusText}`);
+        let msg = res.statusText;
+        try {
+          const errData = await res.json();
+          if (errData?.error) msg = errData.error;
+        } catch {
+          // Ignore json parse error
+        }
+        throw new Error(`Failed to fetch items: ${msg || res.status}`);
       }
       const json = await res.json();
       setData(json as T);
@@ -62,7 +69,14 @@ export function useLiffData<T = LiffItemsData>(
           },
         });
         if (!res.ok) {
-          throw new Error(`Failed to delete item: ${res.statusText}`);
+          let msg = res.statusText;
+          try {
+            const errData = await res.json();
+            if (errData?.error) msg = errData.error;
+          } catch {
+            // Ignore json parse error
+          }
+          throw new Error(`Failed to delete item: ${msg || res.status}`);
         }
         await refresh();
       } catch (err: unknown) {

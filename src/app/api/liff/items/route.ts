@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { alarmsRef, remindersRef, notesRef } from '@/lib/firebase/collections';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
+import { getMockItems } from '@/lib/liff/mock-items';
 
 export async function GET(request: NextRequest) {
   const userId = await getAuthorizedUserId(request);
@@ -9,6 +10,14 @@ export async function GET(request: NextRequest) {
   }
 
   const type = request.nextUrl.searchParams.get('type') || 'all';
+
+  if (
+    userId === 'mock-user-123' ||
+    (process.env.NODE_ENV !== 'production' && userId.startsWith('mock-'))
+  ) {
+    return NextResponse.json(getMockItems(type));
+  }
+
   const result: Record<string, unknown[]> = {};
 
   try {

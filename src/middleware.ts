@@ -4,10 +4,10 @@ import { locales, defaultLocale } from './lib/i18n/config';
 export default createMiddleware({
   locales,
   defaultLocale,
-  localePrefix: 'as-needed', // Only show /en/ prefix, /th/ is default
+  localePrefix: 'always',
 });
 
 export const config = {
-  // Only internationalize LIFF pages, not API routes
-  matcher: ['/(th|en)/liff/:path*'],
+  // Internationalize LIFF pages and locale routes, not API routes
+  matcher: ['/(th|en)/:path*', '/liff/:path*', '/liff'],
 };

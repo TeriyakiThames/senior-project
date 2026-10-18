@@ -22,9 +22,9 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Bottom Navigation"
-      className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[440px] bg-white border-t border-x border-gray-200 shadow-lg z-50"
     >
-      <div className="max-w-lg mx-auto flex justify-around py-2">
+      <div className="w-full flex justify-around py-2">
         {navItems.map((item) => {
           const fullHref = `/${locale}${item.href}`;
           const isActive =
