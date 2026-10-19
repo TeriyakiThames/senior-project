@@ -15,6 +15,7 @@ import * as tasks from '@/lib/scheduler/cloud-tasks';
 import * as extractor from '@/lib/ai/parameter-extractor';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
+import { createMockUserDoc } from '@/__tests__/mocks';
 
 vi.mock('@/lib/firebase/collections', () => ({
   alarmsRef: vi.fn(),
@@ -31,18 +32,11 @@ vi.mock('@/lib/ai/parameter-extractor', () => ({
 }));
 
 describe('List and Delete Tool Handlers (SCHED-06)', () => {
-  const mockUser: UserDoc = {
+  const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_SCHED06',
     displayName: 'คุณยายสมใจ',
-    language: 'th',
-    timezone: 'Asia/Bangkok',
     firebaseUid: 'uid-sched-06',
-    createdAt: Timestamp.now(),
-    profile: {
-      facts: [],
-      updatedAt: Timestamp.now(),
-    },
-  };
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();

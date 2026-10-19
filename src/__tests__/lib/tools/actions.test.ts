@@ -13,6 +13,7 @@ import * as collections from '@/lib/firebase/collections';
 import * as tasks from '@/lib/scheduler/cloud-tasks';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
+import { createMockUserDoc } from '@/__tests__/mocks';
 
 vi.mock('@/lib/firebase/collections', () => ({
   alarmsRef: vi.fn(),
@@ -25,18 +26,11 @@ vi.mock('@/lib/scheduler/cloud-tasks', () => ({
 }));
 
 describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
-  const mockUser: UserDoc = {
+  const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_SCHED07',
     displayName: 'คุณยายสมใจ',
-    language: 'th',
-    timezone: 'Asia/Bangkok',
     firebaseUid: 'uid-sched-07',
-    createdAt: Timestamp.now(),
-    profile: {
-      facts: [],
-      updatedAt: Timestamp.now(),
-    },
-  };
+  });
 
   const fixedNow = new Date('2026-10-18T08:00:00.000Z');
 

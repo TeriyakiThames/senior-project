@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TypeSafeClient } from '@typesafe-ai/sdk';
 import { jevClient, classifyIntent, INTENT_CRITERIA } from '@/lib/ai/jev';
 import type { IntentType } from '@/types/jev';
+import { createMockJevClient } from '@/__tests__/mocks';
 
 describe('TypeSafe AI Jev Intent Classifier (AI-03)', () => {
   const originalEnv = process.env;
@@ -201,6 +202,48 @@ describe('TypeSafe AI Jev Intent Classifier (AI-03)', () => {
       await expect(classifyIntent('สวัสดี', undefined, { client: mockClient })).rejects.toThrow(
         'Network error',
       );
+    });
+
+    describe('System Intent Routing Matrix (11 intents & unclear detection)', () => {
+      const systemIntents: { intent: IntentType; sampleQuery: string }[] = [
+        { intent: 'set_alarm', sampleQuery: 'ปลุก 6 โมงเช้า' },
+        { intent: 'set_reminder', sampleQuery: 'เตือนกินยาวันพรุ่งนี้บ่ายสอง' },
+        { intent: 'save_note', sampleQuery: 'จดบันทึกผลความดัน 120 80' },
+        { intent: 'list_items', sampleQuery: 'ดูรายการเตือนความจำทั้งหมด' },
+        { intent: 'delete_item', sampleQuery: 'ลบนาฬิกาปลุก 7 โมง' },
+        { intent: 'update_item', sampleQuery: 'เปลี่ยนเวลาปลุกเป็น 8 โมง' },
+        { intent: 'confirm_action', sampleQuery: 'ตกลง ใช่แล้ว บันทึกเลย' },
+        { intent: 'cancel_action', sampleQuery: 'ยกเลิก ไม่เอาแล้ว' },
+        { intent: 'snooze', sampleQuery: 'ขอเลื่อนไปอีก 10 นาที' },
+        { intent: 'dismiss', sampleQuery: 'ปิดเสียง ทราบแล้วจ้า' },
+        { intent: 'general_chat', sampleQuery: 'วันนี้อากาศดีจังเลยนะ' },
+      ];
+
+      it.each(systemIntents)(
+        'accurately routes $intent intent for query "$sampleQuery"',
+        async ({ intent, sampleQuery }) => {
+          const mockClient = createMockJevClient(intent, 0.05, {
+            [intent]: 0.94,
+          }) as unknown as TypeSafeClient;
+          const result = await classifyIntent(sampleQuery, undefined, { client: mockClient });
+
+          expect(result.intent).toBe(intent);
+          expect(result.confidence).toBe(0.94);
+          expect(result.isAmbiguous).toBe(false);
+          expect(mockClient.systemOne).toHaveBeenCalled();
+        },
+      );
+
+      it('correctly flags unclear and ambiguous queries when confidence is low and ambiguity score is elevated', async () => {
+        const mockClient = createMockJevClient('general_chat', 0.85, {
+          general_chat: 0.35,
+          save_note: 0.35,
+        }) as unknown as TypeSafeClient;
+        const result = await classifyIntent('เอ่อ คือว่า...', undefined, { client: mockClient });
+
+        expect(result.isAmbiguous).toBe(true);
+        expect(result.confidence).toBe(0.35);
+      });
     });
   });
 });

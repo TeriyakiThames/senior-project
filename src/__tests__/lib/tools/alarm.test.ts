@@ -6,6 +6,7 @@ import * as extractor from '@/lib/ai/parameter-extractor';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createBangkokDate, getBangkokComponents } from '@/lib/utils/recurrence';
+import { createMockUserDoc } from '@/__tests__/mocks';
 
 vi.mock('@/lib/firebase/collections', () => ({
   alarmsRef: vi.fn(),
@@ -20,18 +21,11 @@ vi.mock('@/lib/ai/parameter-extractor', () => ({
 }));
 
 describe('Alarm Tool Handler (SCHED-03)', () => {
-  const mockUser: UserDoc = {
+  const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_001',
     displayName: 'คุณตาใจดี',
-    language: 'th',
-    timezone: 'Asia/Bangkok',
     firebaseUid: 'firebase-uid-001',
-    createdAt: Timestamp.now(),
-    profile: {
-      facts: [],
-      updatedAt: Timestamp.now(),
-    },
-  };
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -6,6 +6,7 @@ import {
   cancelScheduledTask,
 } from '@/lib/scheduler/cloud-tasks';
 import { CloudTasksClient } from '@google-cloud/tasks';
+import { createMockCloudTasksClient } from '@/__tests__/mocks';
 
 describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
   const originalEnv = process.env;
