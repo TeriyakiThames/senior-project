@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/TeriyakiThames/senior-project/compare/v1.26.0...v1.27.0) (2026-10-19)
+
+
+### Features
+
+* **QA-02:** add comprehensive vitest unit test suite ([#71](https://github.com/TeriyakiThames/senior-project/issues/71)) ([48be38d](https://github.com/TeriyakiThames/senior-project/commit/48be38db65c3e32635d5187355220b817e5e8d28))
+
 # [1.26.0](https://github.com/TeriyakiThames/senior-project/compare/v1.25.0...v1.26.0) (2026-10-19)
 
 
