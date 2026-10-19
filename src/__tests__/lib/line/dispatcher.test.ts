@@ -5,8 +5,10 @@ import {
   handleAudioMessage,
   handleWebhookEvent,
   processWebhookEvents,
+  resolveErrorStage,
 } from '@/lib/line/dispatcher';
 import { lineClient } from '@/lib/line/client';
+import { AppError } from '@/lib/utils/errors';
 
 vi.mock('@/lib/line/client', () => ({
   lineClient: {
@@ -16,6 +18,7 @@ vi.mock('@/lib/line/client', () => ({
 
 vi.mock('@/lib/speech/handler', () => ({
   processAudioMessage: vi.fn(),
+  getUserProfile: vi.fn().mockResolvedValue(null),
 }));
 
 describe('LINE Webhook Dispatcher', () => {
@@ -229,6 +232,52 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledTimes(2);
       expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
+    });
+
+    it('sends polite fallback reply when internal pipeline throws an error', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const audioEvent = {
+        type: 'message' as const,
+        replyToken: 'token-err-audio',
+        source: { userId: 'u-123' },
+        message: { id: 'm-aud', type: 'audio' as const },
+      } as unknown as webhook.Event;
+
+      const { processAudioMessage } = await import('@/lib/speech/handler');
+      vi.mocked(processAudioMessage).mockRejectedValueOnce(
+        new AppError('STT crashed', 'STT_ENGINE_FAIL'),
+      );
+
+      await processWebhookEvents([audioEvent]);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-err-audio',
+        messages: [
+          {
+            type: 'text',
+            text: expect.stringContaining('ฟังเสียงไม่ชัดเจน'),
+          },
+        ],
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('resolveErrorStage', () => {
+    it('identifies stages based on AppError codes and event metadata', () => {
+      const dummyEvent = { type: 'message', message: { type: 'text' } } as webhook.Event;
+      const audioEvent = { type: 'message', message: { type: 'audio' } } as webhook.Event;
+
+      expect(resolveErrorStage(dummyEvent, new AppError('fail', 'STT_FAIL'))).toBe('stt');
+      expect(resolveErrorStage(dummyEvent, new AppError('fail', 'AI_PARSE_ERROR'))).toBe('ai');
+      expect(resolveErrorStage(dummyEvent, new AppError('fail', 'TOOL_ERROR'))).toBe('tool');
+      expect(resolveErrorStage(dummyEvent, new AppError('fail', 'NET_TIMEOUT'))).toBe('network');
+      expect(resolveErrorStage(audioEvent, new Error('generic error'))).toBe('stt');
+      expect(resolveErrorStage(dummyEvent, new Error('ECONNRESET from server'))).toBe('network');
+      expect(resolveErrorStage(dummyEvent, new Error('something else'))).toBe('default');
     });
   });
 });

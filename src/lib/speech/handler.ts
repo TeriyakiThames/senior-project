@@ -5,6 +5,7 @@ import { lineClient } from '@/lib/line/client';
 import { downloadVoiceMessage } from '@/lib/line/voice';
 import { transcribeThaiAudio } from '@/lib/speech/stt';
 import type { UserDoc } from '@/types/firestore';
+import { logError } from '@/lib/utils/errors';
 
 export type { PersonaParticles } from '@/lib/ai/persona';
 export { resolvePersonaParticles };
@@ -100,7 +101,7 @@ export async function processAudioMessage(
 
     return transcript;
   } catch (error) {
-    console.error(`[SpeechHandler] Error processing audio message ${messageId}:`, error);
+    logError('stt', error, { messageId, userId });
 
     if (replyToken) {
       try {
@@ -114,7 +115,7 @@ export async function processAudioMessage(
           ],
         });
       } catch (replyError) {
-        console.error('[SpeechHandler] Failed to dispatch error reply message:', replyError);
+        logError('line_reply', replyError, { messageId, userId });
       }
     }
 
