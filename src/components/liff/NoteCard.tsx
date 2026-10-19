@@ -1,6 +1,9 @@
+'use client';
+
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
+import { parseTimestamp, formatReminderDate } from '@/lib/utils/date';
 
 export interface NoteItem {
   id: string;
@@ -17,22 +20,10 @@ export interface NoteCardProps {
 
 export function NoteCard({ note, onDelete }: NoteCardProps) {
   const t = useTranslations('dashboard');
+  const locale = useLocale();
 
-  let createDate: Date | null = null;
-  if (note.createdAt) {
-    if (
-      typeof note.createdAt === 'object' &&
-      note.createdAt !== null &&
-      '_seconds' in note.createdAt &&
-      typeof note.createdAt._seconds === 'number'
-    ) {
-      createDate = new Date(note.createdAt._seconds * 1000);
-    } else if (note.createdAt instanceof Date) {
-      createDate = note.createdAt;
-    } else if (typeof note.createdAt === 'string') {
-      createDate = new Date(note.createdAt);
-    }
-  }
+  const createDate = parseTimestamp(note.createdAt);
+  const isVoice = note.source === 'voice';
 
   return (
     <Card>
@@ -41,19 +32,18 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
           <p className="text-senior-base font-semibold text-senior-text break-words">
             {note.summary}
           </p>
-          <p className="text-senior-sm text-senior-muted mt-1 flex items-center gap-1.5">
-            <span aria-hidden="true">{note.source === 'voice' ? '🎤' : '⌨️'}</span>
+          <div className="text-senior-sm text-senior-muted mt-1.5 flex flex-wrap items-center gap-2">
+            <span
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+              aria-label={isVoice ? t('voiceSource') : t('textSource')}
+            >
+              <span aria-hidden="true">{isVoice ? '🎤' : '⌨️'}</span>
+              <span>{isVoice ? t('voiceSource') : t('textSource')}</span>
+            </span>
             {createDate && (
-              <span>
-                {createDate.toLocaleDateString('th-TH', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
+              <span className="tabular-nums">{formatReminderDate(createDate, locale)}</span>
             )}
-          </p>
+          </div>
         </div>
         <Button
           type="button"
