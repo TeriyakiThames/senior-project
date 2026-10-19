@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { transcribeThaiAudio, speechClient, getSpeechClientOptions } from '@/lib/speech/stt';
 import { v2 } from '@google-cloud/speech';
+import { createMockSpeechClient } from '@/__tests__/mocks';
 
 describe('Google Cloud Speech-to-Text v2 Client (STT-01)', () => {
   const originalEnv = process.env;

@@ -6,12 +6,14 @@ import { alarmsRef, remindersRef } from '@/lib/firebase/collections';
 import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
 import { Timestamp } from 'firebase-admin/firestore';
+import { createMockLineClient } from '@/__tests__/mocks';
 
-vi.mock('@/lib/line/client', () => ({
-  lineClient: {
-    pushMessage: vi.fn(),
-  },
-}));
+vi.mock('@/lib/line/client', async () => {
+  const { createMockLineClient } = await import('@/__tests__/mocks');
+  return {
+    lineClient: createMockLineClient(),
+  };
+});
 
 vi.mock('@/lib/firebase/collections', () => ({
   alarmsRef: vi.fn(),

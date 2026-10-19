@@ -12,6 +12,7 @@ import * as collections from '@/lib/firebase/collections';
 import * as gemini from '@/lib/ai/gemini';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
+import { createMockUserDoc } from '@/__tests__/mocks';
 
 vi.mock('@/lib/firebase/collections', () => ({
   notesRef: vi.fn(),
@@ -23,18 +24,11 @@ vi.mock('@/lib/ai/gemini', () => ({
 }));
 
 describe('Notes Tool Handlers (SCHED-05)', () => {
-  const mockUser: UserDoc = {
+  const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_NOTE_001',
     displayName: 'คุณยายใจดี',
-    language: 'th',
-    timezone: 'Asia/Bangkok',
     firebaseUid: 'firebase-uid-note-001',
-    createdAt: Timestamp.now(),
-    profile: {
-      facts: [],
-      updatedAt: Timestamp.now(),
-    },
-  };
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();

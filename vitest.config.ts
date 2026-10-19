@@ -7,6 +7,7 @@ export default defineConfig({
     environment: 'node',
     passWithNoTests: true,
     include: ['src/__tests__/**/*.test.ts'],
+    setupFiles: ['./src/__tests__/setup.ts'],
     coverage: { provider: 'v8', include: ['src/lib/**/*.ts'] },
   },
   resolve: {

@@ -10,6 +10,7 @@ import * as extractor from '@/lib/ai/parameter-extractor';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createBangkokDate, getBangkokComponents } from '@/lib/utils/recurrence';
+import { createMockUserDoc } from '@/__tests__/mocks';
 
 vi.mock('@/lib/firebase/collections', () => ({
   remindersRef: vi.fn(),
@@ -24,18 +25,11 @@ vi.mock('@/lib/ai/parameter-extractor', () => ({
 }));
 
 describe('Reminder Tool Handler (SCHED-04)', () => {
-  const mockUser: UserDoc = {
+  const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_REMINDER_001',
     displayName: 'คุณยายใจดี',
-    language: 'th',
-    timezone: 'Asia/Bangkok',
     firebaseUid: 'firebase-uid-rem-001',
-    createdAt: Timestamp.now(),
-    profile: {
-      facts: [],
-      updatedAt: Timestamp.now(),
-    },
-  };
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -2,13 +2,14 @@ import { Readable } from 'node:stream';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { downloadVoiceMessage, LineVoiceDownloadError } from '@/lib/line/voice';
 import { lineBlobClient } from '@/lib/line/client';
+import { createMockLineBlobClient } from '@/__tests__/mocks';
 
-vi.mock('@/lib/line/client', () => ({
-  lineBlobClient: {
-    getMessageContent: vi.fn(),
-    getMessageContentWithHttpInfo: vi.fn(),
-  },
-}));
+vi.mock('@/lib/line/client', async () => {
+  const { createMockLineBlobClient } = await import('@/__tests__/mocks');
+  return {
+    lineBlobClient: createMockLineBlobClient(),
+  };
+});
 
 describe('downloadVoiceMessage', () => {
   beforeEach(() => {

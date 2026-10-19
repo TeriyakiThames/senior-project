@@ -9,6 +9,7 @@ import {
 } from '@/lib/ai/gemini';
 import type { UserDoc, MessageDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
+import { createMockGeminiClient, createMockUserDoc } from '@/__tests__/mocks';
 
 describe('Gemini 3.5 Flash-Lite Client (AI-02)', () => {
   const originalEnv = process.env;
@@ -26,13 +27,8 @@ describe('Gemini 3.5 Flash-Lite Client (AI-02)', () => {
   });
 
   describe('generateResponse', () => {
-    const mockUser: UserDoc = {
-      lineUserId: 'U12345678',
+    const mockUser: UserDoc = createMockUserDoc({
       displayName: 'สมศรี',
-      language: 'th',
-      timezone: 'Asia/Bangkok',
-      firebaseUid: 'uid-123',
-      createdAt: Timestamp.now(),
       profile: {
         facts: ['กินยาความดันตอนเช้า', 'particle:ค่ะ'],
         updatedAt: Timestamp.now(),
@@ -42,7 +38,7 @@ describe('Gemini 3.5 Flash-Lite Client (AI-02)', () => {
         summary: 'คุยเรื่องไปโรงพยาบาล',
         generatedAt: Timestamp.now(),
       },
-    };
+    });
 
     const mockMessages: MessageDoc[] = [
       {
