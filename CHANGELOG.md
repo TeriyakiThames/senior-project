@@ -1,3 +1,10 @@
+# [1.26.0](https://github.com/TeriyakiThames/senior-project/compare/v1.25.0...v1.26.0) (2026-10-19)
+
+
+### Features
+
+* **QA-01:** implement centralized error handler and stage fallbacks ([#70](https://github.com/TeriyakiThames/senior-project/issues/70)) ([a348ab0](https://github.com/TeriyakiThames/senior-project/commit/a348ab0302daa6c942b94d362b5ec2e6e015ba1a))
+
 # [1.25.0](https://github.com/TeriyakiThames/senior-project/compare/v1.24.0...v1.25.0) (2026-10-19)
 
 
