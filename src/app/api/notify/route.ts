@@ -6,6 +6,7 @@ import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AlarmDoc, ReminderDoc } from '@/types/firestore';
+import { logError } from '@/lib/utils/errors';
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-webhook-secret');
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result, { status: 200 });
     }
   } catch (error) {
-    console.error(`[Notify Route] Error processing notification [${itemType}/${itemId}]:`, error);
+    logError('notify_route', error, { userId, itemId, itemType });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

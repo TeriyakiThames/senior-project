@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { verifyLineSignature } from '@/lib/line/signature';
 import { processWebhookEvents } from '@/lib/line/dispatcher';
+import { logError } from '@/lib/utils/errors';
 import type { webhook } from '@line/bot-sdk';
 
 export async function POST(request: NextRequest) {
@@ -28,14 +29,14 @@ export async function POST(request: NextRequest) {
       try {
         await processWebhookEvents(events);
       } catch (backgroundError) {
-        console.error('Unhandled background error in webhook processing:', backgroundError);
+        logError('webhook_background', backgroundError);
       }
     });
 
     // 4. Return HTTP 200 immediately to LINE edge
     return NextResponse.json({ status: 'ok' }, { status: 200 });
   } catch (error) {
-    console.error('Unhandled error in webhook ingress route:', error);
+    logError('webhook_ingress', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

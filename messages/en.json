@@ -46,6 +46,11 @@
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "voiceNotUnderstood": "Sorry, I couldn't understand the audio. Please try again 🙏",
-    "networkError": "Unable to connect. Please try again."
+    "networkError": "Unable to connect. Please try again.",
+    "stt": "Sorry, I couldn't understand the audio clearly. Please try saying it again or type a message instead 🙏",
+    "ai": "I'm sorry, I didn't quite understand that. Could you please say or type it again? 🙏",
+    "tool": "Sorry, I wasn't able to complete that request right now. Please try again in a moment 🙏",
+    "network": "The connection is temporarily interrupted. Please don't worry, let's try again in a moment 🙏",
+    "default": "Something went wrong temporarily. Please try again in a moment 🙏"
   }
 }
