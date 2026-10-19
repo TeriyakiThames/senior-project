@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/TeriyakiThames/senior-project/compare/v1.24.0...v1.25.0) (2026-10-19)
+
+
+### Features
+
+* **FE-05:** build liff notes and settings pages with i18n ([#69](https://github.com/TeriyakiThames/senior-project/issues/69)) ([a70d050](https://github.com/TeriyakiThames/senior-project/commit/a70d05068c1b94fae16162aba5825dc6a9070043))
+
 # [1.24.0](https://github.com/TeriyakiThames/senior-project/compare/v1.23.0...v1.24.0) (2026-10-18)
 
 
