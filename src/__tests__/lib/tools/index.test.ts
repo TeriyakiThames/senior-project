@@ -3,8 +3,13 @@ import { executeTool } from '@/lib/tools/index';
 import * as alarmTool from '@/lib/tools/alarm';
 import * as reminderTool from '@/lib/tools/reminder';
 import * as notesTool from '@/lib/tools/notes';
+import * as collections from '@/lib/firebase/collections';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
+
+vi.mock('@/lib/firebase/collections', () => ({
+  pendingActionsRef: vi.fn(),
+}));
 
 vi.mock('@/lib/tools/alarm', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/tools/alarm')>();
@@ -19,6 +24,7 @@ vi.mock('@/lib/tools/reminder', async (importOriginal) => {
   return {
     ...actual,
     handleSetReminder: vi.fn(),
+    handleConfirmReminder: vi.fn(),
   };
 });
 
@@ -45,6 +51,11 @@ describe('Tool Dispatcher Router', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(collections.pendingActionsRef).mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false, data: () => null }),
+      }),
+    } as unknown as ReturnType<typeof collections.pendingActionsRef>);
   });
 
   it('routes set_alarm intent to handleSetAlarm', async () => {
@@ -132,6 +143,36 @@ describe('Tool Dispatcher Router', () => {
     expect(notesTool.handleConfirmNote).toHaveBeenCalledWith(mockUser, expect.objectContaining({}));
     expect(result.success).toBe(true);
     expect(result.message).toBe('บันทึกโน้ตเรียบร้อยแล้วค่ะ');
+  });
+
+  it('routes confirm_action intent to handleConfirmReminder when pending action is confirm_reminder', async () => {
+    vi.mocked(collections.pendingActionsRef).mockReturnValue({
+      doc: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({ type: 'confirm_reminder' }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof collections.pendingActionsRef>);
+
+    vi.mocked(reminderTool.handleConfirmReminder).mockResolvedValue({
+      success: true,
+      message: 'ตั้งเตือนเรียบร้อยแล้วค่ะ',
+    });
+
+    const result = await executeTool({
+      intent: { intent: 'confirm_action', confidence: 0.97, isAmbiguous: false },
+      userText: 'ยืนยันเตือน',
+      geminiResponse: '',
+      user: mockUser,
+    });
+
+    expect(reminderTool.handleConfirmReminder).toHaveBeenCalledWith(
+      mockUser,
+      expect.objectContaining({}),
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('ตั้งเตือนเรียบร้อยแล้วค่ะ');
   });
 
   it('routes cancel_action intent to handleCancelAction', async () => {
