@@ -2,7 +2,11 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { remindersRef, pendingActionsRef } from '@/lib/firebase/collections';
 import { saveAndScheduleTask } from '@/lib/scheduler/cloud-tasks';
 import { extractReminderParams } from '@/lib/ai/parameter-extractor';
-import { ReminderScheduleCalculator, getBangkokComponents } from '@/lib/utils/recurrence';
+import {
+  ReminderScheduleCalculator,
+  getBangkokComponents,
+  parseBangkokDateTime,
+} from '@/lib/utils/recurrence';
 import { buildReminderConfirmation } from '@/lib/line/flex-messages';
 import type { ReminderDoc, PendingActionDoc, UserDoc } from '@/types/firestore';
 import type { ReminderParams } from '@/types/jev';
@@ -226,8 +230,8 @@ export async function handleConfirmReminder(
       dayOfMonth?: number;
     };
 
-    let fireAt = new Date(draft.scheduledAt);
-    if (isNaN(fireAt.getTime()) || fireAt.getTime() <= now.getTime()) {
+    let fireAt = parseBangkokDateTime(draft.scheduledAt);
+    if (!fireAt || isNaN(fireAt.getTime()) || fireAt.getTime() <= now.getTime()) {
       const recalculated = calculateReminderFireTime(
         {
           scheduledAt: draft.scheduledAt,
@@ -240,6 +244,13 @@ export async function handleConfirmReminder(
       if (recalculated) {
         fireAt = recalculated;
       }
+    }
+
+    if (!fireAt) {
+      return {
+        success: false,
+        message: 'ไม่สามารถระบุเวลาแจ้งเตือนที่ถูกต้องได้ค่ะ',
+      };
     }
 
     const reminderData: ReminderDoc = {
@@ -330,10 +341,11 @@ export async function handleUpdatePendingReminderTime(
     };
 
     // Calculate new target fire time from chosen datetime picker value
-    const targetDate = new Date(newDatetimeIso);
-    const fireAt = !isNaN(targetDate.getTime())
-      ? targetDate
-      : new Date(now.getTime() + 10 * 60 * 1000);
+    const targetDate = parseBangkokDateTime(newDatetimeIso);
+    const fireAt =
+      targetDate && !isNaN(targetDate.getTime())
+        ? targetDate
+        : new Date(now.getTime() + 10 * 60 * 1000);
 
     const expiresAtDate = new Date(now.getTime() + 5 * 60 * 1000);
     const updatedPendingData: PendingActionDoc = {

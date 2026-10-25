@@ -60,6 +60,47 @@ export function createBangkokDate(
 }
 
 /**
+ * Safely parses a date/time string or Date object in the Asia/Bangkok context.
+ * If the string does not have an explicit timezone offset or trailing 'Z'
+ * (e.g., LINE datetime picker format "YYYY-MM-DDTHH:mm" or "YYYY-MM-DD"),
+ * it parses the calendar components as Asia/Bangkok time (UTC+7).
+ */
+export function parseBangkokDateTime(val: string | Date | null | undefined): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+  if (typeof val !== 'string') return null;
+
+  const trimmed = val.trim();
+  if (!trimmed) return null;
+
+  // Check if string matches "YYYY-MM-DDTHH:mm" or "YYYY-MM-DDTHH:mm:ss" without offset/Z
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hours = Number(match[4]);
+    const minutes = Number(match[5]);
+    const seconds = match[6] ? Number(match[6]) : 0;
+    return createBangkokDate(year, month, day, hours, minutes, seconds);
+  }
+
+  // Check if string matches date-only "YYYY-MM-DD" without offset
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    return createBangkokDate(year, month, day, 0, 0, 0);
+  }
+
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Returns the number of days in a given year and month (1-indexed: 1=Jan, 2=Feb, etc.).
  */
 export function getDaysInMonth(year: number, month: number): number {
@@ -415,9 +456,9 @@ export class ReminderScheduleCalculator extends BaseScheduleCalculator {
     const target =
       this.params.scheduledAt instanceof Date
         ? this.params.scheduledAt
-        : new Date(this.params.scheduledAt);
+        : parseBangkokDateTime(this.params.scheduledAt);
 
-    if (isNaN(target.getTime())) {
+    if (!target || isNaN(target.getTime())) {
       return defaultDate;
     }
 
