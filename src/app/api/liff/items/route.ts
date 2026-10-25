@@ -9,11 +9,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // In production, strictly reject any mock user access
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (userId === 'mock-user-123' || userId.startsWith('mock-'))
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const type = request.nextUrl.searchParams.get('type') || 'all';
 
+  // In non-production, allow mock data for offline development
   if (
-    userId === 'mock-user-123' ||
-    (process.env.NODE_ENV !== 'production' && userId.startsWith('mock-'))
+    process.env.NODE_ENV !== 'production' &&
+    (userId === 'mock-user-123' || userId.startsWith('mock-'))
   ) {
     return NextResponse.json(getMockItems(type));
   }
