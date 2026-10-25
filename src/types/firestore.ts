@@ -61,7 +61,7 @@ export interface NoteDoc {
 }
 
 export interface PendingActionDoc {
-  type: 'confirm_note' | 'confirm_delete';
+  type: 'confirm_note' | 'confirm_delete' | 'confirm_reminder';
   data: Record<string, unknown>;
   expiresAt: Timestamp;
 }

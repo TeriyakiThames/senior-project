@@ -4,6 +4,9 @@ import {
   createBangkokDate,
   getBangkokComponents,
   getDaysInMonth,
+  parseBangkokDateTime,
+  AlarmScheduleCalculator,
+  ReminderScheduleCalculator,
 } from '@/lib/utils/recurrence';
 
 describe('Recurrence Calculation Utility (SCHED-02)', () => {
@@ -31,6 +34,59 @@ describe('Recurrence Calculation Utility (SCHED-02)', () => {
       expect(getDaysInMonth(2025, 2)).toBe(28); // Non-leap year
       expect(getDaysInMonth(2026, 4)).toBe(30);
       expect(getDaysInMonth(2026, 10)).toBe(31);
+    });
+
+    describe('parseBangkokDateTime', () => {
+      it('parses LINE datetimepicker format YYYY-MM-DDTHH:mm into Bangkok UTC Date', () => {
+        const parsed = parseBangkokDateTime('2026-10-26T20:00');
+        expect(parsed).not.toBeNull();
+        // 2026-10-26 20:00 in UTC+7 is 2026-10-26 13:00:00.000Z
+        expect(parsed!.toISOString()).toBe('2026-10-26T13:00:00.000Z');
+        const bkk = getBangkokComponents(parsed!);
+        expect(bkk.year).toBe(2026);
+        expect(bkk.month).toBe(10);
+        expect(bkk.day).toBe(26);
+        expect(bkk.hours).toBe(20);
+        expect(bkk.minutes).toBe(0);
+      });
+
+      it('parses YYYY-MM-DDTHH:mm:ss without timezone offset into Bangkok UTC Date', () => {
+        const parsed = parseBangkokDateTime('2026-10-26T08:15:30');
+        expect(parsed).not.toBeNull();
+        expect(parsed!.toISOString()).toBe('2026-10-26T01:15:30.000Z');
+      });
+
+      it('parses date-only string YYYY-MM-DD into Bangkok midnight UTC Date', () => {
+        const parsed = parseBangkokDateTime('2026-10-26');
+        expect(parsed).not.toBeNull();
+        expect(parsed!.toISOString()).toBe('2026-10-25T17:00:00.000Z');
+      });
+
+      it('parses ISO string with trailing Z preserving UTC instant', () => {
+        const parsed = parseBangkokDateTime('2026-10-26T13:00:00.000Z');
+        expect(parsed).not.toBeNull();
+        expect(parsed!.toISOString()).toBe('2026-10-26T13:00:00.000Z');
+      });
+
+      it('parses ISO string with timezone offset preserving UTC instant', () => {
+        const parsed = parseBangkokDateTime('2026-10-26T20:00:00+07:00');
+        expect(parsed).not.toBeNull();
+        expect(parsed!.toISOString()).toBe('2026-10-26T13:00:00.000Z');
+      });
+
+      it('passes through Date instances', () => {
+        const original = new Date('2026-10-26T13:00:00.000Z');
+        const parsed = parseBangkokDateTime(original);
+        expect(parsed).toEqual(original);
+      });
+
+      it('returns null for empty, null, undefined or invalid strings', () => {
+        expect(parseBangkokDateTime(null)).toBeNull();
+        expect(parseBangkokDateTime(undefined)).toBeNull();
+        expect(parseBangkokDateTime('')).toBeNull();
+        expect(parseBangkokDateTime('   ')).toBeNull();
+        expect(parseBangkokDateTime('invalid-date')).toBeNull();
+      });
     });
   });
 
@@ -214,6 +270,66 @@ describe('Recurrence Calculation Utility (SCHED-02)', () => {
       });
 
       expect(next).toBeNull();
+    });
+  });
+
+  describe('AlarmScheduleCalculator', () => {
+    it('schedules for today if target time has not yet passed', () => {
+      const now = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const calculator = new AlarmScheduleCalculator({ time: '09:00', recurrence: 'once' }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).not.toBeNull();
+      const fireBkk = getBangkokComponents(fireAt!);
+      expect(fireBkk.day).toBe(16);
+      expect(fireBkk.hours).toBe(9);
+    });
+
+    it('rolls over to tomorrow if target time has already passed today', () => {
+      const now = createBangkokDate(2026, 10, 16, 10, 0, 0);
+      const calculator = new AlarmScheduleCalculator({ time: '07:00', recurrence: 'daily' }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).not.toBeNull();
+      const fireBkk = getBangkokComponents(fireAt!);
+      expect(fireBkk.day).toBe(17);
+      expect(fireBkk.hours).toBe(7);
+    });
+
+    it('returns null for invalid time format', () => {
+      const calculator = new AlarmScheduleCalculator({ time: 'invalid' });
+      expect(calculator.calculateNextFireTime()).toBeNull();
+    });
+  });
+
+  describe('ReminderScheduleCalculator', () => {
+    it('returns future scheduledAt as-is', () => {
+      const now = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const scheduledAt = createBangkokDate(2026, 10, 16, 12, 0, 0);
+      const calculator = new ReminderScheduleCalculator({ scheduledAt }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).toEqual(scheduledAt);
+    });
+
+    it('defaults to 10 minutes fallback when scheduledAt is missing', () => {
+      const now = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const calculator = new ReminderScheduleCalculator({}, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).toEqual(new Date(now.getTime() + 10 * 60 * 1000));
+    });
+
+    it('shifts overdue single reminder forward by 24 hours', () => {
+      const now = createBangkokDate(2026, 10, 16, 10, 0, 0);
+      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const calculator = new ReminderScheduleCalculator({ scheduledAt, recurrence: 'once' }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).not.toBeNull();
+      const fireBkk = getBangkokComponents(fireAt!);
+      expect(fireBkk.day).toBe(17);
+      expect(fireBkk.hours).toBe(8);
     });
   });
 });

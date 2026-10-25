@@ -4,6 +4,7 @@ import {
   getCloudTasksClientOptions,
   scheduleNotification,
   cancelScheduledTask,
+  saveAndScheduleTask,
 } from '@/lib/scheduler/cloud-tasks';
 import { CloudTasksClient } from '@google-cloud/tasks';
 import { createMockCloudTasksClient } from '@/__tests__/mocks';
@@ -70,13 +71,12 @@ describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
         itemId: 'alarm-001',
         itemType: 'alarm',
         fireAt,
-        payload: { extraInfo: 'wake up' },
         client: mockClient,
         projectId: 'test-project',
         location: 'asia-southeast1',
         queueId: 'reminder-queue',
-        appUrl: 'https://app.example.com/',
-        webhookSecret: 'secret-123',
+        appUrl: 'https://test-app.com',
+        webhookSecret: 'secret-xyz',
       });
 
       expect(taskName).toBe(
@@ -87,64 +87,203 @@ describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
         'asia-southeast1',
         'reminder-queue',
       );
-
-      expect(mockCreateTask).toHaveBeenCalledTimes(1);
-      const callArg = mockCreateTask.mock.calls[0][0];
-
-      expect(callArg.parent).toBe(
-        'projects/test-project/locations/asia-southeast1/queues/reminder-queue',
-      );
-      expect(callArg.task.scheduleTime).toEqual({ seconds: expectedSeconds });
-
-      const httpRequest = callArg.task.httpRequest;
-      expect(httpRequest.httpMethod).toBe('POST');
-      expect(httpRequest.url).toBe('https://app.example.com/api/notify');
-      expect(httpRequest.headers).toEqual({
-        'Content-Type': 'application/json',
-        'X-Webhook-Secret': 'secret-123',
-      });
-
-      const decodedBody = JSON.parse(Buffer.from(httpRequest.body, 'base64').toString('utf8'));
-      expect(decodedBody).toEqual({
-        userId: 'user-001',
-        itemId: 'alarm-001',
-        itemType: 'alarm',
-        extraInfo: 'wake up',
+      expect(mockCreateTask).toHaveBeenCalledWith({
+        parent: 'projects/test-project/locations/asia-southeast1/queues/reminder-queue',
+        task: {
+          httpRequest: {
+            httpMethod: 'POST',
+            url: 'https://test-app.com/api/notify',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Webhook-Secret': 'secret-xyz',
+            },
+            body: Buffer.from(
+              JSON.stringify({ userId: 'user-001', itemId: 'alarm-001', itemType: 'alarm' }),
+            ).toString('base64'),
+          },
+          scheduleTime: {
+            seconds: expectedSeconds,
+          },
+        },
       });
     });
 
-    it('falls back to default environment variables when optional args are omitted', async () => {
-      process.env.GOOGLE_CLOUD_PROJECT_ID = 'env-project';
-      process.env.GCP_LOCATION = 'asia-southeast1';
-      process.env.CLOUD_TASKS_QUEUE_ID = 'env-queue';
-      process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
-      process.env.WEBHOOK_SECRET = 'env-secret';
-
-      const fireAt = new Date('2026-10-16T10:00:00.000Z');
-      const mockCreateTask = vi.fn().mockResolvedValue([{ name: 'task-fallback' }]);
-      const mockQueuePath = vi.fn().mockReturnValue('projects/env-project/...');
-
+    it('sanitizes trailing slash in appUrl', async () => {
+      const fireAt = new Date('2026-10-16T08:00:00.000Z');
+      const mockCreateTask = vi.fn().mockResolvedValue([{ name: 'task-1' }]);
       const mockClient = {
         createTask: mockCreateTask,
-        queuePath: mockQueuePath,
+        queuePath: vi.fn().mockReturnValue('queue-path'),
       } as unknown as CloudTasksClient;
 
-      const taskName = await scheduleNotification({
-        userId: 'user-002',
+      await scheduleNotification({
+        userId: 'user-001',
         itemId: 'rem-001',
         itemType: 'reminder',
         fireAt,
         client: mockClient,
+        appUrl: 'https://test-app.com///',
       });
 
-      expect(taskName).toBe('task-fallback');
-      expect(mockQueuePath).toHaveBeenCalledWith('env-project', 'asia-southeast1', 'env-queue');
-      expect(mockCreateTask).toHaveBeenCalledTimes(1);
+      expect(mockCreateTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          task: expect.objectContaining({
+            httpRequest: expect.objectContaining({
+              url: 'https://test-app.com/api/notify',
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('saveAndScheduleTask', () => {
+    it('saves doc to Firestore, schedules task, updates cloudTaskName, and returns result', async () => {
+      const fireAt = new Date('2026-10-16T08:00:00.000Z');
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockDocRef = {
+        id: 'doc-123',
+        update: mockUpdate,
+        delete: mockDelete,
+      };
+
+      const mockCollectionRef = {
+        add: vi.fn().mockResolvedValue(mockDocRef),
+      };
+
+      const mockScheduleFn = vi.fn().mockResolvedValue('projects/test/tasks/task-999');
+
+      const result = await saveAndScheduleTask({
+        collectionRef: mockCollectionRef,
+        data: { message: 'เตือนกินยา' },
+        schedule: {
+          userId: 'user-001',
+          itemType: 'reminder',
+          fireAt,
+        },
+        scheduleNotificationFn: mockScheduleFn,
+      });
+
+      expect(mockCollectionRef.add).toHaveBeenCalledWith({ message: 'เตือนกินยา' });
+      expect(mockScheduleFn).toHaveBeenCalledWith({
+        userId: 'user-001',
+        itemId: 'doc-123',
+        itemType: 'reminder',
+        fireAt,
+        payload: undefined,
+      });
+      expect(mockUpdate).toHaveBeenCalledWith({ cloudTaskName: 'projects/test/tasks/task-999' });
+      expect(mockDelete).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        docRef: mockDocRef,
+        taskName: 'projects/test/tasks/task-999',
+      });
+    });
+
+    it('rolls back created document by calling docRef.delete() when scheduling throws', async () => {
+      const fireAt = new Date('2026-10-16T08:00:00.000Z');
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockDocRef = {
+        id: 'doc-rollback-1',
+        update: mockUpdate,
+        delete: mockDelete,
+      };
+
+      const mockCollectionRef = {
+        add: vi.fn().mockResolvedValue(mockDocRef),
+      };
+
+      const scheduleError = new Error('Cloud Tasks rate limited');
+      const mockScheduleFn = vi.fn().mockRejectedValue(scheduleError);
+
+      await expect(
+        saveAndScheduleTask({
+          collectionRef: mockCollectionRef,
+          data: { time: '08:00' },
+          schedule: {
+            userId: 'user-001',
+            itemType: 'alarm',
+            fireAt,
+          },
+          scheduleNotificationFn: mockScheduleFn,
+        }),
+      ).rejects.toThrow('Cloud Tasks rate limited');
+
+      expect(mockCollectionRef.add).toHaveBeenCalledWith({ time: '08:00' });
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('rolls back document when docRef.update throws after scheduling', async () => {
+      const fireAt = new Date('2026-10-16T08:00:00.000Z');
+      const mockUpdate = vi.fn().mockRejectedValue(new Error('Firestore update failed'));
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockDocRef = {
+        id: 'doc-rollback-2',
+        update: mockUpdate,
+        delete: mockDelete,
+      };
+
+      const mockCollectionRef = {
+        add: vi.fn().mockResolvedValue(mockDocRef),
+      };
+
+      const mockScheduleFn = vi.fn().mockResolvedValue('projects/test/tasks/task-999');
+
+      await expect(
+        saveAndScheduleTask({
+          collectionRef: mockCollectionRef,
+          data: { time: '08:00' },
+          schedule: {
+            userId: 'user-001',
+            itemType: 'alarm',
+            fireAt,
+          },
+          scheduleNotificationFn: mockScheduleFn,
+        }),
+      ).rejects.toThrow('Firestore update failed');
+
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('swallows rollback failure without masking the original schedule error', async () => {
+      const fireAt = new Date('2026-10-16T08:00:00.000Z');
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockRejectedValue(new Error('Rollback delete failed'));
+      const mockDocRef = {
+        id: 'doc-rollback-3',
+        update: mockUpdate,
+        delete: mockDelete,
+      };
+
+      const mockCollectionRef = {
+        add: vi.fn().mockResolvedValue(mockDocRef),
+      };
+
+      const scheduleError = new Error('Cloud Tasks unavailable');
+      const mockScheduleFn = vi.fn().mockRejectedValue(scheduleError);
+
+      await expect(
+        saveAndScheduleTask({
+          collectionRef: mockCollectionRef,
+          data: { time: '08:00' },
+          schedule: {
+            userId: 'user-001',
+            itemType: 'alarm',
+            fireAt,
+          },
+          scheduleNotificationFn: mockScheduleFn,
+        }),
+      ).rejects.toThrow('Cloud Tasks unavailable');
+
+      expect(mockDelete).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('cancelScheduledTask', () => {
-    it('deletes task by identifier successfully', async () => {
+    it('deletes scheduled task by resource name', async () => {
       const mockDeleteTask = vi.fn().mockResolvedValue([{}]);
       const mockClient = {
         deleteTask: mockDeleteTask,

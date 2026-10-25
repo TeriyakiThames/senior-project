@@ -1,8 +1,23 @@
-import { webhook } from '@line/bot-sdk';
+import { webhook, type messagingApi } from '@line/bot-sdk';
 import { lineClient } from './client';
 import { processAudioMessage, getUserProfile } from '@/lib/speech/handler';
 import { resolvePersonaParticles } from '@/lib/ai/persona';
 import { AppError, logError, getFallbackMessage, type ErrorStage } from '@/lib/utils/errors';
+import { getOrCreateUser, saveMessages, pendingActionsRef } from '@/lib/firebase/collections';
+import { loadMemoryContext, updateUserProfile } from '@/lib/ai/memory';
+import { generateResponse } from '@/lib/ai/gemini';
+import { classifyIntent } from '@/lib/ai/jev';
+import {
+  executeTool,
+  handleSnooze,
+  handleDismiss,
+  handleConfirmNote,
+  handleConfirmReminder,
+  handleCancelAction,
+  handleUpdatePendingReminderTime,
+  type ToolResult,
+} from '@/lib/tools';
+import type { PendingActionDoc } from '@/types/firestore';
 
 /**
  * Resolves the appropriate pipeline failure stage from the event and caught error.
@@ -34,7 +49,15 @@ export function resolveErrorStage(event: webhook.Event, error: unknown): ErrorSt
 }
 
 /**
- * Handles incoming text messages by replying with an echo / acknowledgement.
+ * Handles incoming text messages by routing them through the full conversational pipeline:
+ * 1. Resolves user profile and fetches or initializes the user document in Firestore.
+ * 2. Short-circuits interactive notification actions (snooze/dismiss) and action confirmation (บันทึกเลย/ยืนยัน/ยกเลิก).
+ * 3. Loads 3-tier memory context.
+ * 4. Executes conversational response generation (Gemini) and deterministic intent classification (Jev) concurrently.
+ * 5. Executes the matching tool (alarm, reminder, notes, list, delete, actions).
+ * 6. Dispatches a single reply to LINE with Flex Message or text.
+ * 7. Records the conversation turn in Firestore messages history and asynchronously learns new profile facts.
+ *
  * Accepts optional transcribedText to process recognized audio input.
  */
 export async function handleTextMessage(
@@ -47,18 +70,276 @@ export async function handleTextMessage(
   }
 
   const rawText = transcribedText ?? event.message.text;
-  const userText = rawText.trim();
-  const replyText = `ได้รับข้อความแล้ว: "${userText}"`;
+  const userText = rawText?.trim() ?? '';
+  if (!userText) {
+    return;
+  }
+
+  const userId = event.source?.userId;
+
+  // 1. Fetch display name & retrieve or create user
+  let displayName = 'คุณตาคุณยาย';
+  if (userId) {
+    try {
+      const profile = await lineClient.getProfile(userId);
+      if (profile?.displayName) {
+        displayName = profile.displayName;
+      }
+    } catch {
+      // Gracefully continue with default display name if profile fetch fails
+    }
+  }
+
+  const user = userId ? await getOrCreateUser(userId, displayName) : null;
+
+  // 2. Deterministic short-circuits: Snooze / Dismiss
+  if (user && /^(snooze|dismiss)_(alarm|reminder):/.test(userText)) {
+    try {
+      const toolRes = userText.startsWith('snooze_')
+        ? await handleSnooze(userText, user)
+        : await handleDismiss(userText, user);
+
+      const replyText = toolRes.message || 'ดำเนินการเรียบร้อยแล้วค่ะ';
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+
+      if (userId) {
+        await saveMessages(userId, userText, replyText);
+      }
+      return;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'TOOL_ACTION_FAIL');
+    }
+  }
+
+  // 3. Deterministic short-circuits: Action Confirmation / Cancellation (Notes & Reminders)
+  const isConfirm =
+    userText === 'บันทึกเลย' ||
+    userText === '✓ บันทึกเลย' ||
+    userText === 'ยืนยัน' ||
+    userText === '✓ ยืนยัน' ||
+    userText === 'ยืนยันเตือน' ||
+    userText === 'ตกลง';
+  const isCancel = userText === 'ยกเลิก' || userText === '✕ ยกเลิก';
+
+  if (user && (isConfirm || isCancel)) {
+    try {
+      let toolRes: ToolResult;
+      if (isCancel) {
+        toolRes = await handleCancelAction(user);
+      } else {
+        // Inspect current pending action in Firestore to determine whether to confirm reminder or note
+        let pendingType: string | null = null;
+        try {
+          const pendingSnap = await pendingActionsRef(user.lineUserId).doc('current').get();
+          pendingType = pendingSnap.exists
+            ? ((pendingSnap.data() as PendingActionDoc)?.type ?? null)
+            : null;
+        } catch {}
+
+        if (pendingType === 'confirm_reminder') {
+          toolRes = await handleConfirmReminder(user);
+        } else {
+          toolRes = await handleConfirmNote(user);
+        }
+      }
+
+      const replyText =
+        toolRes.message ||
+        (isCancel ? 'ยกเลิกเรียบร้อยแล้วค่ะ' : 'ดำเนินการเรียบร้อยแล้วค่ะ คุณตาคุณยาย');
+
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+
+      if (userId) {
+        await saveMessages(userId, userText, replyText);
+      }
+      return;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'TOOL_ACTION_FAIL');
+    }
+  }
+
+  // 4. Load memory context
+  let memoryContext;
+  try {
+    memoryContext = userId
+      ? await loadMemoryContext(userId)
+      : { recentMessages: [], userFacts: [] };
+  } catch {
+    memoryContext = { recentMessages: [], userFacts: [] };
+  }
+
+  const recentMessages = memoryContext.recentMessages;
+  const currentUser = memoryContext.user ?? user;
+
+  // 5. Parallel Gemini response generation and Jev intent classification
+  const lastAssistantMsg = [...recentMessages]
+    .reverse()
+    .find((m) => m.role === 'assistant')?.content;
+
+  let geminiResult: { responseText: string; interactionId?: string };
+  let intentResult;
+
+  try {
+    const [geminiRes, jevRes] = await Promise.all([
+      currentUser
+        ? generateResponse(userText, currentUser, recentMessages)
+        : Promise.resolve({ responseText: 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' }),
+      classifyIntent(userText, lastAssistantMsg, { fallbackOnFailure: true }),
+    ]);
+    geminiResult = geminiRes;
+    intentResult = jevRes;
+  } catch (error) {
+    throw error instanceof AppError
+      ? error
+      : new AppError((error as Error).message, 'AI_PIPELINE_FAIL');
+  }
+
+  // 6. Execute matching tool
+  let toolResult: ToolResult;
+  try {
+    if (currentUser) {
+      toolResult = await executeTool({
+        intent: intentResult,
+        userText,
+        geminiResponse: geminiResult.responseText,
+        user: currentUser,
+      });
+    } else {
+      toolResult = { success: true, message: geminiResult.responseText };
+    }
+  } catch (error) {
+    throw error instanceof AppError
+      ? error
+      : new AppError((error as Error).message, 'TOOL_EXEC_FAIL');
+  }
+
+  // 7. Dispatch reply to LINE (single reply token)
+  let lineMessages: messagingApi.Message[];
+  let savedAssistantText: string;
+
+  if (toolResult.flexMessage) {
+    lineMessages = [toolResult.flexMessage as messagingApi.FlexMessage];
+    const dataSummary = (toolResult.data as { summary?: string } | undefined)?.summary;
+    const flexAltText = (toolResult.flexMessage as { altText?: string }).altText;
+    savedAssistantText = dataSummary
+      ? `สรุปบันทึก: ${dataSummary}`
+      : (flexAltText ?? 'ส่งการแจ้งเตือนแบบการ์ด');
+  } else if (toolResult.message) {
+    lineMessages = [{ type: 'text', text: toolResult.message }];
+    savedAssistantText = toolResult.message;
+  } else {
+    const fallbackText = geminiResult.responseText || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ';
+    lineMessages = [{ type: 'text', text: fallbackText }];
+    savedAssistantText = fallbackText;
+  }
 
   await lineClient.replyMessage({
     replyToken,
-    messages: [
-      {
-        type: 'text',
-        text: replyText,
-      },
-    ],
+    messages: lineMessages,
   });
+
+  // 8. Save messages to Firestore history
+  if (userId) {
+    try {
+      await saveMessages(userId, userText, savedAssistantText);
+    } catch (saveError) {
+      logError('firestore_save_messages', saveError, { userId });
+    }
+
+    // 9. Asynchronously update user profile facts in background
+    updateUserProfile(userId, userText, savedAssistantText, memoryContext.userFacts).catch(
+      (memError) => {
+        logError('ai_memory_update', memError, { userId });
+      },
+    );
+  }
+}
+
+/**
+ * Handles incoming LINE postback events (e.g. datetimepicker selection, reminder confirm/cancel buttons).
+ */
+export async function handlePostbackEvent(event: webhook.PostbackEvent): Promise<void> {
+  const replyToken = event.replyToken;
+  if (!replyToken) {
+    return;
+  }
+
+  const userId = event.source?.userId;
+  if (!userId) {
+    return;
+  }
+
+  let displayName = 'คุณตาคุณยาย';
+  try {
+    const profile = await lineClient.getProfile(userId);
+    if (profile?.displayName) {
+      displayName = profile.displayName;
+    }
+  } catch {}
+
+  const user = await getOrCreateUser(userId, displayName);
+  const data = event.postback.data ?? '';
+
+  if (data === 'action=confirm_reminder' || data === 'action=confirm_note') {
+    const toolRes =
+      data === 'action=confirm_reminder'
+        ? await handleConfirmReminder(user)
+        : await handleConfirmNote(user);
+
+    const replyText = toolRes.message || 'ดำเนินการเรียบร้อยแล้วค่ะ';
+    await lineClient.replyMessage({
+      replyToken,
+      messages: [{ type: 'text', text: replyText }],
+    });
+    await saveMessages(userId, 'ยืนยัน', replyText);
+    return;
+  }
+
+  if (data === 'action=cancel_reminder' || data === 'action=cancel_action') {
+    const toolRes = await handleCancelAction(user);
+    const replyText = toolRes.message || 'ยกเลิกเรียบร้อยแล้วค่ะ';
+    await lineClient.replyMessage({
+      replyToken,
+      messages: [{ type: 'text', text: replyText }],
+    });
+    await saveMessages(userId, 'ยกเลิก', replyText);
+    return;
+  }
+
+  if (data === 'action=change_reminder_time') {
+    const selectedDatetime = event.postback.params?.datetime;
+    if (!selectedDatetime) {
+      return;
+    }
+
+    const toolRes = await handleUpdatePendingReminderTime(user, selectedDatetime);
+    if (toolRes.flexMessage) {
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [toolRes.flexMessage as messagingApi.FlexMessage],
+      });
+      const flexAltText =
+        (toolRes.flexMessage as { altText?: string }).altText ?? 'เปลี่ยนเวลาแจ้งเตือน';
+      await saveMessages(userId, `เปลี่ยนเวลาเป็น ${selectedDatetime}`, flexAltText);
+    } else if (toolRes.message) {
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: toolRes.message }],
+      });
+      await saveMessages(userId, `เปลี่ยนเวลาเป็น ${selectedDatetime}`, toolRes.message);
+    }
+    return;
+  }
 }
 
 /**
@@ -81,19 +362,19 @@ export async function handleAudioMessage(
  * Ignores unsupported message types and non-message events safely.
  */
 export async function handleWebhookEvent(event: webhook.Event): Promise<void> {
-  if (event.type !== 'message') {
-    return;
-  }
-
-  const messageEvent = event as webhook.MessageEvent;
-  if (messageEvent.message.type === 'text') {
-    await handleTextMessage(
-      messageEvent as webhook.MessageEvent & { message: webhook.TextMessageContent },
-    );
-  } else if (messageEvent.message.type === 'audio') {
-    await handleAudioMessage(
-      messageEvent as webhook.MessageEvent & { message: webhook.AudioMessageContent },
-    );
+  if (event.type === 'message') {
+    const messageEvent = event as webhook.MessageEvent;
+    if (messageEvent.message.type === 'text') {
+      await handleTextMessage(
+        messageEvent as webhook.MessageEvent & { message: webhook.TextMessageContent },
+      );
+    } else if (messageEvent.message.type === 'audio') {
+      await handleAudioMessage(
+        messageEvent as webhook.MessageEvent & { message: webhook.AudioMessageContent },
+      );
+    }
+  } else if (event.type === 'postback') {
+    await handlePostbackEvent(event as webhook.PostbackEvent);
   }
 }
 

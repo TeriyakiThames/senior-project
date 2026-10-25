@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildNoteConfirmation,
+  buildReminderConfirmation,
   buildAlarmNotification,
   buildReminderNotification,
 } from '@/lib/line/flex-messages';
 import type { messagingApi } from '@line/bot-sdk';
 
-describe('Flex Message Builders (LINE-04)', () => {
+describe('Flex Message Builders (LINE-04, LINE-07)', () => {
   describe('buildNoteConfirmation', () => {
     it('generates a valid Note Confirmation Flex message with accessible layout', () => {
       const summary = 'ไปพบแพทย์ที่โรงพยาบาลศิริราช เวลา 10:00 น.';
@@ -63,14 +64,15 @@ describe('Flex Message Builders (LINE-04)', () => {
     });
   });
 
-  describe('buildAlarmNotification', () => {
-    it('generates a valid Alarm notification Flex message with 5m snooze and dismiss buttons', () => {
-      const alarmLabel = 'กินยาลดความดัน';
-      const alarmId = 'alarm-test-123';
-      const flex = buildAlarmNotification(alarmLabel, alarmId);
+  describe('buildReminderConfirmation (LINE-07)', () => {
+    it('generates a valid Reminder Confirmation Flex message with datetimepicker', () => {
+      const message = 'กินยาลดความดัน';
+      const timeStr = '19:00 น.';
+      const initialDatetime = '2026-10-26T19:00';
+      const flex = buildReminderConfirmation(message, timeStr, initialDatetime);
 
       expect(flex.type).toBe('flex');
-      expect(flex.altText).toBe(`⏰ ถึงเวลาแล้ว: ${alarmLabel}`);
+      expect(flex.altText).toBe(`⏰ ยืนยันเตือน: ${message} เวลา ${timeStr}`);
 
       const bubble = flex.contents as messagingApi.FlexBubble;
       expect(bubble.type).toBe('bubble');
@@ -78,10 +80,59 @@ describe('Flex Message Builders (LINE-04)', () => {
 
       // Header check
       const headerBox = bubble.header as messagingApi.FlexBox;
-      const headerTitle = headerBox.contents[1] as messagingApi.FlexText;
-      expect(headerTitle.text).toBe('ถึงเวลาแล้วค่ะ!');
-      expect(headerTitle.size).toBe('xl');
-      expect(headerTitle.color).toBe('#E65100');
+      const headerText = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerText.text).toBe('⏰ ยืนยันการแจ้งเตือน');
+
+      // Body check
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      expect(bodyBox.contents).toHaveLength(3);
+
+      // Footer check (Confirm button, Datetimepicker button, Cancel button)
+      const footerBox = bubble.footer as messagingApi.FlexBox;
+      expect(footerBox.contents).toHaveLength(3);
+
+      const confirmBtn = footerBox.contents[0] as messagingApi.FlexButton;
+      expect(confirmBtn.type).toBe('button');
+      expect(confirmBtn.style).toBe('primary');
+      expect(confirmBtn.color).toBe('#06C755');
+      expect((confirmBtn.action as messagingApi.MessageAction).label).toBe('✓ ยืนยัน');
+      expect((confirmBtn.action as messagingApi.MessageAction).text).toBe('ยืนยันเตือน');
+
+      const datePickerBtn = footerBox.contents[1] as messagingApi.FlexButton;
+      expect(datePickerBtn.type).toBe('button');
+      expect(datePickerBtn.style).toBe('secondary');
+      const dateAction = datePickerBtn.action as messagingApi.DatetimePickerAction;
+      expect(dateAction.type).toBe('datetimepicker');
+      expect(dateAction.label).toBe('✏️ เปลี่ยนเวลา');
+      expect(dateAction.data).toBe('action=change_reminder_time');
+      expect(dateAction.mode).toBe('datetime');
+      expect(dateAction.initial).toBe(initialDatetime);
+
+      const cancelBtn = footerBox.contents[2] as messagingApi.FlexButton;
+      expect(cancelBtn.type).toBe('button');
+      expect(cancelBtn.style).toBe('secondary');
+      expect((cancelBtn.action as messagingApi.MessageAction).label).toBe('✕ ยกเลิก');
+      expect((cancelBtn.action as messagingApi.MessageAction).text).toBe('ยกเลิก');
+    });
+  });
+
+  describe('buildAlarmNotification', () => {
+    it('generates a valid Alarm notification Flex message with 5m snooze and dismiss buttons', () => {
+      const alarmLabel = 'กินยาลดความดัน';
+      const alarmId = 'alarm-test-123';
+      const flex = buildAlarmNotification(alarmLabel, alarmId);
+
+      expect(flex.type).toBe('flex');
+      expect(flex.altText).toBe(`⏰ นาฬิกาปลุก: ${alarmLabel}`);
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      expect(bubble.type).toBe('bubble');
+      expect(bubble.size).toBe('kilo');
+
+      // Header check
+      const headerBox = bubble.header as messagingApi.FlexBox;
+      const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerIcon.text).toBe('⏰');
 
       // Body check
       const bodyBox = bubble.body as messagingApi.FlexBox;
@@ -111,7 +162,7 @@ describe('Flex Message Builders (LINE-04)', () => {
       expect(dismissButton.style).toBe('primary');
       expect(dismissButton.color).toBe('#06C755');
       expect(dismissButton.height).toBe('md');
-      expect((dismissButton.action as messagingApi.MessageAction).label).toBe('✓ ปิดปลุก');
+      expect((dismissButton.action as messagingApi.MessageAction).label).toBe('✓ ปิดการปลุก');
       expect((dismissButton.action as messagingApi.MessageAction).text).toBe(
         `dismiss_alarm:${alarmId}`,
       );
@@ -133,10 +184,8 @@ describe('Flex Message Builders (LINE-04)', () => {
 
       // Header check
       const headerBox = bubble.header as messagingApi.FlexBox;
-      const headerTitle = headerBox.contents[1] as messagingApi.FlexText;
-      expect(headerTitle.text).toBe('แจ้งเตือน');
-      expect(headerTitle.size).toBe('xl');
-      expect(headerTitle.color).toBe('#1565C0');
+      const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerIcon.text).toBe('📋');
 
       // Body check
       const bodyBox = bubble.body as messagingApi.FlexBox;

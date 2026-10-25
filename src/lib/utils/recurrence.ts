@@ -60,6 +60,47 @@ export function createBangkokDate(
 }
 
 /**
+ * Safely parses a date/time string or Date object in the Asia/Bangkok context.
+ * If the string does not have an explicit timezone offset or trailing 'Z'
+ * (e.g., LINE datetime picker format "YYYY-MM-DDTHH:mm" or "YYYY-MM-DD"),
+ * it parses the calendar components as Asia/Bangkok time (UTC+7).
+ */
+export function parseBangkokDateTime(val: string | Date | null | undefined): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? null : val;
+  }
+  if (typeof val !== 'string') return null;
+
+  const trimmed = val.trim();
+  if (!trimmed) return null;
+
+  // Check if string matches "YYYY-MM-DDTHH:mm" or "YYYY-MM-DDTHH:mm:ss" without offset/Z
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hours = Number(match[4]);
+    const minutes = Number(match[5]);
+    const seconds = match[6] ? Number(match[6]) : 0;
+    return createBangkokDate(year, month, day, hours, minutes, seconds);
+  }
+
+  // Check if string matches date-only "YYYY-MM-DD" without offset
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    return createBangkokDate(year, month, day, 0, 0, 0);
+  }
+
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Returns the number of days in a given year and month (1-indexed: 1=Jan, 2=Feb, etc.).
  */
 export function getDaysInMonth(year: number, month: number): number {
@@ -196,4 +237,256 @@ export function calculateNextOccurrence(config: RecurrenceConfig): Date | null {
   }
 
   return nextDate;
+}
+
+/**
+ * Base schedule calculator encapsulating Asia/Bangkok date calculations and recurrence logic.
+ */
+export abstract class BaseScheduleCalculator {
+  protected readonly now: Date;
+  protected readonly nowBkk: BangkokDateComponents;
+
+  constructor(now: Date = new Date()) {
+    this.now = now;
+    this.nowBkk = getBangkokComponents(now);
+  }
+
+  /**
+   * Computes the next scheduled trigger Date in UTC for Asia/Bangkok context.
+   */
+  abstract calculateNextFireTime(): Date | null;
+
+  /**
+   * Helper to check if a candidate Date in Asia/Bangkok is strictly in the future relative to `now`.
+   */
+  protected isFuture(candidate: Date): boolean {
+    return candidate.getTime() > this.now.getTime();
+  }
+
+  /**
+   * Finds the next matching weekly date given target hours, minutes, and allowed days of week.
+   */
+  protected calculateNextWeeklyDate(
+    hours: number,
+    minutes: number,
+    daysOfWeek?: number[],
+    checkToday = true,
+  ): Date | null {
+    const targetDays =
+      daysOfWeek && daysOfWeek.length > 0
+        ? daysOfWeek.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+        : [this.nowBkk.dayOfWeek];
+
+    if (targetDays.length === 0) {
+      return null;
+    }
+
+    if (checkToday) {
+      const candidateToday = createBangkokDate(
+        this.nowBkk.year,
+        this.nowBkk.month,
+        this.nowBkk.day,
+        hours,
+        minutes,
+        0,
+        0,
+      );
+      if (targetDays.includes(this.nowBkk.dayOfWeek) && this.isFuture(candidateToday)) {
+        return candidateToday;
+      }
+    }
+
+    for (let i = 1; i <= 7; i++) {
+      const candidate = createBangkokDate(
+        this.nowBkk.year,
+        this.nowBkk.month,
+        this.nowBkk.day + i,
+        hours,
+        minutes,
+        0,
+        0,
+      );
+      const candidateBkk = getBangkokComponents(candidate);
+      if (targetDays.includes(candidateBkk.dayOfWeek)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Finds the next matching monthly date given target hours, minutes, and target day of month.
+   */
+  protected calculateNextMonthlyDate(
+    hours: number,
+    minutes: number,
+    dayOfMonth?: number,
+    checkToday = true,
+  ): Date | null {
+    const targetDay = dayOfMonth ?? this.nowBkk.day;
+
+    if (checkToday) {
+      const candidateToday = createBangkokDate(
+        this.nowBkk.year,
+        this.nowBkk.month,
+        this.nowBkk.day,
+        hours,
+        minutes,
+        0,
+        0,
+      );
+      if (this.nowBkk.day === targetDay && this.isFuture(candidateToday)) {
+        return candidateToday;
+      }
+    }
+
+    let nextYear = this.nowBkk.year;
+    let nextMonth = this.nowBkk.month + 1;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear++;
+    }
+
+    const maxDays = getDaysInMonth(nextYear, nextMonth);
+    const clampedDay = Math.min(Math.max(1, targetDay), maxDays);
+
+    return createBangkokDate(nextYear, nextMonth, clampedDay, hours, minutes, 0, 0);
+  }
+}
+
+export interface AlarmScheduleParams {
+  time?: string | null;
+  recurrence?: Recurrence;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+}
+
+/**
+ * Schedule calculator for alarm entities specified with 24h "HH:mm" time strings.
+ */
+export class AlarmScheduleCalculator extends BaseScheduleCalculator {
+  private readonly params: AlarmScheduleParams;
+
+  constructor(params: AlarmScheduleParams, now: Date = new Date()) {
+    super(now);
+    this.params = params;
+  }
+
+  calculateNextFireTime(): Date | null {
+    if (!this.params.time) {
+      return null;
+    }
+
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(this.params.time.trim());
+    if (!match) {
+      return null;
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    const recurrence = this.params.recurrence ?? 'once';
+
+    if (recurrence === 'weekly') {
+      return this.calculateNextWeeklyDate(hours, minutes, this.params.daysOfWeek, true);
+    }
+
+    if (recurrence === 'monthly') {
+      return this.calculateNextMonthlyDate(hours, minutes, this.params.dayOfMonth, true);
+    }
+
+    // Recurrence 'once' or 'daily'
+    const candidateToday = createBangkokDate(
+      this.nowBkk.year,
+      this.nowBkk.month,
+      this.nowBkk.day,
+      hours,
+      minutes,
+      0,
+      0,
+    );
+
+    if (this.isFuture(candidateToday)) {
+      return candidateToday;
+    }
+
+    return createBangkokDate(
+      this.nowBkk.year,
+      this.nowBkk.month,
+      this.nowBkk.day + 1,
+      hours,
+      minutes,
+      0,
+      0,
+    );
+  }
+}
+
+export interface ReminderScheduleParams {
+  scheduledAt?: string | Date | null;
+  recurrence?: Recurrence;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  fallbackMinutes?: number;
+}
+
+/**
+ * Schedule calculator for reminder entities specified with ISO date strings or Timestamps.
+ */
+export class ReminderScheduleCalculator extends BaseScheduleCalculator {
+  private readonly params: ReminderScheduleParams;
+
+  constructor(params: ReminderScheduleParams, now: Date = new Date()) {
+    super(now);
+    this.params = params;
+  }
+
+  calculateNextFireTime(): Date | null {
+    const fallbackMs = (this.params.fallbackMinutes ?? 10) * 60 * 1000;
+    const defaultDate = new Date(this.now.getTime() + fallbackMs);
+
+    if (!this.params.scheduledAt) {
+      return defaultDate;
+    }
+
+    if (typeof this.params.scheduledAt === 'string' && !this.params.scheduledAt.trim()) {
+      return defaultDate;
+    }
+
+    const target =
+      this.params.scheduledAt instanceof Date
+        ? this.params.scheduledAt
+        : parseBangkokDateTime(this.params.scheduledAt);
+
+    if (!target || isNaN(target.getTime())) {
+      return defaultDate;
+    }
+
+    if (this.isFuture(target)) {
+      return target;
+    }
+
+    const recurrence = this.params.recurrence ?? 'once';
+
+    if (recurrence === 'weekly' || recurrence === 'monthly') {
+      const next = calculateNextOccurrence({
+        recurrence,
+        scheduledAt: target,
+        daysOfWeek: this.params.daysOfWeek,
+        dayOfMonth: this.params.dayOfMonth,
+        fromDate: this.now,
+      });
+      if (next) {
+        return next;
+      }
+    }
+
+    // Single or daily reminder: shift target times that fall in the past forward by 24 hours
+    let fireAt = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+    while (fireAt.getTime() <= this.now.getTime()) {
+      fireAt = new Date(fireAt.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    return fireAt;
+  }
 }

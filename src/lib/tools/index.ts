@@ -1,7 +1,13 @@
 import type { IntentClassification } from '@/types/jev';
-import type { UserDoc } from '@/types/firestore';
+import type { UserDoc, PendingActionDoc } from '@/types/firestore';
+import { pendingActionsRef } from '@/lib/firebase/collections';
 import { handleSetAlarm, type HandleSetAlarmOptions } from './alarm';
-import { handleSetReminder, type HandleSetReminderOptions } from './reminder';
+import {
+  handleSetReminder,
+  handleConfirmReminder,
+  type HandleSetReminderOptions,
+  type HandleConfirmReminderOptions,
+} from './reminder';
 import {
   handleSaveNote,
   handleConfirmNote,
@@ -31,6 +37,7 @@ export interface ExecuteToolOptions {
   reminderOptions?: HandleSetReminderOptions;
   noteOptions?: HandleSaveNoteOptions;
   confirmNoteOptions?: HandleConfirmNoteOptions;
+  confirmReminderOptions?: HandleConfirmReminderOptions;
   cancelActionOptions?: HandleCancelActionOptions;
   listOptions?: HandleListItemsOptions;
   deleteOptions?: HandleDeleteItemOptions;
@@ -52,6 +59,7 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     reminderOptions,
     noteOptions,
     confirmNoteOptions,
+    confirmReminderOptions,
     cancelActionOptions,
     listOptions,
     deleteOptions,
@@ -78,11 +86,22 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
         ...noteOptions,
       });
 
-    case 'confirm_action':
+    case 'confirm_action': {
+      try {
+        const snap = await pendingActionsRef(user.lineUserId).doc('current').get();
+        const pendingType = snap.exists ? (snap.data() as PendingActionDoc)?.type : null;
+        if (pendingType === 'confirm_reminder') {
+          return handleConfirmReminder(user, {
+            now,
+            ...confirmReminderOptions,
+          });
+        }
+      } catch {}
       return handleConfirmNote(user, {
         now,
         ...confirmNoteOptions,
       });
+    }
 
     case 'cancel_action':
       return handleCancelAction(user, {
