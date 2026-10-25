@@ -9,6 +9,7 @@ export interface LiffContextType {
   displayName: string | null;
   language: string;
   isInClient: boolean;
+  idToken: string | null;
   error: Error | null;
 }
 
@@ -18,6 +19,7 @@ export const MOCK_USER: LiffContextType = {
   displayName: 'คุณยายสมศรี',
   language: 'th',
   isInClient: false,
+  idToken: 'mock-token-123',
   error: null,
 };
 
@@ -27,6 +29,7 @@ const LiffContext = createContext<LiffContextType>({
   displayName: null,
   language: 'th',
   isInClient: false,
+  idToken: null,
   error: null,
 });
 
@@ -43,6 +46,7 @@ export function LiffProvider({ children }: { children: ReactNode }) {
     displayName: null,
     language: 'th',
     isInClient: false,
+    idToken: null,
     error: null,
   });
 
@@ -82,6 +86,13 @@ export function LiffProvider({ children }: { children: ReactNode }) {
 
         const profile = await liff.getProfile();
         const lang = liff.getLanguage();
+        let idToken: string | null = null;
+        try {
+          idToken = liff.getIDToken();
+        } catch {
+          idToken = null;
+        }
+
         if (isMounted) {
           setState({
             isReady: true,
@@ -89,6 +100,7 @@ export function LiffProvider({ children }: { children: ReactNode }) {
             displayName: profile.displayName,
             language: lang === 'en' ? 'en' : 'th',
             isInClient: liff.isInClient(),
+            idToken,
             error: null,
           });
         }

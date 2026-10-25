@@ -13,10 +13,20 @@ export interface LiffItemsData {
 export function useLiffData<T = LiffItemsData>(
   type: 'alarms' | 'reminders' | 'notes' | 'all' = 'all',
 ) {
-  const { userId, isReady } = useLiff();
+  const { userId, idToken, isReady } = useLiff();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    if (idToken) {
+      headers['Authorization'] = `Bearer ${idToken}`;
+    } else if (process.env.NODE_ENV !== 'production' && userId?.startsWith('mock-')) {
+      headers['x-line-userid'] = userId;
+    }
+    return headers;
+  }, [idToken, userId]);
 
   const refresh = useCallback(async () => {
     if (!userId) {
@@ -27,9 +37,7 @@ export function useLiffData<T = LiffItemsData>(
     setError(null);
     try {
       const res = await fetch(`/api/liff/items?type=${type}`, {
-        headers: {
-          'x-line-userid': userId,
-        },
+        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         let msg = res.statusText;
@@ -50,7 +58,7 @@ export function useLiffData<T = LiffItemsData>(
     } finally {
       setLoading(false);
     }
-  }, [userId, type]);
+  }, [userId, type, getAuthHeaders]);
 
   useEffect(() => {
     if (isReady) {
@@ -64,9 +72,7 @@ export function useLiffData<T = LiffItemsData>(
       try {
         const res = await fetch(`/api/liff/items/${id}?type=${itemType}`, {
           method: 'DELETE',
-          headers: {
-            'x-line-userid': userId,
-          },
+          headers: getAuthHeaders(),
         });
         if (!res.ok) {
           let msg = res.statusText;
@@ -86,7 +92,7 @@ export function useLiffData<T = LiffItemsData>(
         throw errorObj;
       }
     },
-    [userId, refresh],
+    [userId, refresh, getAuthHeaders],
   );
 
   return { data, loading, error, refresh, deleteItem };
