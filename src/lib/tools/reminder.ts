@@ -1,8 +1,8 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { remindersRef } from '@/lib/firebase/collections';
-import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
+import { saveAndScheduleTask } from '@/lib/scheduler/cloud-tasks';
 import { extractReminderParams } from '@/lib/ai/parameter-extractor';
-import { calculateNextOccurrence, getBangkokComponents } from '@/lib/utils/recurrence';
+import { ReminderScheduleCalculator, getBangkokComponents } from '@/lib/utils/recurrence';
 import type { ReminderDoc, UserDoc } from '@/types/firestore';
 import type { ReminderParams } from '@/types/jev';
 import type { ToolResult } from './index';
@@ -16,50 +16,13 @@ export interface HandleSetReminderOptions {
 }
 
 /**
- * Calculates the next trigger timestamp for a reminder.
- * If the target time falls in the past:
- * - For weekly/monthly recurrences, calculates the next upcoming cycle.
- * - For once/daily, shifts target time forward by 24 hours.
- * If scheduledAt is unspecified or invalid, defaults to 10 minutes from now.
+ * Calculates the next trigger timestamp for a reminder using ReminderScheduleCalculator.
  */
 export function calculateReminderFireTime(
   params: Partial<ReminderParams>,
   now: Date = new Date(),
 ): Date | null {
-  if (!params.scheduledAt || !params.scheduledAt.trim()) {
-    return new Date(now.getTime() + 10 * 60 * 1000);
-  }
-
-  const target = new Date(params.scheduledAt);
-  if (isNaN(target.getTime())) {
-    return new Date(now.getTime() + 10 * 60 * 1000);
-  }
-
-  if (target.getTime() > now.getTime()) {
-    return target;
-  }
-
-  // Recurrence handling for weekly or monthly schedules
-  if (params.recurrence === 'weekly' || params.recurrence === 'monthly') {
-    const next = calculateNextOccurrence({
-      recurrence: params.recurrence,
-      scheduledAt: target,
-      daysOfWeek: params.daysOfWeek,
-      dayOfMonth: params.dayOfMonth,
-      fromDate: now,
-    });
-    if (next) {
-      return next;
-    }
-  }
-
-  // Single or daily reminder: shift target times that fall in the past forward by 24 hours
-  let fireAt = new Date(target.getTime() + 24 * 60 * 60 * 1000);
-  while (fireAt.getTime() <= now.getTime()) {
-    fireAt = new Date(fireAt.getTime() + 24 * 60 * 60 * 1000);
-  }
-
-  return fireAt;
+  return new ReminderScheduleCalculator(params, now).calculateNextFireTime();
 }
 
 /**
@@ -112,16 +75,15 @@ export async function handleSetReminder(
   }
 
   try {
-    const docRef = await remindersRef(user.lineUserId).add(reminderData);
-
-    const taskName = await scheduleNotification({
-      userId: user.lineUserId,
-      itemId: docRef.id,
-      itemType: 'reminder',
-      fireAt,
+    const { docRef, taskName } = await saveAndScheduleTask({
+      collectionRef: remindersRef(user.lineUserId),
+      data: reminderData,
+      schedule: {
+        userId: user.lineUserId,
+        itemType: 'reminder',
+        fireAt,
+      },
     });
-
-    await docRef.update({ cloudTaskName: taskName });
 
     const fireBkk = getBangkokComponents(fireAt);
     const pad = (n: number) => n.toString().padStart(2, '0');

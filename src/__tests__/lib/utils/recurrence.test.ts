@@ -4,6 +4,8 @@ import {
   createBangkokDate,
   getBangkokComponents,
   getDaysInMonth,
+  AlarmScheduleCalculator,
+  ReminderScheduleCalculator,
 } from '@/lib/utils/recurrence';
 
 describe('Recurrence Calculation Utility (SCHED-02)', () => {
@@ -214,6 +216,66 @@ describe('Recurrence Calculation Utility (SCHED-02)', () => {
       });
 
       expect(next).toBeNull();
+    });
+  });
+
+  describe('AlarmScheduleCalculator', () => {
+    it('schedules for today if target time has not yet passed', () => {
+      const now = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const calculator = new AlarmScheduleCalculator({ time: '09:00', recurrence: 'once' }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).not.toBeNull();
+      const fireBkk = getBangkokComponents(fireAt!);
+      expect(fireBkk.day).toBe(16);
+      expect(fireBkk.hours).toBe(9);
+    });
+
+    it('rolls over to tomorrow if target time has already passed today', () => {
+      const now = createBangkokDate(2026, 10, 16, 10, 0, 0);
+      const calculator = new AlarmScheduleCalculator({ time: '07:00', recurrence: 'daily' }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).not.toBeNull();
+      const fireBkk = getBangkokComponents(fireAt!);
+      expect(fireBkk.day).toBe(17);
+      expect(fireBkk.hours).toBe(7);
+    });
+
+    it('returns null for invalid time format', () => {
+      const calculator = new AlarmScheduleCalculator({ time: 'invalid' });
+      expect(calculator.calculateNextFireTime()).toBeNull();
+    });
+  });
+
+  describe('ReminderScheduleCalculator', () => {
+    it('returns future scheduledAt as-is', () => {
+      const now = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const scheduledAt = createBangkokDate(2026, 10, 16, 12, 0, 0);
+      const calculator = new ReminderScheduleCalculator({ scheduledAt }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).toEqual(scheduledAt);
+    });
+
+    it('defaults to 10 minutes fallback when scheduledAt is missing', () => {
+      const now = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const calculator = new ReminderScheduleCalculator({}, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).toEqual(new Date(now.getTime() + 10 * 60 * 1000));
+    });
+
+    it('shifts overdue single reminder forward by 24 hours', () => {
+      const now = createBangkokDate(2026, 10, 16, 10, 0, 0);
+      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0);
+      const calculator = new ReminderScheduleCalculator({ scheduledAt, recurrence: 'once' }, now);
+      const fireAt = calculator.calculateNextFireTime();
+
+      expect(fireAt).not.toBeNull();
+      const fireBkk = getBangkokComponents(fireAt!);
+      expect(fireBkk.day).toBe(17);
+      expect(fireBkk.hours).toBe(8);
     });
   });
 });
