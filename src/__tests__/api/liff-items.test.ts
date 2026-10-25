@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { GET } from '@/app/api/liff/items/route';
 import { DELETE } from '@/app/api/liff/items/[id]/route';
 import { alarmsRef, remindersRef, notesRef } from '@/lib/firebase/collections';
 import { cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { auth } from '@/lib/firebase/admin';
+import { verifyLineIdToken } from '@/lib/line/verify-token';
 
 vi.mock('@/lib/firebase/admin', () => ({
   auth: {
@@ -13,6 +14,10 @@ vi.mock('@/lib/firebase/admin', () => ({
   db: {
     collection: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/line/verify-token', () => ({
+  verifyLineIdToken: vi.fn(),
 }));
 
 vi.mock('@/lib/firebase/collections', () => ({
@@ -25,11 +30,17 @@ vi.mock('@/lib/scheduler/cloud-tasks', () => ({
   cancelScheduledTask: vi.fn(),
 }));
 
-describe('LIFF Items API Routes (FE-01)', () => {
+describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
   const TEST_USER_ID = 'test-line-user-123';
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   describe('GET /api/liff/items', () => {
@@ -41,7 +52,11 @@ describe('LIFF Items API Routes (FE-01)', () => {
       expect(data).toEqual({ error: 'Unauthorized' });
     });
 
-    it('returns active alarms, pending reminders, and notes when authenticated via x-line-userid', async () => {
+    it('returns active alarms, pending reminders, and notes when authenticated via LINE Bearer token (S1 & S4)', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({
+        lineUserId: TEST_USER_ID,
+      });
+
       const mockAlarms = [{ id: 'a1', time: '08:00', enabled: true }];
       const mockReminders = [{ id: 'r1', message: 'Take pills', status: 'pending' }];
       const mockNotes = [{ id: 'n1', content: 'Doctor visit' }];
@@ -73,7 +88,7 @@ describe('LIFF Items API Routes (FE-01)', () => {
       vi.mocked(notesRef).mockReturnValue(notesQuery as any);
 
       const request = new NextRequest('http://localhost:3000/api/liff/items', {
-        headers: { 'x-line-userid': TEST_USER_ID },
+        headers: { authorization: 'Bearer valid-line-id-token' },
       });
 
       const response = await GET(request);
@@ -84,10 +99,17 @@ describe('LIFF Items API Routes (FE-01)', () => {
         reminders: mockReminders,
         notes: mockNotes,
       });
+      expect(alarmsRef).toHaveBeenCalledWith(TEST_USER_ID);
+      expect(remindersRef).toHaveBeenCalledWith(TEST_USER_ID);
+      expect(notesRef).toHaveBeenCalledWith(TEST_USER_ID);
     });
 
-    it('returns only alarms when type=alarms and authenticates via Bearer token', async () => {
-      vi.mocked(auth.verifyIdToken).mockResolvedValue({ uid: TEST_USER_ID } as any);
+    it('returns only alarms when type=alarms and authenticates via Firebase ID token with lineUserId claim (S4)', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce(null);
+      vi.mocked(auth.verifyIdToken).mockResolvedValue({
+        uid: 'firebase-uid-999',
+        lineUserId: TEST_USER_ID,
+      } as any);
 
       const alarmsQuery = {
         where: vi.fn().mockReturnThis(),
@@ -108,11 +130,42 @@ describe('LIFF Items API Routes (FE-01)', () => {
       expect(data).toEqual({
         alarms: [{ id: 'a2', time: '12:00', enabled: true }],
       });
+      expect(alarmsRef).toHaveBeenCalledWith(TEST_USER_ID);
       expect(remindersRef).not.toHaveBeenCalled();
       expect(notesRef).not.toHaveBeenCalled();
     });
 
-    it('returns mock data without accessing Firestore when user is mock-user-123', async () => {
+    it('strictly rejects unverified x-line-userid in production mode (S1)', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+
+      const request = new NextRequest('http://localhost:3000/api/liff/items', {
+        headers: { 'x-line-userid': TEST_USER_ID },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(401);
+      const data = await response.json();
+      expect(data).toEqual({ error: 'Unauthorized' });
+      expect(alarmsRef).not.toHaveBeenCalled();
+    });
+
+    it('strictly rejects mock-user-123 in production mode (S3)', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+
+      const request = new NextRequest('http://localhost:3000/api/liff/items', {
+        headers: { 'x-line-userid': 'mock-user-123' },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(401);
+      const data = await response.json();
+      expect(data).toEqual({ error: 'Unauthorized' });
+      expect(alarmsRef).not.toHaveBeenCalled();
+    });
+
+    it('returns mock data without accessing Firestore in non-production when user is mock-user-123 (S3)', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+
       const request = new NextRequest('http://localhost:3000/api/liff/items', {
         headers: { 'x-line-userid': 'mock-user-123' },
       });
@@ -139,15 +192,19 @@ describe('LIFF Items API Routes (FE-01)', () => {
     });
 
     it('returns 400 when item type is invalid or missing', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
+
       const request = new NextRequest('http://localhost:3000/api/liff/items/item1?type=invalid', {
         method: 'DELETE',
-        headers: { 'x-line-userid': TEST_USER_ID },
+        headers: { authorization: 'Bearer valid-line-token' },
       });
       const response = await DELETE(request, { params: Promise.resolve({ id: 'item1' }) });
       expect(response.status).toBe(400);
     });
 
     it('returns 404 when item does not exist', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
+
       const docMock = {
         get: vi.fn().mockResolvedValue({ exists: false }),
       };
@@ -157,13 +214,15 @@ describe('LIFF Items API Routes (FE-01)', () => {
 
       const request = new NextRequest('http://localhost:3000/api/liff/items/item1?type=alarm', {
         method: 'DELETE',
-        headers: { 'x-line-userid': TEST_USER_ID },
+        headers: { authorization: 'Bearer valid-line-token' },
       });
       const response = await DELETE(request, { params: Promise.resolve({ id: 'item1' }) });
       expect(response.status).toBe(404);
     });
 
-    it('cancels cloud task and permanently deletes note', async () => {
+    it('cancels cloud task and permanently deletes note when authenticated via Bearer token', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
+
       const docMock = {
         get: vi.fn().mockResolvedValue({
           exists: true,
@@ -177,7 +236,7 @@ describe('LIFF Items API Routes (FE-01)', () => {
 
       const request = new NextRequest('http://localhost:3000/api/liff/items/n1?type=note', {
         method: 'DELETE',
-        headers: { 'x-line-userid': TEST_USER_ID },
+        headers: { authorization: 'Bearer valid-line-token' },
       });
 
       const response = await DELETE(request, { params: Promise.resolve({ id: 'n1' }) });
@@ -187,6 +246,8 @@ describe('LIFF Items API Routes (FE-01)', () => {
     });
 
     it('cancels cloud task and soft-disables alarm (enabled: false)', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
+
       const docMock = {
         get: vi.fn().mockResolvedValue({
           exists: true,
@@ -200,7 +261,7 @@ describe('LIFF Items API Routes (FE-01)', () => {
 
       const request = new NextRequest('http://localhost:3000/api/liff/items/a1?type=alarm', {
         method: 'DELETE',
-        headers: { 'x-line-userid': TEST_USER_ID },
+        headers: { authorization: 'Bearer valid-line-token' },
       });
 
       const response = await DELETE(request, { params: Promise.resolve({ id: 'a1' }) });
@@ -210,6 +271,8 @@ describe('LIFF Items API Routes (FE-01)', () => {
     });
 
     it('cancels cloud task and soft-disables reminder (status: done, enabled: false)', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
+
       const docMock = {
         get: vi.fn().mockResolvedValue({
           exists: true,
@@ -223,7 +286,7 @@ describe('LIFF Items API Routes (FE-01)', () => {
 
       const request = new NextRequest('http://localhost:3000/api/liff/items/r1?type=reminder', {
         method: 'DELETE',
-        headers: { 'x-line-userid': TEST_USER_ID },
+        headers: { authorization: 'Bearer valid-line-token' },
       });
 
       const response = await DELETE(request, { params: Promise.resolve({ id: 'r1' }) });
@@ -232,7 +295,29 @@ describe('LIFF Items API Routes (FE-01)', () => {
       expect(docMock.update).toHaveBeenCalledWith({ status: 'done', enabled: false });
     });
 
-    it('deletes mock items and returns 200 for mock-user-123', async () => {
+    it('strictly rejects mock delete in production mode (S3)', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/liff/items/mock-alarm-1?type=alarm',
+        {
+          method: 'DELETE',
+          headers: { 'x-line-userid': 'mock-user-123' },
+        },
+      );
+
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: 'mock-alarm-1' }),
+      });
+      expect(response.status).toBe(401);
+      const data = await response.json();
+      expect(data).toEqual({ error: 'Unauthorized' });
+      expect(alarmsRef).not.toHaveBeenCalled();
+    });
+
+    it('deletes mock items and returns 200 for mock-user-123 in non-production (S3)', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+
       const request = new NextRequest(
         'http://localhost:3000/api/liff/items/mock-alarm-1?type=alarm',
         {
@@ -250,7 +335,9 @@ describe('LIFF Items API Routes (FE-01)', () => {
       expect(alarmsRef).not.toHaveBeenCalled();
     });
 
-    it('returns 404 when deleting nonexistent mock item for mock-user-123', async () => {
+    it('returns 404 when deleting nonexistent mock item for mock-user-123 in non-production (S3)', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+
       const request = new NextRequest(
         'http://localhost:3000/api/liff/items/non-existent-item?type=alarm',
         {
