@@ -18,6 +18,31 @@ export interface CancelScheduledTaskOptions {
   client?: CloudTasksClient;
 }
 
+export interface ScheduleTaskConfig {
+  userId: string;
+  itemType: 'alarm' | 'reminder';
+  fireAt: Date;
+  payload?: Record<string, unknown>;
+}
+
+export interface SaveAndScheduleTaskOptions<T = Record<string, unknown>> {
+  collectionRef: {
+    add: (data: T) => Promise<{
+      id: string;
+      update: (data: Record<string, unknown>) => Promise<unknown>;
+      delete?: () => Promise<unknown>;
+    }>;
+  };
+  data: T;
+  schedule: ScheduleTaskConfig;
+  scheduleNotificationFn?: typeof scheduleNotification;
+}
+
+export interface SaveAndScheduleTaskResult<TDocRef> {
+  docRef: TDocRef;
+  taskName: string;
+}
+
 /**
  * Derives configuration options for CloudTasksClient initialization,
  * ingesting JSON credentials if provided.
@@ -72,7 +97,7 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
   } = opts;
 
   const parent = client.queuePath(projectId, location, queueId);
-  const sanitizedAppUrl = appUrl.replace(/\/$/, '');
+  const sanitizedAppUrl = appUrl.replace(/\/+$/, '');
   const url = `${sanitizedAppUrl}/api/notify`;
 
   const taskPayload = {
@@ -103,6 +128,57 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
   });
 
   return task.name ?? '';
+}
+
+/**
+ * Saves a document to a Firestore collection, schedules its corresponding Cloud Task,
+ * and updates the document with the resulting task resource name.
+ * If scheduling or updating fails, rolls back the document creation by deleting it.
+ */
+export async function saveAndScheduleTask<
+  T extends Record<string, unknown>,
+  TDocRef extends {
+    id: string;
+    update: (data: Record<string, unknown>) => Promise<unknown>;
+    delete?: () => Promise<unknown>;
+  } = {
+    id: string;
+    update: (data: Record<string, unknown>) => Promise<unknown>;
+    delete?: () => Promise<unknown>;
+  },
+>(options: SaveAndScheduleTaskOptions<T>): Promise<SaveAndScheduleTaskResult<TDocRef>> {
+  const { collectionRef, data, schedule, scheduleNotificationFn = scheduleNotification } = options;
+
+  const docRef = (await collectionRef.add(data)) as unknown as TDocRef;
+
+  try {
+    const taskName = await scheduleNotificationFn({
+      userId: schedule.userId,
+      itemId: docRef.id,
+      itemType: schedule.itemType,
+      fireAt: schedule.fireAt,
+      payload: schedule.payload,
+    });
+
+    await docRef.update({ cloudTaskName: taskName });
+
+    return {
+      docRef,
+      taskName,
+    };
+  } catch (scheduleError) {
+    if (typeof docRef.delete === 'function') {
+      try {
+        await docRef.delete();
+      } catch (rollbackError) {
+        console.error(
+          '[saveAndScheduleTask] Failed to roll back document after scheduling failure:',
+          rollbackError,
+        );
+      }
+    }
+    throw scheduleError;
+  }
 }
 
 /**

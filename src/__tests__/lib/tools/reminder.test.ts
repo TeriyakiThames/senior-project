@@ -18,6 +18,24 @@ vi.mock('@/lib/firebase/collections', () => ({
 
 vi.mock('@/lib/scheduler/cloud-tasks', () => ({
   scheduleNotification: vi.fn(),
+  saveAndScheduleTask: vi.fn(async ({ collectionRef, data, schedule }) => {
+    const docRef = await collectionRef.add(data);
+    try {
+      const taskName = await tasks.scheduleNotification({
+        userId: schedule.userId,
+        itemId: docRef.id,
+        itemType: schedule.itemType,
+        fireAt: schedule.fireAt,
+      });
+      await docRef.update({ cloudTaskName: taskName });
+      return { docRef, taskName };
+    } catch (err) {
+      if (typeof docRef.delete === 'function') {
+        await docRef.delete();
+      }
+      throw err;
+    }
+  }),
 }));
 
 vi.mock('@/lib/ai/parameter-extractor', () => ({
@@ -106,7 +124,7 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
       expect(fireAt).not.toBeNull();
       const fireBkk = getBangkokComponents(fireAt!);
       expect(fireBkk.dayOfWeek).toBe(5);
-      expect(fireBkk.day).toBe(23); // Next Friday Oct 23
+      expect(fireBkk.day).toBe(23); // Next Friday Oct 23, 2026
       expect(fireBkk.hours).toBe(8);
     });
   });
@@ -118,9 +136,11 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
       const mockTaskName = 'projects/p/locations/l/queues/q/tasks/reminder-task-999';
 
       const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
       const mockAdd = vi.fn().mockResolvedValue({
         id: mockDocId,
         update: mockUpdate,
+        delete: mockDelete,
       });
 
       vi.mocked(collections.remindersRef).mockReturnValue({
@@ -164,6 +184,40 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
 
       // Verify task name link update
       expect(mockUpdate).toHaveBeenCalledWith({ cloudTaskName: mockTaskName });
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('rolls back created document when scheduling Cloud Task fails', async () => {
+      const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
+      const mockDocId = 'reminder-doc-fail';
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockAdd = vi.fn().mockResolvedValue({
+        id: mockDocId,
+        update: mockUpdate,
+        delete: mockDelete,
+      });
+
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        add: mockAdd,
+      } as unknown as ReturnType<typeof collections.remindersRef>);
+
+      vi.mocked(tasks.scheduleNotification).mockRejectedValue(new Error('Cloud Tasks down'));
+
+      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
+      const result = await handleSetReminder('เตือนกินยา', '', mockUser, {
+        now,
+        params: {
+          message: 'กินยา',
+          scheduledAt,
+          recurrence: 'once',
+        },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('เกิดข้อผิดพลาดในการตั้งเตือน กรุณาลองใหม่อีกครั้งค่ะ');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
     });
 
     it('extracts parameters using extractReminderParams when params option is omitted', async () => {
@@ -172,6 +226,7 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
       const mockAdd = vi.fn().mockResolvedValue({
         id: 'reminder-doc-456',
         update: mockUpdate,
+        delete: vi.fn().mockResolvedValue(undefined),
       });
 
       vi.mocked(collections.remindersRef).mockReturnValue({

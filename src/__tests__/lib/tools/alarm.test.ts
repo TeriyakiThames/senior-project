@@ -14,6 +14,24 @@ vi.mock('@/lib/firebase/collections', () => ({
 
 vi.mock('@/lib/scheduler/cloud-tasks', () => ({
   scheduleNotification: vi.fn(),
+  saveAndScheduleTask: vi.fn(async ({ collectionRef, data, schedule }) => {
+    const docRef = await collectionRef.add(data);
+    try {
+      const taskName = await tasks.scheduleNotification({
+        userId: schedule.userId,
+        itemId: docRef.id,
+        itemType: schedule.itemType,
+        fireAt: schedule.fireAt,
+      });
+      await docRef.update({ cloudTaskName: taskName });
+      return { docRef, taskName };
+    } catch (err) {
+      if (typeof docRef.delete === 'function') {
+        await docRef.delete();
+      }
+      throw err;
+    }
+  }),
 }));
 
 vi.mock('@/lib/ai/parameter-extractor', () => ({
@@ -91,9 +109,11 @@ describe('Alarm Tool Handler (SCHED-03)', () => {
       const mockTaskName = 'projects/p/locations/l/queues/q/tasks/task-999';
 
       const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
       const mockAdd = vi.fn().mockResolvedValue({
         id: mockDocId,
         update: mockUpdate,
+        delete: mockDelete,
       });
 
       vi.mocked(collections.alarmsRef).mockReturnValue({
@@ -135,6 +155,35 @@ describe('Alarm Tool Handler (SCHED-03)', () => {
 
       // Verify task name link update
       expect(mockUpdate).toHaveBeenCalledWith({ cloudTaskName: mockTaskName });
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('rolls back created document when scheduling Cloud Task fails', async () => {
+      const now = createBangkokDate(2026, 10, 16, 6, 0, 0);
+      const mockDocId = 'alarm-doc-fail';
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockAdd = vi.fn().mockResolvedValue({
+        id: mockDocId,
+        update: mockUpdate,
+        delete: mockDelete,
+      });
+
+      vi.mocked(collections.alarmsRef).mockReturnValue({
+        add: mockAdd,
+      } as unknown as ReturnType<typeof collections.alarmsRef>);
+
+      vi.mocked(tasks.scheduleNotification).mockRejectedValue(new Error('Cloud Tasks down'));
+
+      const result = await handleSetAlarm('ตั้งปลุก 7 โมงเช้า', '', mockUser, {
+        now,
+        params: { time: '07:00', recurrence: 'once' },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('เกิดข้อผิดพลาดในการตั้งปลุก กรุณาลองใหม่อีกครั้งค่ะ');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
     });
 
     it('extracts parameters using extractAlarmParams when params option is not passed', async () => {
@@ -143,6 +192,7 @@ describe('Alarm Tool Handler (SCHED-03)', () => {
       const mockAdd = vi.fn().mockResolvedValue({
         id: 'alarm-doc-456',
         update: mockUpdate,
+        delete: vi.fn().mockResolvedValue(undefined),
       });
 
       vi.mocked(collections.alarmsRef).mockReturnValue({
