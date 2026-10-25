@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   handleSetReminder,
+  handleConfirmReminder,
+  handleUpdatePendingReminderTime,
   calculateReminderFireTime,
   REMINDER_FALLBACK_MESSAGE,
+  REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE,
 } from '@/lib/tools/reminder';
 import * as collections from '@/lib/firebase/collections';
 import * as tasks from '@/lib/scheduler/cloud-tasks';
@@ -14,6 +17,7 @@ import { createMockUserDoc } from '@/__tests__/mocks';
 
 vi.mock('@/lib/firebase/collections', () => ({
   remindersRef: vi.fn(),
+  pendingActionsRef: vi.fn(),
 }));
 
 vi.mock('@/lib/scheduler/cloud-tasks', () => ({
@@ -42,7 +46,7 @@ vi.mock('@/lib/ai/parameter-extractor', () => ({
   extractReminderParams: vi.fn(),
 }));
 
-describe('Reminder Tool Handler (SCHED-04)', () => {
+describe('Reminder Tool Handler (SCHED-04, LINE-07)', () => {
   const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_REMINDER_001',
     displayName: 'คุณยายใจดี',
@@ -129,25 +133,13 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
     });
   });
 
-  describe('handleSetReminder', () => {
-    it('creates ReminderDoc with status pending, enabled true, schedules task, and links cloudTaskName', async () => {
+  describe('handleSetReminder (Interactive Pre-Confirmation & Draft)', () => {
+    it('creates pending draft in pendingActions and returns Flex confirmation card with datetimepicker', async () => {
       const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
-      const mockDocId = 'reminder-doc-123';
-      const mockTaskName = 'projects/p/locations/l/queues/q/tasks/reminder-task-999';
-
-      const mockUpdate = vi.fn().mockResolvedValue(undefined);
-      const mockDelete = vi.fn().mockResolvedValue(undefined);
-      const mockAdd = vi.fn().mockResolvedValue({
-        id: mockDocId,
-        update: mockUpdate,
-        delete: mockDelete,
-      });
-
-      vi.mocked(collections.remindersRef).mockReturnValue({
-        add: mockAdd,
-      } as unknown as ReturnType<typeof collections.remindersRef>);
-
-      vi.mocked(tasks.scheduleNotification).mockResolvedValue(mockTaskName);
+      const mockSet = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({ set: mockSet }),
+      } as any);
 
       const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
       const result = await handleSetReminder('เตือนกินยาตอน 8 โมงเช้า', '', mockUser, {
@@ -160,97 +152,49 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain('ตั้งเตือน "กินยาหลังอาหาร" เวลา 08:00 น. เรียบร้อยแล้วค่ะ');
-      expect(result.data?.reminderId).toBe(mockDocId);
-      expect(result.data?.cloudTaskName).toBe(mockTaskName);
-
-      // Verify Firestore add call
-      expect(mockAdd).toHaveBeenCalledTimes(1);
-      const addedData = mockAdd.mock.calls[0][0];
-      expect(addedData.message).toBe('กินยาหลังอาหาร');
-      expect(addedData.recurrence).toBe('once');
-      expect(addedData.enabled).toBe(true);
-      expect(addedData.status).toBe('pending');
-      expect(addedData.scheduledAt).toBeInstanceOf(Timestamp);
-      expect(addedData.nextFireAt).toBeInstanceOf(Timestamp);
-
-      // Verify Cloud Task scheduling
-      expect(tasks.scheduleNotification).toHaveBeenCalledWith({
-        userId: mockUser.lineUserId,
-        itemId: mockDocId,
-        itemType: 'reminder',
-        fireAt: expect.any(Date),
-      });
-
-      // Verify task name link update
-      expect(mockUpdate).toHaveBeenCalledWith({ cloudTaskName: mockTaskName });
-      expect(mockDelete).not.toHaveBeenCalled();
+      expect(result.flexMessage).toBeDefined();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'confirm_reminder',
+          data: expect.objectContaining({
+            message: 'กินยาหลังอาหาร',
+          }),
+        }),
+      );
+      // Reminders collection must NOT be written yet
+      expect(collections.remindersRef).not.toHaveBeenCalled();
     });
 
-    it('rolls back created document when scheduling Cloud Task fails', async () => {
+    it('supports autoConfirm option to immediately schedule and save without pre-confirmation card', async () => {
       const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
-      const mockDocId = 'reminder-doc-fail';
+      const mockDocId = 'reminder-doc-auto';
       const mockUpdate = vi.fn().mockResolvedValue(undefined);
-      const mockDelete = vi.fn().mockResolvedValue(undefined);
       const mockAdd = vi.fn().mockResolvedValue({
         id: mockDocId,
-        update: mockUpdate,
-        delete: mockDelete,
-      });
-
-      vi.mocked(collections.remindersRef).mockReturnValue({
-        add: mockAdd,
-      } as unknown as ReturnType<typeof collections.remindersRef>);
-
-      vi.mocked(tasks.scheduleNotification).mockRejectedValue(new Error('Cloud Tasks down'));
-
-      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
-      const result = await handleSetReminder('เตือนกินยา', '', mockUser, {
-        now,
-        params: {
-          message: 'กินยา',
-          scheduledAt,
-          recurrence: 'once',
-        },
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.message).toBe('เกิดข้อผิดพลาดในการตั้งเตือน กรุณาลองใหม่อีกครั้งค่ะ');
-      expect(mockAdd).toHaveBeenCalledTimes(1);
-      expect(mockDelete).toHaveBeenCalledTimes(1);
-    });
-
-    it('extracts parameters using extractReminderParams when params option is omitted', async () => {
-      const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
-      const mockUpdate = vi.fn().mockResolvedValue(undefined);
-      const mockAdd = vi.fn().mockResolvedValue({
-        id: 'reminder-doc-456',
         update: mockUpdate,
         delete: vi.fn().mockResolvedValue(undefined),
       });
 
       vi.mocked(collections.remindersRef).mockReturnValue({
         add: mockAdd,
-      } as unknown as ReturnType<typeof collections.remindersRef>);
-      vi.mocked(tasks.scheduleNotification).mockResolvedValue('reminder-task-456');
+      } as any);
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue('task-auto-123');
 
-      const scheduledAt = createBangkokDate(2026, 10, 16, 18, 0, 0).toISOString();
-      vi.mocked(extractor.extractReminderParams).mockResolvedValue({
-        message: 'ไปหาหมอ',
-        scheduledAt,
-        recurrence: 'once',
-      });
-
-      const result = await handleSetReminder('ช่วยเตือนไปหาหมอ 6 โมงเย็นหน่อยจ้ะ', '', mockUser, {
+      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
+      const result = await handleSetReminder('เตือนกินยาตอน 8 โมงเช้า', '', mockUser, {
         now,
+        autoConfirm: true,
+        params: {
+          message: 'กินยาหลังอาหาร',
+          scheduledAt,
+          recurrence: 'once',
+        },
       });
 
-      expect(extractor.extractReminderParams).toHaveBeenCalledWith(
-        'ช่วยเตือนไปหาหมอ 6 โมงเย็นหน่อยจ้ะ',
-        { now },
-      );
       expect(result.success).toBe(true);
-      expect(result.message).toBe('ตั้งเตือน "ไปหาหมอ" เวลา 18:00 น. เรียบร้อยแล้วค่ะ');
+      expect(result.message).toContain('ตั้งเตือน "กินยาหลังอาหาร" เวลา 08:00 น. เรียบร้อยแล้วค่ะ');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(tasks.scheduleNotification).toHaveBeenCalled();
     });
 
     it('returns polite Thai fallback when parameters cannot be understood', async () => {
@@ -261,27 +205,139 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
       expect(result.success).toBe(false);
       expect(result.message).toBe(REMINDER_FALLBACK_MESSAGE);
       expect(collections.remindersRef).not.toHaveBeenCalled();
-      expect(tasks.scheduleNotification).not.toHaveBeenCalled();
+      expect(collections.pendingActionsRef).not.toHaveBeenCalled();
     });
+  });
 
-    it('returns error result when Firestore throws', async () => {
+  describe('handleConfirmReminder', () => {
+    it('commits reminder to Firestore, schedules Cloud Task, and clears pending action', async () => {
       const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
-      vi.mocked(collections.remindersRef).mockReturnValue({
-        add: vi.fn().mockRejectedValue(new Error('Firestore error')),
-      } as unknown as ReturnType<typeof collections.remindersRef>);
+      const mockDocId = 'reminder-doc-123';
+      const mockTaskName = 'projects/p/locations/l/queues/q/tasks/reminder-task-999';
 
-      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
-      const result = await handleSetReminder('เตือนกินยา', '', mockUser, {
-        now,
-        params: {
-          message: 'กินยา',
-          scheduledAt,
-          recurrence: 'once',
-        },
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockPendingDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            type: 'confirm_reminder',
+            data: {
+              message: 'กินยาความดัน',
+              scheduledAt: createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString(),
+              recurrence: 'once',
+            },
+            expiresAt: Timestamp.fromDate(new Date(now.getTime() + 3 * 60 * 1000)),
+          }),
+        }),
+        delete: mockDelete,
+      };
+
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockPendingDoc),
+      } as any);
+
+      const mockAdd = vi.fn().mockResolvedValue({
+        id: mockDocId,
+        update: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
       });
 
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        add: mockAdd,
+      } as any);
+
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue(mockTaskName);
+
+      const result = await handleConfirmReminder(mockUser, { now });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('ตั้งเตือน "กินยาความดัน" เวลา 08:00 น. เรียบร้อยแล้วค่ะ');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(tasks.scheduleNotification).toHaveBeenCalled();
+    });
+
+    it('returns expired/not-found fallback when pending action does not exist', async () => {
+      const mockPendingDoc = {
+        get: vi.fn().mockResolvedValue({ exists: false }),
+        delete: vi.fn().mockResolvedValue(undefined),
+      };
+
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockPendingDoc),
+      } as any);
+
+      const result = await handleConfirmReminder(mockUser);
+
       expect(result.success).toBe(false);
-      expect(result.message).toContain('เกิดข้อผิดพลาดในการตั้งเตือน');
+      expect(result.message).toBe(REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE);
+    });
+
+    it('returns expired fallback when draft is past 5-minute expiry', async () => {
+      const now = createBangkokDate(2026, 10, 16, 7, 10, 0);
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockPendingDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            type: 'confirm_reminder',
+            data: { message: 'กินยา' },
+            expiresAt: Timestamp.fromDate(createBangkokDate(2026, 10, 16, 7, 5, 0)),
+          }),
+        }),
+        delete: mockDelete,
+      };
+
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockPendingDoc),
+      } as any);
+
+      const result = await handleConfirmReminder(mockUser, { now });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('handleUpdatePendingReminderTime', () => {
+    it('updates scheduledAt and returns updated Flex confirmation card', async () => {
+      const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
+      const mockSet = vi.fn().mockResolvedValue(undefined);
+      const mockPendingDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            type: 'confirm_reminder',
+            data: {
+              message: 'กินยาลดไข้',
+              scheduledAt: createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString(),
+              recurrence: 'once',
+            },
+            expiresAt: Timestamp.fromDate(new Date(now.getTime() + 4 * 60 * 1000)),
+          }),
+        }),
+        set: mockSet,
+      };
+
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockPendingDoc),
+      } as any);
+
+      const newDatetimeIso = createBangkokDate(2026, 10, 16, 10, 30, 0).toISOString();
+      const result = await handleUpdatePendingReminderTime(mockUser, newDatetimeIso, { now });
+
+      expect(result.success).toBe(true);
+      expect(result.flexMessage).toBeDefined();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'confirm_reminder',
+          data: expect.objectContaining({
+            message: 'กินยาลดไข้',
+            scheduledAt: newDatetimeIso,
+          }),
+        }),
+      );
     });
   });
 });

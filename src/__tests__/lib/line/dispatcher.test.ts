@@ -3,6 +3,7 @@ import type { webhook, messagingApi } from '@line/bot-sdk';
 import {
   handleTextMessage,
   handleAudioMessage,
+  handlePostbackEvent,
   handleWebhookEvent,
   processWebhookEvents,
   resolveErrorStage,
@@ -18,8 +19,14 @@ import {
   handleSnooze,
   handleDismiss,
   handleConfirmNote,
+  handleConfirmReminder,
   handleCancelAction,
+  handleUpdatePendingReminderTime,
 } from '@/lib/tools';
+
+const mockPendingGet = vi.fn().mockResolvedValue({ exists: false });
+const mockPendingDoc = vi.fn().mockReturnValue({ get: mockPendingGet });
+const mockPendingRef = vi.fn().mockReturnValue({ doc: mockPendingDoc });
 
 vi.mock('@/lib/line/client', () => ({
   lineClient: {
@@ -53,6 +60,7 @@ vi.mock('@/lib/firebase/collections', () => ({
   saveMessages: vi.fn().mockResolvedValue(undefined),
   messagesRef: vi.fn(),
   userRef: vi.fn(),
+  pendingActionsRef: (...args: unknown[]) => mockPendingRef(...args),
 }));
 
 vi.mock('@/lib/ai/memory', () => ({
@@ -101,15 +109,24 @@ vi.mock('@/lib/tools', () => ({
     success: true,
     message: 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย',
   }),
+  handleConfirmReminder: vi.fn().mockResolvedValue({
+    success: true,
+    message: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.',
+  }),
   handleCancelAction: vi.fn().mockResolvedValue({
     success: true,
     message: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ',
+  }),
+  handleUpdatePendingReminderTime: vi.fn().mockResolvedValue({
+    success: true,
+    message: 'เปลี่ยนเวลาแจ้งเตือนเรียบร้อยแล้วค่ะ',
   }),
 }));
 
 describe('LINE Webhook Dispatcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPendingGet.mockResolvedValue({ exists: false });
   });
 
   describe('handleTextMessage', () => {
@@ -330,6 +347,35 @@ describe('LINE Webhook Dispatcher', () => {
       });
     });
 
+    it('short-circuits reminder confirmation "ยืนยัน" to handleConfirmReminder when pending action is confirm_reminder', async () => {
+      mockPendingGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ type: 'confirm_reminder' }),
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-confirm-rem',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-rem-conf',
+          type: 'text' as const,
+          text: 'ยืนยันเตือน',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(handleConfirmReminder).toHaveBeenCalledWith(expect.any(Object));
+      expect(handleConfirmNote).not.toHaveBeenCalled();
+      expect(generateResponse).not.toHaveBeenCalled();
+      expect(classifyIntent).not.toHaveBeenCalled();
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-confirm-rem',
+        messages: [{ type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' }],
+      });
+    });
+
     it('short-circuits note cancel button "ยกเลิก" directly to handleCancelAction', async () => {
       const event = {
         type: 'message' as const,
@@ -410,7 +456,130 @@ describe('LINE Webhook Dispatcher', () => {
     });
   });
 
+  describe('handlePostbackEvent', () => {
+    it('handles confirm_reminder postback action', async () => {
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-confirm',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=confirm_reminder',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleConfirmReminder).toHaveBeenCalledWith(expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-confirm',
+        messages: [{ type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'ยืนยัน',
+        'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.',
+      );
+    });
+
+    it('handles cancel_reminder postback action', async () => {
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-cancel',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=cancel_reminder',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleCancelAction).toHaveBeenCalledWith(expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-cancel',
+        messages: [{ type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'ยกเลิก',
+        'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ',
+      );
+    });
+
+    it('handles change_reminder_time postback action with datetime parameter', async () => {
+      const updatedFlex: messagingApi.FlexMessage = {
+        type: 'flex',
+        altText: '⏰ ยืนยันเตือน: กินยา เวลา 20:00 น.',
+        contents: { type: 'bubble' },
+      };
+      vi.mocked(handleUpdatePendingReminderTime).mockResolvedValueOnce({
+        success: true,
+        flexMessage: updatedFlex,
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-time',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=change_reminder_time',
+          params: { datetime: '2026-10-26T20:00' },
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleUpdatePendingReminderTime).toHaveBeenCalledWith(
+        expect.any(Object),
+        '2026-10-26T20:00',
+      );
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-time',
+        messages: [updatedFlex],
+      });
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'เปลี่ยนเวลาเป็น 2026-10-26T20:00',
+        '⏰ ยืนยันเตือน: กินยา เวลา 20:00 น.',
+      );
+    });
+
+    it('does not process if replyToken or userId is missing', async () => {
+      const noTokenEvent = {
+        type: 'postback' as const,
+        source: { userId: 'user-123' },
+        postback: { data: 'action=confirm_reminder' },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(noTokenEvent);
+      expect(lineClient.replyMessage).not.toHaveBeenCalled();
+
+      const noUserEvent = {
+        type: 'postback' as const,
+        replyToken: 'token-no-user',
+        postback: { data: 'action=confirm_reminder' },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(noUserEvent);
+      expect(lineClient.replyMessage).not.toHaveBeenCalled();
+    });
+  });
+
   describe('handleWebhookEvent', () => {
+    it('routes postback event to postback handler', async () => {
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-route',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=confirm_reminder',
+        },
+      } as unknown as webhook.Event;
+
+      await handleWebhookEvent(event);
+
+      expect(handleConfirmReminder).toHaveBeenCalledTimes(1);
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+    });
     it('routes text message event to text handler', async () => {
       const event = {
         type: 'message' as const,

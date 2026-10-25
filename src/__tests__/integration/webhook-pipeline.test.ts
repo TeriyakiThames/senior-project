@@ -345,7 +345,8 @@ describe('Webhook Pipeline Integration Suite', () => {
     expect(messages[1].content).toContain('ตั้งปลุก "ตื่นนอน" เวลา 07:00 น. เรียบร้อยแล้วค่ะ');
   });
 
-  it('Flow 2: Reminder creation pipeline (user, memory, intent, tool, reply, history save)', async () => {
+  it('Flow 2: Reminder multi-turn creation pipeline with datetime picker and confirmation', async () => {
+    // --- Turn 1: Reminder Request (produces pre-confirmation card) ---
     vi.mocked(jev.classifyIntent).mockResolvedValue({
       intent: 'set_reminder',
       confidence: 0.94,
@@ -365,7 +366,67 @@ describe('Webhook Pipeline Integration Suite', () => {
     const event = createFakeLineMessageEvent('เตือนกินยาความดันตอน 1 ทุ่มด้วยนะ', 'token-reminder');
     await processWebhookEvents([event]);
 
-    // 1. Cloud Task scheduling verification via real scheduleNotification
+    // 1. Cloud Task scheduling NOT yet executed
+    expect(mockCreateTask).not.toHaveBeenCalled();
+
+    // 2. Pending action draft saved in Firestore
+    const pendingActions = inMemoryDb.getPendingActions(TEST_USER_ID);
+    const currentAction = pendingActions.get('current');
+    expect(currentAction).toBeDefined();
+    expect(currentAction.type).toBe('confirm_reminder');
+    expect(currentAction.data.message).toBe('กินยาความดันหลังอาหาร');
+
+    // 3. Document persistence in Firestore reminders collection is NOT yet committed
+    expect(inMemoryDb.getReminders(TEST_USER_ID).size).toBe(0);
+
+    // 4. LINE Reply verification: Flex Message with confirmation card
+    expect(lineClient.replyMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyToken: 'token-reminder',
+        messages: [
+          expect.objectContaining({
+            type: 'flex',
+            altText: expect.stringContaining('ยืนยันเตือน: กินยาความดันหลังอาหาร'),
+          }),
+        ],
+      }),
+    );
+
+    // --- Turn 2: User changes time via native datetimepicker postback ---
+    const postbackChangeEvent = {
+      type: 'postback',
+      replyToken: 'token-reminder-postback',
+      source: { type: 'user', userId: TEST_USER_ID },
+      postback: {
+        data: 'action=change_reminder_time',
+        params: { datetime: '2026-10-26T20:00' },
+      },
+    } as unknown as webhook.Event;
+
+    await processWebhookEvents([postbackChangeEvent]);
+
+    // Verify pending draft time was updated
+    const updatedPending = inMemoryDb.getPendingActions(TEST_USER_ID).get('current');
+    expect(updatedPending.data.scheduledAt).toContain('2026-10-26');
+
+    // Verify updated Flex Message card was sent to LINE
+    expect(lineClient.replyMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyToken: 'token-reminder-postback',
+        messages: [
+          expect.objectContaining({
+            type: 'flex',
+            altText: expect.stringContaining('20:00 น.'),
+          }),
+        ],
+      }),
+    );
+
+    // --- Turn 3: User confirms reminder ("ยืนยันเตือน") ---
+    const confirmEvent = createFakeLineMessageEvent('ยืนยันเตือน', 'token-reminder-confirm');
+    await processWebhookEvents([confirmEvent]);
+
+    // 5. Cloud Task scheduling verification via real scheduleNotification
     expect(mockCreateTask).toHaveBeenCalledWith(
       expect.objectContaining({
         task: expect.objectContaining({
@@ -376,7 +437,7 @@ describe('Webhook Pipeline Integration Suite', () => {
       }),
     );
 
-    // 2. Document persistence in Firestore
+    // 6. Document persistence in Firestore reminders collection
     const userReminders = inMemoryDb.getReminders(TEST_USER_ID);
     expect(userReminders.size).toBe(1);
     const createdReminder = Array.from(userReminders.values())[0];
@@ -384,22 +445,29 @@ describe('Webhook Pipeline Integration Suite', () => {
     expect(createdReminder.status).toBe('pending');
     expect(createdReminder.cloudTaskName).toBe('projects/test/queues/q/tasks/mock-task-1');
 
-    // 3. LINE Reply verification
+    // 7. Pending action draft was cleared
+    expect(inMemoryDb.getPendingActions(TEST_USER_ID).has('current')).toBe(false);
+
+    // 8. LINE Reply verification
     expect(lineClient.replyMessage).toHaveBeenCalledWith({
-      replyToken: 'token-reminder',
+      replyToken: 'token-reminder-confirm',
       messages: [
         {
           type: 'text',
-          text: 'ตั้งเตือน "กินยาความดันหลังอาหาร" เวลา 19:00 น. เรียบร้อยแล้วค่ะ',
+          text: 'ตั้งเตือน "กินยาความดันหลังอาหาร" เวลา 20:00 น. เรียบร้อยแล้วค่ะ',
         },
       ],
     });
 
-    // 4. Conversation history save
+    // 9. Conversation history save
     const messages = inMemoryDb.getMessages(TEST_USER_ID);
-    expect(messages.length).toBe(2);
+    expect(messages.length).toBe(6);
     expect(messages[0].content).toBe('เตือนกินยาความดันตอน 1 ทุ่มด้วยนะ');
-    expect(messages[1].content).toContain('ตั้งเตือน "กินยาความดันหลังอาหาร"');
+    expect(messages[1].content).toContain('ยืนยันเตือน: กินยาความดันหลังอาหาร');
+    expect(messages[2].content).toContain('เปลี่ยนเวลาเป็น 2026-10-26T20:00');
+    expect(messages[3].content).toContain('20:00 น.');
+    expect(messages[4].content).toBe('ยืนยันเตือน');
+    expect(messages[5].content).toContain('ตั้งเตือน "กินยาความดันหลังอาหาร" เวลา 20:00 น.');
   });
 
   it('Flow 3: Note capture & confirmation multi-turn pipeline', async () => {
