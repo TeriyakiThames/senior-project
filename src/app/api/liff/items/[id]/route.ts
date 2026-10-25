@@ -16,6 +16,14 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // In production, strictly reject any mock user access
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (userId === 'mock-user-123' || userId.startsWith('mock-'))
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
   const type = request.nextUrl.searchParams.get('type') as ItemType | null;
 
@@ -26,9 +34,10 @@ export async function DELETE(
     );
   }
 
+  // In non-production, allow mock item deletion for offline development
   if (
-    userId === 'mock-user-123' ||
-    (process.env.NODE_ENV !== 'production' && userId.startsWith('mock-'))
+    process.env.NODE_ENV !== 'production' &&
+    (userId === 'mock-user-123' || userId.startsWith('mock-'))
   ) {
     const deleted = deleteMockItem(id, type);
     if (!deleted) {
