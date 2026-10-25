@@ -1,3 +1,10 @@
+# [1.28.0](https://github.com/TeriyakiThames/senior-project/compare/v1.27.0...v1.28.0) (2026-10-25)
+
+
+### Features
+
+* **LINE-07:** interactive reminder confirmation card and voice pipeline wiring ([#90](https://github.com/TeriyakiThames/senior-project/issues/90)) ([6c1cd5b](https://github.com/TeriyakiThames/senior-project/commit/6c1cd5bf292225be1cd51e2e87280abe1c7b29f7))
+
 # [1.27.0](https://github.com/TeriyakiThames/senior-project/compare/v1.26.0...v1.27.0) (2026-10-19)
 
 
