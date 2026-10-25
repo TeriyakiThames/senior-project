@@ -4,6 +4,8 @@ import { processWebhookEvents } from '@/lib/line/dispatcher';
 import { logError } from '@/lib/utils/errors';
 import type { webhook } from '@line/bot-sdk';
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();

@@ -1,8 +1,20 @@
-import { webhook } from '@line/bot-sdk';
+import { webhook, type messagingApi } from '@line/bot-sdk';
 import { lineClient } from './client';
 import { processAudioMessage, getUserProfile } from '@/lib/speech/handler';
 import { resolvePersonaParticles } from '@/lib/ai/persona';
 import { AppError, logError, getFallbackMessage, type ErrorStage } from '@/lib/utils/errors';
+import { getOrCreateUser, saveMessages } from '@/lib/firebase/collections';
+import { loadMemoryContext, updateUserProfile } from '@/lib/ai/memory';
+import { generateResponse } from '@/lib/ai/gemini';
+import { classifyIntent } from '@/lib/ai/jev';
+import {
+  executeTool,
+  handleSnooze,
+  handleDismiss,
+  handleConfirmNote,
+  handleCancelAction,
+  type ToolResult,
+} from '@/lib/tools';
 
 /**
  * Resolves the appropriate pipeline failure stage from the event and caught error.
@@ -34,7 +46,15 @@ export function resolveErrorStage(event: webhook.Event, error: unknown): ErrorSt
 }
 
 /**
- * Handles incoming text messages by replying with an echo / acknowledgement.
+ * Handles incoming text messages by routing them through the full conversational pipeline:
+ * 1. Resolves user profile and fetches or initializes the user document in Firestore.
+ * 2. Short-circuits interactive notification actions (snooze/dismiss) and note confirmation (บันทึกเลย/ยกเลิก).
+ * 3. Loads 3-tier memory context.
+ * 4. Executes conversational response generation (Gemini) and deterministic intent classification (Jev) concurrently.
+ * 5. Executes the matching tool (alarm, reminder, notes, list, delete, actions).
+ * 6. Dispatches a single reply to LINE with Flex Message or text.
+ * 7. Records the conversation turn in Firestore messages history and asynchronously learns new profile facts.
+ *
  * Accepts optional transcribedText to process recognized audio input.
  */
 export async function handleTextMessage(
@@ -47,18 +67,178 @@ export async function handleTextMessage(
   }
 
   const rawText = transcribedText ?? event.message.text;
-  const userText = rawText.trim();
-  const replyText = `ได้รับข้อความแล้ว: "${userText}"`;
+  const userText = rawText?.trim() ?? '';
+  if (!userText) {
+    return;
+  }
+
+  const userId = event.source?.userId;
+
+  // 1. Fetch display name & retrieve or create user
+  let displayName = 'คุณตาคุณยาย';
+  if (userId) {
+    try {
+      const profile = await lineClient.getProfile(userId);
+      if (profile?.displayName) {
+        displayName = profile.displayName;
+      }
+    } catch {
+      // Gracefully continue with default display name if profile fetch fails
+    }
+  }
+
+  const user = userId ? await getOrCreateUser(userId, displayName) : null;
+
+  // 2. Deterministic short-circuits: Snooze / Dismiss
+  if (user && /^(snooze|dismiss)_(alarm|reminder):/.test(userText)) {
+    try {
+      const toolRes = userText.startsWith('snooze_')
+        ? await handleSnooze(userText, user)
+        : await handleDismiss(userText, user);
+
+      const replyText = toolRes.message || 'ดำเนินการเรียบร้อยแล้วค่ะ';
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+
+      if (userId) {
+        await saveMessages(userId, userText, replyText);
+      }
+      return;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'TOOL_ACTION_FAIL');
+    }
+  }
+
+  // 3. Deterministic short-circuits: Note confirm / cancel
+  const isNoteConfirm = userText === 'บันทึกเลย' || userText === '✓ บันทึกเลย';
+  const isNoteCancel = userText === 'ยกเลิก' || userText === '✕ ยกเลิก';
+  if (user && (isNoteConfirm || isNoteCancel)) {
+    try {
+      const toolRes = isNoteConfirm
+        ? await handleConfirmNote(user)
+        : await handleCancelAction(user);
+
+      const replyText =
+        toolRes.message ||
+        (isNoteConfirm
+          ? 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย'
+          : 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ');
+
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+
+      if (userId) {
+        await saveMessages(userId, userText, replyText);
+      }
+      return;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'TOOL_NOTE_FAIL');
+    }
+  }
+
+  // 4. Load memory context
+  let memoryContext;
+  try {
+    memoryContext = userId
+      ? await loadMemoryContext(userId)
+      : { recentMessages: [], userFacts: [] };
+  } catch {
+    memoryContext = { recentMessages: [], userFacts: [] };
+  }
+
+  const recentMessages = memoryContext.recentMessages;
+  const currentUser = memoryContext.user ?? user;
+
+  // 5. Parallel Gemini response generation and Jev intent classification
+  const lastAssistantMsg = [...recentMessages]
+    .reverse()
+    .find((m) => m.role === 'assistant')?.content;
+
+  let geminiResult: { responseText: string; interactionId?: string };
+  let intentResult;
+
+  try {
+    const [geminiRes, jevRes] = await Promise.all([
+      currentUser
+        ? generateResponse(userText, currentUser, recentMessages)
+        : Promise.resolve({ responseText: 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' }),
+      classifyIntent(userText, lastAssistantMsg, { fallbackOnFailure: true }),
+    ]);
+    geminiResult = geminiRes;
+    intentResult = jevRes;
+  } catch (error) {
+    throw error instanceof AppError
+      ? error
+      : new AppError((error as Error).message, 'AI_PIPELINE_FAIL');
+  }
+
+  // 6. Execute matching tool
+  let toolResult: ToolResult;
+  try {
+    if (currentUser) {
+      toolResult = await executeTool({
+        intent: intentResult,
+        userText,
+        geminiResponse: geminiResult.responseText,
+        user: currentUser,
+      });
+    } else {
+      toolResult = { success: true, message: geminiResult.responseText };
+    }
+  } catch (error) {
+    throw error instanceof AppError
+      ? error
+      : new AppError((error as Error).message, 'TOOL_EXEC_FAIL');
+  }
+
+  // 7. Dispatch reply to LINE (single reply token)
+  let lineMessages: messagingApi.Message[];
+  let savedAssistantText: string;
+
+  if (toolResult.flexMessage) {
+    lineMessages = [toolResult.flexMessage as messagingApi.FlexMessage];
+    const dataSummary = (toolResult.data as { summary?: string } | undefined)?.summary;
+    const flexAltText = (toolResult.flexMessage as { altText?: string }).altText;
+    savedAssistantText = dataSummary
+      ? `สรุปบันทึก: ${dataSummary}`
+      : (flexAltText ?? 'ส่งการแจ้งเตือนแบบการ์ด');
+  } else if (toolResult.message) {
+    lineMessages = [{ type: 'text', text: toolResult.message }];
+    savedAssistantText = toolResult.message;
+  } else {
+    const fallbackText = geminiResult.responseText || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ';
+    lineMessages = [{ type: 'text', text: fallbackText }];
+    savedAssistantText = fallbackText;
+  }
 
   await lineClient.replyMessage({
     replyToken,
-    messages: [
-      {
-        type: 'text',
-        text: replyText,
-      },
-    ],
+    messages: lineMessages,
   });
+
+  // 8. Save messages to Firestore history
+  if (userId) {
+    try {
+      await saveMessages(userId, userText, savedAssistantText);
+    } catch (saveError) {
+      logError('firestore_save_messages', saveError, { userId });
+    }
+
+    // 9. Asynchronously update user profile facts in background
+    updateUserProfile(userId, userText, savedAssistantText, memoryContext.userFacts).catch(
+      (memError) => {
+        logError('ai_memory_update', memError, { userId });
+      },
+    );
+  }
 }
 
 /**
