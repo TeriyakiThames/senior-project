@@ -44,18 +44,67 @@ Any AI assistant or agent operating in this repository must strictly adhere to t
   - Avoid patronizing baby talk or dismissive language.
   - Keep sentences concise, clear, and easy to read on mobile screens.
 
-### 2.3 Accessibility Constraints (Hard Requirements)
+### 2.3 Accessibility & Design Constraints (Hard Requirements)
 
-- **Minimum Font Size:** `16px` (`senior-sm`). Default body font: `20px` (`senior-base` / `1.25rem`).
-- **Touch Targets:** Minimum `48×48px` (`min-h-touch` / `3rem`) for all buttons, links, and interactive elements. Large touch targets use `64px` (`touch-lg`).
-- **Color Contrast:** High contrast borders and dark text (`senior-text: #2D2D2D`) against warm backgrounds (`senior-bg: #F8F6F2`).
-- **Primary Action Color:** LINE Green (`#06C755`).
+- **Discard Previous UI:** All previous UI styling (warm beige backgrounds `#F8F6F2`, dark gray text `#2D2D2D`, generic green cards) is discarded across the repository.
+- **Design Ground Truth:** All UI components, colors, and layout structures must strictly adhere to the SVG design language specification (see Section 2.5).
+- **Minimum Font Size:** `16px` (`senior-sm`). Default body font: `20px` (`senior-base` / `1.25rem`). Subheadings: `24px` (`senior-lg`). Headings: `30px` (`senior-xl`).
+- **Touch Targets:** Minimum `48×48px` (`min-h-touch` / `3rem`) for all buttons, links, and interactive elements.
+- **Color Contrast:** High contrast ratio meeting WCAG AAA requirements with Deep Indigo Navy text (`#21215C`) against pure white surfaces (`#FFFFFF`) and pastel card backgrounds.
 
 ### 2.4 Three-Tier Persistent Memory
 
 1. **Tier 1 (Short-Term Context):** Last $N$ conversation turns stored in `users/{userId}/messages` subcollection.
 2. **Tier 2 (Rolling Daily Summary):** Synthesized narrative stored in `users/{userId}/dailySummary`.
 3. **Tier 3 (Permanent Profile Facts):** Learned facts and preferences accumulated in `users/{userId}/profile.facts`.
+
+### 2.5 UI Design Language & Layout Specification (SVG-Based System)
+
+> **Authoritative visual design language specification for the LIFF application, derived from the master SVG design. All previous UI patterns in the codebase are deprecated in favor of this specification.**
+
+#### 2.5.1 Core Color System
+
+- **Canvas / Background:** `#F2F7FA` (Serene soft sky-fog/powder canvas).
+- **Surface / Card Background:** `#FFFFFF` (Pure white containers).
+- **Primary Typography:** `#21215C` (Deep Indigo Navy — provides crisp readability with zero glare for senior vision).
+- **Secondary & Meta Typography:** `#7D84A3` and `#4B4F72` (Muted slate for dates, timestamps, day indicators, and examples).
+- **System & Header Icons:** `#111111` for top app bar controls (close `X`, title, option dots `...`).
+
+#### 2.5.2 Four-Category Pastel Hub Palette (2x2 Category Grid)
+
+The top hub features a 2-column, 2-row grid of large, rounded pastel cards (`rounded-3xl` / `24px` radius):
+
+1. **Alarms (นาฬิกาปลุก):**
+   - Container Background: `#FBEFD8` (Warm soft cream)
+   - Icon Accent: `#FCCE57` (Golden Amber circular badge)
+   - Icon Lines & Typography: `#7A4E00` (Deep Amber Bronze)
+2. **Reminders (การเตือน):**
+   - Container Background: `#E1E8F8` (Periwinkle ice blue)
+   - Icon Accent: `#3E81F7` (Royal Azure Blue bell badge)
+   - Icon Lines & Typography: `#385289` (Deep Navy Slate)
+3. **Notes (โน้ต):**
+   - Container Background: `#EEE1FA` (Pastel lilac lavender)
+   - Icon Accent: `#9A59EF` (Vibrant Violet document badge)
+   - Icon Lines & Typography: `#544378` (Deep Plum Purple)
+4. **My Plans (แผนของฉัน):**
+   - Container Background: `#FDE5F0` (Pastel blossom pink)
+   - Icon Accent: `#E8216F` (Rose Magenta calendar badge)
+   - Icon Lines & Typography: `#B4225A` (Deep Berry Ruby)
+
+#### 2.5.3 Status Pills & Badges
+
+- **Reminder Tag:** `#E1E8F8` background, `#385289` text (e.g. `การเตือน`, `การเตือน · เลื่อนเวลา`).
+- **Plan Tag:** `#FDE5F0` background, `#B4225A` text (e.g. `แผน`).
+- **Alarm Tag:** `#FBEFD8` background, `#7A4E00` text (e.g. `นาฬิกาปลุก`).
+- **Input Method Tag:** `#EAF0F6` background, `#21215C` text (e.g. `🎤 เสียง`, `⌨️ พิมพ์`).
+
+#### 2.5.4 Elevation & Container Architecture
+
+- **Cards & Panels:** Pure white `#FFFFFF` surface with `24px` (`rounded-3xl`) corner radius.
+- **Dual Drop Shadow:** `box-shadow: 0 2px 6px rgba(33, 33, 92, 0.06), 0 8px 24px rgba(33, 33, 92, 0.08)`.
+- **Dividers:** Subtle `#F2F7FA` or `#EAF0F6` 1px borders between item rows.
+- **Outlined Buttons:** `2px solid #7D84A3`, `#FFFFFF` background, `#21215C` bold typography, `16px` (`rounded-2xl`) radius, minimum `52px` height.
+- **Tip Card Banner:** Rounded `#EAF0F6` container with `#E1E8F8` round icon badge, `#3E5EB5` mic icon, and two-line natural Thai speech guidance.
 
 ---
 
