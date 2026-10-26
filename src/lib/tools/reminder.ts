@@ -112,11 +112,7 @@ export async function handleSetReminder(
     reminderData.dayOfMonth = params.dayOfMonth;
   }
 
-  let docRef: {
-    id: string;
-    update: (data: unknown) => Promise<unknown>;
-    delete?: () => Promise<unknown>;
-  } | null = null;
+  let docRef: any = null;
   try {
     docRef = await remindersRef(user.lineUserId).add(reminderData);
 
