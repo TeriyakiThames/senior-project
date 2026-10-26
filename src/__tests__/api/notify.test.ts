@@ -547,5 +547,74 @@ describe('POST /api/notify (SCHED-08)', () => {
       const data = await response.json();
       expect(data).toEqual({ error: 'Internal server error' });
     });
+
+    it('does not send LINE push and returns 500 if scheduling next occurrence fails (R1)', async () => {
+      const mockUpdate = vi.fn();
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            label: 'ปลุกเช้าประจำ',
+            recurrence: 'daily',
+            time: '07:00',
+          }),
+        }),
+        update: mockUpdate,
+      };
+      vi.mocked(alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof alarmsRef>);
+
+      vi.mocked(calculateNextOccurrence).mockReturnValue(new Date('2026-10-27T00:00:00.000Z'));
+      vi.mocked(scheduleNotification).mockRejectedValue(new Error('Cloud Tasks quota exceeded'));
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'alarm-recurring', itemType: 'alarm' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      expect(lineClient.pushMessage).not.toHaveBeenCalled();
+    });
+
+    it('skips duplicate push notification when matching idempotency key was already delivered (R1)', async () => {
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            label: 'ปลุกเช้า',
+            recurrence: 'once',
+            lastNotificationId: 'task-cloud-tasks-duplicate-1',
+          }),
+        }),
+        update: vi.fn(),
+      };
+      vi.mocked(alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof alarmsRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+          'x-cloudtasks-taskname': 'task-cloud-tasks-duplicate-1',
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'alarm-1', itemType: 'alarm' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({ status: 'skipped', reason: 'already_notified' });
+      expect(lineClient.pushMessage).not.toHaveBeenCalled();
+    });
   });
 });

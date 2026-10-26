@@ -35,7 +35,8 @@ export interface AlarmDoc {
   dayOfMonth?: number; // 1-31
   enabled: boolean;
   nextFireAt: Timestamp;
-  cloudTaskName?: string;
+  cloudTaskName?: string | null;
+  lastNotificationId?: string | null;
   createdAt: Timestamp;
 }
 
@@ -47,7 +48,8 @@ export interface ReminderDoc {
   dayOfMonth?: number;
   enabled: boolean;
   nextFireAt: Timestamp;
-  cloudTaskName?: string;
+  cloudTaskName?: string | null;
+  lastNotificationId?: string | null;
   status: 'pending' | 'fired' | 'snoozed' | 'done';
   createdAt: Timestamp;
 }
