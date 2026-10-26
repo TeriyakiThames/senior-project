@@ -21,9 +21,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let body: { userId?: string; itemId?: string; itemType?: string };
+  let body: { userId?: string; itemId?: string; itemType?: string; idempotencyKey?: string };
   try {
-    body = (await request.json()) as { userId?: string; itemId?: string; itemType?: string };
+    body = (await request.json()) as {
+      userId?: string;
+      itemId?: string;
+      itemType?: string;
+      idempotencyKey?: string;
+    };
   } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
@@ -34,12 +39,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
+  const idempotencyKey =
+    request.headers.get('x-cloudtasks-taskname') ||
+    request.headers.get('x-idempotency-key') ||
+    body.idempotencyKey ||
+    null;
+
   try {
     if (itemType === 'alarm') {
-      const result = await handleAlarmFire(userId, itemId);
+      const result = await handleAlarmFire(userId, itemId, idempotencyKey);
       return NextResponse.json(result, { status: 200 });
     } else {
-      const result = await handleReminderFire(userId, itemId);
+      const result = await handleReminderFire(userId, itemId, idempotencyKey);
       return NextResponse.json(result, { status: 200 });
     }
   } catch (error) {
@@ -48,7 +59,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleAlarmFire(userId: string, alarmId: string) {
+async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?: string | null) {
   const ref = alarmsRef(userId).doc(alarmId);
   const snap = await ref.get();
 
@@ -61,13 +72,12 @@ async function handleAlarmFire(userId: string, alarmId: string) {
     return { status: 'skipped', reason: 'disabled' };
   }
 
-  // Push LINE notification card
-  await lineClient.pushMessage({
-    to: userId,
-    messages: [buildAlarmNotification(alarm.label || '⏰ ถึงเวลาแล้วค่ะ!', alarmId)],
-  });
+  // Idempotency check: if this specific execution already pushed notification, skip sending duplicate push
+  if (idempotencyKey && alarm.lastNotificationId === idempotencyKey) {
+    return { status: 'skipped', reason: 'already_notified' };
+  }
 
-  // Evaluate recurrence
+  // Evaluate recurrence and save the next schedule BEFORE sending the push
   if (alarm.recurrence !== 'once') {
     const nextFire = calculateNextOccurrence({
       recurrence: alarm.recurrence,
@@ -95,17 +105,39 @@ async function handleAlarmFire(userId: string, alarmId: string) {
         cloudTaskName: null,
       });
     }
-  } else {
-    await ref.update({
+  }
+
+  // Push LINE notification card
+  await lineClient.pushMessage({
+    to: userId,
+    messages: [buildAlarmNotification(alarm.label || '⏰ ถึงเวลาแล้วค่ะ!', alarmId)],
+  });
+
+  // For one-off, deactivate and record notification key
+  if (alarm.recurrence === 'once') {
+    const updateData: Record<string, unknown> = {
       enabled: false,
       cloudTaskName: null,
+    };
+    if (idempotencyKey) {
+      updateData.lastNotificationId = idempotencyKey;
+    }
+    await ref.update(updateData);
+  } else if (idempotencyKey) {
+    // Record idempotency on recurring item
+    await ref.update({
+      lastNotificationId: idempotencyKey,
     });
   }
 
   return { status: 'ok' };
 }
 
-async function handleReminderFire(userId: string, reminderId: string) {
+async function handleReminderFire(
+  userId: string,
+  reminderId: string,
+  idempotencyKey?: string | null,
+) {
   const ref = remindersRef(userId).doc(reminderId);
   const snap = await ref.get();
 
@@ -118,13 +150,12 @@ async function handleReminderFire(userId: string, reminderId: string) {
     return { status: 'skipped', reason: 'inactive_or_done' };
   }
 
-  // Push LINE notification card
-  await lineClient.pushMessage({
-    to: userId,
-    messages: [buildReminderNotification(reminder.message, reminderId)],
-  });
+  // Idempotency check: if this specific execution already pushed notification, skip sending duplicate push
+  if (idempotencyKey && reminder.lastNotificationId === idempotencyKey) {
+    return { status: 'skipped', reason: 'already_notified' };
+  }
 
-  // Evaluate recurrence
+  // Evaluate recurrence and save the next schedule BEFORE sending the push
   if (reminder.recurrence !== 'once') {
     const scheduledAtDate = reminder.scheduledAt?.toDate
       ? reminder.scheduledAt.toDate()
@@ -157,11 +188,28 @@ async function handleReminderFire(userId: string, reminderId: string) {
         cloudTaskName: null,
       });
     }
-  } else {
-    await ref.update({
+  }
+
+  // Push LINE notification card
+  await lineClient.pushMessage({
+    to: userId,
+    messages: [buildReminderNotification(reminder.message, reminderId)],
+  });
+
+  // For one-off, deactivate and record notification key
+  if (reminder.recurrence === 'once') {
+    const updateData: Record<string, unknown> = {
       status: 'fired',
       enabled: false,
       cloudTaskName: null,
+    };
+    if (idempotencyKey) {
+      updateData.lastNotificationId = idempotencyKey;
+    }
+    await ref.update(updateData);
+  } else if (idempotencyKey) {
+    await ref.update({
+      lastNotificationId: idempotencyKey,
     });
   }
 
