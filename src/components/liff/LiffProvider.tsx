@@ -33,10 +33,35 @@ const LiffContext = createContext<LiffContextType>({
   error: null,
 });
 
-function isPlaceholderLiffId(id?: string | null): boolean {
+export function isPlaceholderLiffId(id?: string | null): boolean {
   if (!id) return true;
   const trimmed = id.trim().toLowerCase();
   return trimmed === '' || trimmed.includes('placeholder') || trimmed.includes('<your-');
+}
+
+/**
+ * Determines whether mock user fallback is permitted.
+ * Strictly prevents mock user activation on deployed staging or production environments (S7).
+ */
+export function shouldEnableMockUser(): boolean {
+  if (process.env.NODE_ENV === 'production') {
+    return false;
+  }
+
+  if (process.env.NODE_ENV === 'test') {
+    return true;
+  }
+
+  if (process.env.NEXT_PUBLIC_ENABLE_MOCK_USER === 'true') {
+    return true;
+  }
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+  }
+
+  return false;
 }
 
 export function LiffProvider({ children }: { children: ReactNode }) {
@@ -54,14 +79,26 @@ export function LiffProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
     const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
-    // Fallback to mock user if LIFF ID is not configured or is a placeholder
+    // Check placeholder / unconfigured LIFF ID
     if (isPlaceholderLiffId(liffId)) {
-      if (process.env.NODE_ENV !== 'production') {
+      if (shouldEnableMockUser()) {
         console.info(
           '[LIFF] Placeholder or unconfigured LIFF ID detected; activating mock user for local development.',
         );
+        setState(MOCK_USER);
+      } else {
+        setState({
+          isReady: true,
+          userId: null,
+          displayName: null,
+          language: 'th',
+          isInClient: false,
+          idToken: null,
+          error: new Error(
+            'NEXT_PUBLIC_LIFF_ID is not configured or is a placeholder. Set a valid LIFF ID in your environment.',
+          ),
+        });
       }
-      setState(MOCK_USER);
       return;
     }
 
@@ -69,9 +106,9 @@ export function LiffProvider({ children }: { children: ReactNode }) {
       try {
         await liff.init({ liffId: liffId! });
 
-        // If outside LINE client and not logged in during development, fallback to mock user
+        // If outside LINE client and not logged in
         if (!liff.isInClient() && !liff.isLoggedIn()) {
-          if (process.env.NODE_ENV !== 'production') {
+          if (shouldEnableMockUser()) {
             if (isMounted) setState(MOCK_USER);
             return;
           }
@@ -105,20 +142,24 @@ export function LiffProvider({ children }: { children: ReactNode }) {
           });
         }
       } catch (err: unknown) {
-        // In local development, fallback gracefully to mock user on init error
-        if (process.env.NODE_ENV !== 'production' && isMounted) {
+        // Fallback to mock user ONLY in permitted local development environments (S7)
+        if (shouldEnableMockUser() && isMounted) {
           console.warn(
-            '[LIFF] Initialization failed in development, falling back to mock user:',
+            '[LIFF] Initialization failed in local development, falling back to mock user:',
             err,
           );
           setState(MOCK_USER);
         } else if (isMounted) {
           console.error('LIFF initialization error:', err);
-          setState((prev) => ({
-            ...prev,
+          setState({
             isReady: true,
+            userId: null,
+            displayName: null,
+            language: 'th',
+            isInClient: false,
+            idToken: null,
             error: err instanceof Error ? err : new Error(String(err)),
-          }));
+          });
         }
       }
     }
