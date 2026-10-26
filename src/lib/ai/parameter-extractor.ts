@@ -3,6 +3,7 @@ import { TypeSafeClient, choice } from '@typesafe-ai/sdk';
 import { geminiClient } from '@/lib/ai/gemini';
 import { jevClient } from '@/lib/ai/jev';
 import type { AlarmParams, ReminderParams } from '@/types/jev';
+import { logError } from '@/lib/utils/errors';
 
 export type { AlarmParams, ReminderParams };
 
@@ -35,6 +36,8 @@ const defaultGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
 /**
  * Extracts structured alarm parameters (24-hour HH:mm time and recurrence)
  * from Thai or English colloquial text using Gemini structured JSON generation.
+ * Throws on API/network errors rather than swallowing them, allowing callers
+ * to distinguish service outages from genuinely unclear user input.
  */
 export async function extractAlarmParams(
   userText: string,
@@ -79,8 +82,9 @@ Return ONLY valid JSON matching this schema:
 If no clear alarm time can be identified, return JSON null:
 null`;
 
+  let interaction;
   try {
-    const interaction = await client.interactions.create({
+    interaction = await client.interactions.create({
       model,
       input: userText.trim(),
       system_instruction: systemInstruction,
@@ -90,7 +94,12 @@ null`;
       },
       store: false,
     });
+  } catch (apiError) {
+    logError('ai_parameter_extractor', apiError, { model, userText });
+    throw apiError;
+  }
 
+  try {
     const rawOutput = interaction.output_text?.trim() ?? '';
     const cleaned = rawOutput.replace(/```json\n?|\n?```/g, '').trim();
 
@@ -144,6 +153,8 @@ null`;
 /**
  * Extracts reminder parameters (message, scheduledAt in ISO 8601, and recurrence)
  * from Thai or English text using Gemini structured JSON generation.
+ * Throws on API/network errors rather than swallowing them, allowing callers
+ * to distinguish service outages from genuinely unclear user input.
  */
 export async function extractReminderParams(
   userText: string,
@@ -192,8 +203,9 @@ Return ONLY valid JSON matching this schema:
 If no reminder message or scheduled datetime can be extracted, return JSON null:
 null`;
 
+  let interaction;
   try {
-    const interaction = await client.interactions.create({
+    interaction = await client.interactions.create({
       model,
       input: userText.trim(),
       system_instruction: systemInstruction,
@@ -203,7 +215,12 @@ null`;
       },
       store: false,
     });
+  } catch (apiError) {
+    logError('ai_parameter_extractor', apiError, { model, userText });
+    throw apiError;
+  }
 
+  try {
     const rawOutput = interaction.output_text?.trim() ?? '';
     const cleaned = rawOutput.replace(/```json\n?|\n?```/g, '').trim();
 
