@@ -65,6 +65,40 @@ describe('POST /api/notify (SCHED-08)', () => {
       const response = await POST(request);
       expect(response.status).toBe(401);
     });
+
+    it('accepts valid secret matching rotated secondary secret (S5 secret rotation)', async () => {
+      process.env.WEBHOOK_SECRET = 'new-primary-secret, test-secret-token-123';
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': 'test-secret-token-123',
+        },
+        body: JSON.stringify({ userId: 'u1', itemId: 'a1', itemType: 'unknown' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toBe('Invalid payload');
+    });
+
+    it('accepts authorization bearer header with valid secret', async () => {
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${TEST_SECRET}`,
+        },
+        body: JSON.stringify({ userId: 'u1', itemId: 'a1', itemType: 'unknown' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toBe('Invalid payload');
+    });
   });
 
   describe('Payload Validation', () => {

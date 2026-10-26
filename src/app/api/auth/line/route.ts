@@ -1,26 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebase/admin';
 import { userRef } from '@/lib/firebase/collections';
+import { verifyLineIdToken } from '@/lib/line/verify-token';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { lineUserId } = body;
+    const { idToken } = body;
 
-    if (!lineUserId || typeof lineUserId !== 'string') {
-      return NextResponse.json({ error: 'Missing or invalid lineUserId' }, { status: 400 });
+    if (!idToken || typeof idToken !== 'string') {
+      return NextResponse.json({ error: 'Missing or invalid idToken' }, { status: 400 });
     }
 
-    let firebaseUid: string;
+    const verified = await verifyLineIdToken(idToken);
+    if (!verified) {
+      return NextResponse.json({ error: 'Invalid or expired LINE ID token' }, { status: 401 });
+    }
+
+    const { lineUserId, displayName } = verified;
+
+    let firebaseUid = lineUserId;
     try {
-      const existingUser = await auth.getUserByEmail(`${lineUserId}@line.user`);
+      const existingUser = await auth.getUser(lineUserId);
       firebaseUid = existingUser.uid;
     } catch {
-      const newUser = await auth.createUser({
-        email: `${lineUserId}@line.user`,
-        displayName: lineUserId,
-      });
-      firebaseUid = newUser.uid;
+      try {
+        const existingUserByEmail = await auth.getUserByEmail(`${lineUserId}@line.user`);
+        firebaseUid = existingUserByEmail.uid;
+      } catch {
+        const newUser = await auth.createUser({
+          uid: lineUserId,
+          email: `${lineUserId}@line.user`,
+          displayName: displayName || lineUserId,
+        });
+        firebaseUid = newUser.uid;
+      }
     }
 
     try {
@@ -33,7 +47,9 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update user firebaseUid:', dbErr);
     }
 
-    const customToken = await auth.createCustomToken(firebaseUid);
+    const customToken = await auth.createCustomToken(firebaseUid, {
+      lineUserId,
+    });
     return NextResponse.json({ token: customToken });
   } catch (error: unknown) {
     console.error('Error in /api/auth/line:', error);

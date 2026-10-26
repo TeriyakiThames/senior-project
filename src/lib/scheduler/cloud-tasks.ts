@@ -12,6 +12,7 @@ export interface ScheduleNotificationOptions {
   queueId?: string;
   appUrl?: string;
   webhookSecret?: string;
+  serviceAccountEmail?: string;
 }
 
 export interface CancelScheduledTaskOptions {
@@ -93,8 +94,16 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
     location = process.env.GCP_LOCATION || 'asia-southeast1',
     queueId = process.env.CLOUD_TASKS_QUEUE_ID || 'reminder-queue',
     appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    webhookSecret = process.env.WEBHOOK_SECRET || '',
   } = opts;
+
+  const rawWebhookSecret = opts.webhookSecret ?? process.env.WEBHOOK_SECRET ?? '';
+  // When multiple secrets are configured for rotation (comma-separated), use the primary secret
+  const webhookSecret = rawWebhookSecret.split(',')[0].trim();
+
+  const serviceAccountEmail =
+    opts.serviceAccountEmail ||
+    process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL ||
+    process.env.GCP_SERVICE_ACCOUNT_EMAIL;
 
   const parent = client.queuePath(projectId, location, queueId);
   const sanitizedAppUrl = appUrl.replace(/\/+$/, '');
@@ -109,18 +118,27 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
 
   const body = Buffer.from(JSON.stringify(taskPayload)).toString('base64');
 
+  const httpRequest: Record<string, unknown> = {
+    httpMethod: 'POST',
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Webhook-Secret': webhookSecret,
+    },
+    body,
+  };
+
+  if (serviceAccountEmail) {
+    httpRequest.oidcToken = {
+      serviceAccountEmail,
+      audience: sanitizedAppUrl,
+    };
+  }
+
   const [task] = await client.createTask({
     parent,
     task: {
-      httpRequest: {
-        httpMethod: 'POST',
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Secret': webhookSecret,
-        },
-        body,
-      },
+      httpRequest: httpRequest as any,
       scheduleTime: {
         seconds: Math.floor(fireAt.getTime() / 1000),
       },
@@ -183,7 +201,7 @@ export async function saveAndScheduleTask<
 
 /**
  * Deletes a scheduled task by task identifier/resource name.
- * Safely swallows NOT_FOUND (code 5) errors if the task has already executed or was deleted.
+ * Safely swallows NOT_FOUND (code 5 or HTTP 404) errors if the task has already executed or was deleted.
  *
  * @param taskName Full resource name of the task to delete
  * @param options Optional client override
@@ -197,9 +215,9 @@ export async function cancelScheduledTask(
   try {
     await client.deleteTask({ name: taskName });
   } catch (error: unknown) {
-    const err = error as { code?: number; status?: number };
+    const err = error as { code?: number; status?: number; message?: string };
     // gRPC NOT_FOUND code is 5; HTTP 404
-    if (err?.code === 5 || err?.status === 404) {
+    if (err?.code === 5 || err?.status === 404 || err?.message?.includes('NOT_FOUND')) {
       return;
     }
     throw error;
