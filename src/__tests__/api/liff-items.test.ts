@@ -180,6 +180,44 @@ describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
       expect(remindersRef).not.toHaveBeenCalled();
       expect(notesRef).not.toHaveBeenCalled();
     });
+
+    it('gracefully falls back to in-memory sort when Firestore returns FAILED_PRECONDITION for missing composite index (R3)', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({
+        lineUserId: TEST_USER_ID,
+      });
+
+      const failedPreconditionErr = new Error(
+        '9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://...',
+      );
+
+      const alarmsQuery = {
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            get: vi.fn().mockRejectedValueOnce(failedPreconditionErr),
+          }),
+          get: vi.fn().mockResolvedValueOnce({
+            docs: [
+              { id: 'a2', data: () => ({ time: '14:00', enabled: true }) },
+              { id: 'a1', data: () => ({ time: '08:00', enabled: true }) },
+            ],
+          }),
+        }),
+      };
+
+      vi.mocked(alarmsRef).mockReturnValue(alarmsQuery as any);
+
+      const request = new NextRequest('http://localhost:3000/api/liff/items?type=alarms', {
+        headers: { authorization: 'Bearer valid-line-id-token' },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.alarms).toEqual([
+        { id: 'a1', time: '08:00', enabled: true },
+        { id: 'a2', time: '14:00', enabled: true },
+      ]);
+    });
   });
 
   describe('DELETE /api/liff/items/[id]', () => {

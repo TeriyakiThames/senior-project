@@ -76,6 +76,8 @@ if (process.env.NODE_ENV !== 'production') {
   globalForTasks.cloudTasksClient = cloudTasksClient;
 }
 
+export const CLOUD_TASKS_MAX_SCHEDULE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 /**
  * Enqueues a delayed HTTP POST task targeting /api/notify.
  *
@@ -95,6 +97,11 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
     queueId = process.env.CLOUD_TASKS_QUEUE_ID || 'reminder-queue',
     appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   } = opts;
+
+  const now = Date.now();
+  if (fireAt.getTime() - now > CLOUD_TASKS_MAX_SCHEDULE_LIMIT_MS) {
+    throw new Error('Cloud Tasks scheduleTime cannot exceed 30 days in the future');
+  }
 
   const rawWebhookSecret = opts.webhookSecret ?? process.env.WEBHOOK_SECRET ?? '';
   // When multiple secrets are configured for rotation (comma-separated), use the primary secret

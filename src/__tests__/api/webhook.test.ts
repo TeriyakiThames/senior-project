@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST } from '@/app/api/webhook/route';
+import { POST, maxDuration } from '@/app/api/webhook/route';
 import { verifyLineSignature } from '@/lib/line/signature';
 import { processWebhookEvents } from '@/lib/line/dispatcher';
 import { after } from 'next/server';
@@ -29,6 +29,10 @@ vi.mock('next/server', async (importOriginal) => {
 describe('POST /api/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('exports maxDuration configured to 60 for serverless execution (R2)', () => {
+    expect(maxDuration).toBe(60);
   });
 
   it('returns 401 when signature verification fails', async () => {

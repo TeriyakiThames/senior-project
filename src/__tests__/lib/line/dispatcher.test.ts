@@ -7,6 +7,9 @@ import {
   handleWebhookEvent,
   processWebhookEvents,
   resolveErrorStage,
+  isEventDuplicate,
+  markEventProcessed,
+  clearProcessedEventCache,
 } from '@/lib/line/dispatcher';
 import { lineClient } from '@/lib/line/client';
 import { AppError } from '@/lib/utils/errors';
@@ -127,6 +130,7 @@ describe('LINE Webhook Dispatcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPendingGet.mockResolvedValue({ exists: false });
+    clearProcessedEventCache();
   });
 
   describe('handleTextMessage', () => {
@@ -640,6 +644,50 @@ describe('LINE Webhook Dispatcher', () => {
     });
   });
 
+  describe('Event Deduplication (R5)', () => {
+    it('detects duplicate events by webhookEventId', () => {
+      const event1 = {
+        type: 'message' as const,
+        webhookEventId: '01FZ74A0TDDPYRVKNK77XKC3ZR',
+        replyToken: 'token-1',
+        message: { id: 'm1', type: 'text' as const, text: 'เตือนกินยา' },
+      } as unknown as webhook.Event;
+
+      expect(isEventDuplicate(event1)).toBe(false);
+      markEventProcessed(event1);
+      expect(isEventDuplicate(event1)).toBe(true);
+    });
+
+    it('detects duplicate events by message id when webhookEventId is absent', () => {
+      const event1 = {
+        type: 'message' as const,
+        replyToken: 'token-2',
+        message: { id: 'unique-msg-id-100', type: 'text' as const, text: 'ปลุก 7 โมง' },
+      } as unknown as webhook.Event;
+
+      expect(isEventDuplicate(event1)).toBe(false);
+      markEventProcessed(event1);
+      expect(isEventDuplicate(event1)).toBe(true);
+    });
+
+    it('drops redelivered events with duplicate webhookEventId in processWebhookEvents', async () => {
+      const event = {
+        type: 'message' as const,
+        webhookEventId: '01FZ74A0REDELIVERY12345678',
+        replyToken: 'token-redelivery',
+        message: { id: 'm-redelivery', type: 'text' as const, text: 'ตั้งปลุก 8 โมง' },
+      } as unknown as webhook.Event;
+
+      // First delivery: processes normally
+      await processWebhookEvents([event]);
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+
+      // Redelivery of the exact same event: dropped by deduplication
+      await processWebhookEvents([event]);
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('processWebhookEvents', () => {
     it('processes multiple events in batch', async () => {
       const events = [
@@ -771,6 +819,37 @@ describe('LINE Webhook Dispatcher', () => {
           {
             type: 'text',
             text: expect.stringContaining('ดำเนินการไม่สำเร็จในตอนนี้'),
+          },
+        ],
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('times out long-running event processing gracefully and sends network fallback reply (R2)', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const audioEvent = {
+        type: 'message' as const,
+        replyToken: 'token-timeout',
+        source: { userId: 'u-slow' },
+        message: { id: 'm-slow', type: 'audio' as const },
+      } as unknown as webhook.Event;
+
+      const { processAudioMessage } = await import('@/lib/speech/handler');
+      vi.mocked(processAudioMessage).mockImplementationOnce(
+        () => new Promise((resolve) => setTimeout(resolve, 80)),
+      );
+
+      await processWebhookEvents([audioEvent], { timeoutMs: 10 });
+
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-timeout',
+        messages: [
+          {
+            type: 'text',
+            text: expect.stringContaining('สัญญาณเชื่อมต่อติดขัดชั่วคราว'),
           },
         ],
       });
