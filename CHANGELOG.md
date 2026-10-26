@@ -1,3 +1,10 @@
+## [1.28.1](https://github.com/TeriyakiThames/senior-project/compare/v1.28.0...v1.28.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* security issues  ([#91](https://github.com/TeriyakiThames/senior-project/issues/91)) ([a2c197f](https://github.com/TeriyakiThames/senior-project/commit/a2c197f719f8e3c06d58265454d2efaee3f31152))
+
 # [1.28.0](https://github.com/TeriyakiThames/senior-project/compare/v1.27.0...v1.28.0) (2026-10-25)
 
 
