@@ -42,12 +42,35 @@ export async function handleDeleteItem(
   const normalizedUserText = userText.toLowerCase().trim();
 
   if (itemType === 'alarm') {
-    const snap = await alarmsRef(uid)
-      .where('enabled', '==', true)
-      .orderBy('createdAt', 'desc')
-      .get();
+    let snapDocs: FirebaseFirestore.QueryDocumentSnapshot[];
+    try {
+      const snap = await alarmsRef(uid)
+        .where('enabled', '==', true)
+        .orderBy('createdAt', 'desc')
+        .get();
+      snapDocs = snap.docs;
+    } catch (err: unknown) {
+      const error = err as { code?: number; message?: string };
+      if (
+        error?.code === 9 ||
+        error?.message?.includes('FAILED_PRECONDITION') ||
+        error?.message?.includes('requires an index')
+      ) {
+        console.warn(
+          '[DeleteItem] Missing composite index for alarms; falling back to in-memory sort',
+        );
+        const snap = await alarmsRef(uid).where('enabled', '==', true).get();
+        snapDocs = [...snap.docs].sort((a, b) => {
+          const tA = (a.data() as AlarmDoc).createdAt?.toMillis?.() ?? 0;
+          const tB = (b.data() as AlarmDoc).createdAt?.toMillis?.() ?? 0;
+          return tB - tA;
+        });
+      } else {
+        throw err;
+      }
+    }
 
-    if (snap.empty) {
+    if (snapDocs.length === 0) {
       return {
         success: false,
         message: DELETE_NOT_FOUND_ALARM_MESSAGE,
@@ -55,8 +78,8 @@ export async function handleDeleteItem(
     }
 
     // Try finding an alarm matching time or label mentioned in user text
-    let targetDoc = snap.docs[0];
-    for (const doc of snap.docs) {
+    let targetDoc = snapDocs[0];
+    for (const doc of snapDocs) {
       const d = doc.data() as AlarmDoc;
       const timeClean = d.time.replace(/^0/, ''); // "07:00" -> "7:00"
       if (
@@ -93,12 +116,35 @@ export async function handleDeleteItem(
   }
 
   if (itemType === 'reminder') {
-    const snap = await remindersRef(uid)
-      .where('status', 'in', ['pending', 'snoozed'])
-      .orderBy('createdAt', 'desc')
-      .get();
+    let snapDocs: FirebaseFirestore.QueryDocumentSnapshot[];
+    try {
+      const snap = await remindersRef(uid)
+        .where('status', 'in', ['pending', 'snoozed'])
+        .orderBy('createdAt', 'desc')
+        .get();
+      snapDocs = snap.docs;
+    } catch (err: unknown) {
+      const error = err as { code?: number; message?: string };
+      if (
+        error?.code === 9 ||
+        error?.message?.includes('FAILED_PRECONDITION') ||
+        error?.message?.includes('requires an index')
+      ) {
+        console.warn(
+          '[DeleteItem] Missing composite index for reminders; falling back to in-memory sort',
+        );
+        const snap = await remindersRef(uid).where('status', 'in', ['pending', 'snoozed']).get();
+        snapDocs = [...snap.docs].sort((a, b) => {
+          const tA = (a.data() as ReminderDoc).createdAt?.toMillis?.() ?? 0;
+          const tB = (b.data() as ReminderDoc).createdAt?.toMillis?.() ?? 0;
+          return tB - tA;
+        });
+      } else {
+        throw err;
+      }
+    }
 
-    if (snap.empty) {
+    if (snapDocs.length === 0) {
       return {
         success: false,
         message: DELETE_NOT_FOUND_REMINDER_MESSAGE,
@@ -106,8 +152,8 @@ export async function handleDeleteItem(
     }
 
     // Try finding a reminder matching message keyword mentioned in user text
-    let targetDoc = snap.docs[0];
-    for (const doc of snap.docs) {
+    let targetDoc = snapDocs[0];
+    for (const doc of snapDocs) {
       const d = doc.data() as ReminderDoc;
       if (d.message && normalizedUserText.includes(d.message.toLowerCase())) {
         targetDoc = doc;
