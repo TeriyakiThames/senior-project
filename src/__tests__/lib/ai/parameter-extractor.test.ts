@@ -76,6 +76,15 @@ describe('Structured Parameter Extractor (AI-04)', () => {
       expect(await extractAlarmParams('   ', { client: mockClient })).toBeNull();
       expect(mockCreate).not.toHaveBeenCalled();
     });
+
+    it('propagates error when Gemini API call throws (R6)', async () => {
+      const mockCreate = vi.fn().mockRejectedValue(new Error('Gemini API rate limit exceeded'));
+      const mockClient = { interactions: { create: mockCreate } } as unknown as GoogleGenAI;
+
+      await expect(extractAlarmParams('ปลุก 7 โมง', { client: mockClient })).rejects.toThrow(
+        'Gemini API rate limit exceeded',
+      );
+    });
   });
 
   describe('extractReminderParams', () => {
@@ -115,6 +124,15 @@ describe('Structured Parameter Extractor (AI-04)', () => {
       });
 
       expect(result).toBeNull();
+    });
+
+    it('propagates error when Gemini API call throws (R6)', async () => {
+      const mockCreate = vi.fn().mockRejectedValue(new Error('Gemini API quota exhausted'));
+      const mockClient = { interactions: { create: mockCreate } } as unknown as GoogleGenAI;
+
+      await expect(extractReminderParams('เตือนกินยา', { client: mockClient })).rejects.toThrow(
+        'Gemini API quota exhausted',
+      );
     });
   });
 

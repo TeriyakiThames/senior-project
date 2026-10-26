@@ -128,6 +128,34 @@ describe('POST /api/auth/line (SEC-02 / S2 & S4)', () => {
     });
   });
 
+  it('returns 500 when updating user firebaseUid in Firestore fails (R6)', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    vi.mocked(verifyLineIdToken).mockResolvedValue({
+      lineUserId: TEST_LINE_USER_ID,
+      displayName: 'Existing User',
+    });
+    vi.mocked(auth.getUser).mockResolvedValue({
+      uid: TEST_LINE_USER_ID,
+    } as any);
+
+    vi.mocked(userRef).mockReturnValue({
+      get: vi.fn().mockRejectedValue(new Error('Firestore connection reset')),
+    } as any);
+
+    const request = new NextRequest('http://localhost:3000/api/auth/line', {
+      method: 'POST',
+      body: JSON.stringify({ idToken: 'valid-line-token' }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(500);
+    const data = await response.json();
+    expect(data.error).toBe('Internal server error');
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it('returns 500 when an unexpected internal error occurs', async () => {
     vi.mocked(verifyLineIdToken).mockRejectedValue(new Error('Unexpected crash'));
 

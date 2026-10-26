@@ -37,14 +37,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    try {
-      const uRef = userRef(lineUserId);
-      const snap = await uRef.get();
-      if (snap.exists) {
-        await uRef.update({ firebaseUid });
-      }
-    } catch (dbErr) {
-      console.error('Failed to update user firebaseUid:', dbErr);
+    const uRef = userRef(lineUserId);
+    const snap = await uRef.get();
+    if (snap.exists) {
+      await uRef.update({ firebaseUid });
     }
 
     const customToken = await auth.createCustomToken(firebaseUid, {
