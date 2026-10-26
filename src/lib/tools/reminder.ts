@@ -67,6 +67,7 @@ export function calculateReminderFireTime(
  * rolls overdue times forward by 24 hours (or next recurrence cycle), saves
  * ReminderDoc under users/{userId}/reminders with status: 'pending', queues a
  * Cloud Task, and records cloudTaskName.
+ * Automatically rolls back (deletes) the Firestore document if Cloud Task creation fails.
  */
 export async function handleSetReminder(
   userText: string,
@@ -111,8 +112,13 @@ export async function handleSetReminder(
     reminderData.dayOfMonth = params.dayOfMonth;
   }
 
+  let docRef: {
+    id: string;
+    update: (data: unknown) => Promise<unknown>;
+    delete?: () => Promise<unknown>;
+  } | null = null;
   try {
-    const docRef = await remindersRef(user.lineUserId).add(reminderData);
+    docRef = await remindersRef(user.lineUserId).add(reminderData);
 
     const taskName = await scheduleNotification({
       userId: user.lineUserId,
@@ -141,6 +147,13 @@ export async function handleSetReminder(
     };
   } catch (error) {
     console.error('[ReminderTool] Error creating reminder:', error);
+    if (docRef && typeof docRef.delete === 'function') {
+      try {
+        await docRef.delete();
+      } catch (rollbackError) {
+        console.error('[ReminderTool] Failed to rollback reminder document:', rollbackError);
+      }
+    }
     return {
       success: false,
       message: 'เกิดข้อผิดพลาดในการตั้งเตือน กรุณาลองใหม่อีกครั้งค่ะ',

@@ -112,6 +112,7 @@ export function calculateAlarmFireTime(params: AlarmParams, now: Date = new Date
  * Handles alarm creation: extracts parameters (or accepts pre-parsed params),
  * computes next fire time in Asia/Bangkok, saves AlarmDoc to Firestore,
  * and enqueues a Cloud Task targeting /api/notify.
+ * Automatically rolls back (deletes) the Firestore document if Cloud Task creation fails.
  */
 export async function handleSetAlarm(
   userText: string,
@@ -155,8 +156,13 @@ export async function handleSetAlarm(
     alarmData.dayOfMonth = params.dayOfMonth;
   }
 
+  let docRef: {
+    id: string;
+    update: (data: unknown) => Promise<unknown>;
+    delete?: () => Promise<unknown>;
+  } | null = null;
   try {
-    const docRef = await alarmsRef(user.lineUserId).add(alarmData);
+    docRef = await alarmsRef(user.lineUserId).add(alarmData);
 
     const taskName = await scheduleNotification({
       userId: user.lineUserId,
@@ -182,6 +188,13 @@ export async function handleSetAlarm(
     };
   } catch (error) {
     console.error('[AlarmTool] Error creating alarm:', error);
+    if (docRef && typeof docRef.delete === 'function') {
+      try {
+        await docRef.delete();
+      } catch (rollbackError) {
+        console.error('[AlarmTool] Failed to rollback alarm document:', rollbackError);
+      }
+    }
     return {
       success: false,
       message: 'เกิดข้อผิดพลาดในการตั้งปลุก กรุณาลองใหม่อีกครั้งค่ะ',

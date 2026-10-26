@@ -187,5 +187,36 @@ describe('Alarm Tool Handler (SCHED-03)', () => {
       expect(result.success).toBe(false);
       expect(result.message).toContain('เกิดข้อผิดพลาดในการตั้งปลุก');
     });
+
+    it('rolls back (deletes) created alarm document if scheduleNotification fails (R4)', async () => {
+      const now = createBangkokDate(2026, 10, 16, 6, 0, 0);
+      const mockDocId = 'alarm-doc-fail';
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockUpdate = vi.fn();
+      const mockAdd = vi.fn().mockResolvedValue({
+        id: mockDocId,
+        update: mockUpdate,
+        delete: mockDelete,
+      });
+
+      vi.mocked(collections.alarmsRef).mockReturnValue({
+        add: mockAdd,
+      } as unknown as ReturnType<typeof collections.alarmsRef>);
+
+      vi.mocked(tasks.scheduleNotification).mockRejectedValue(
+        new Error('Cloud Tasks scheduleTime cannot exceed 30 days in the future'),
+      );
+
+      const result = await handleSetAlarm('ตั้งปลุก 07:00', '', mockUser, {
+        now,
+        params: { time: '07:00', recurrence: 'once' },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('เกิดข้อผิดพลาดในการตั้งปลุก');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
   });
 });

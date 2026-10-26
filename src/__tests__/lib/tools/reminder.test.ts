@@ -228,5 +228,41 @@ describe('Reminder Tool Handler (SCHED-04)', () => {
       expect(result.success).toBe(false);
       expect(result.message).toContain('เกิดข้อผิดพลาดในการตั้งเตือน');
     });
+
+    it('rolls back (deletes) created reminder document if scheduleNotification fails (R4)', async () => {
+      const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
+      const mockDocId = 'reminder-doc-fail';
+      const mockDelete = vi.fn().mockResolvedValue(undefined);
+      const mockUpdate = vi.fn();
+      const mockAdd = vi.fn().mockResolvedValue({
+        id: mockDocId,
+        update: mockUpdate,
+        delete: mockDelete,
+      });
+
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        add: mockAdd,
+      } as unknown as ReturnType<typeof collections.remindersRef>);
+
+      vi.mocked(tasks.scheduleNotification).mockRejectedValue(
+        new Error('Cloud Tasks scheduleTime cannot exceed 30 days in the future'),
+      );
+
+      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
+      const result = await handleSetReminder('เตือนกินยา', '', mockUser, {
+        now,
+        params: {
+          message: 'กินยา',
+          scheduledAt,
+          recurrence: 'once',
+        },
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('เกิดข้อผิดพลาดในการตั้งเตือน');
+      expect(mockAdd).toHaveBeenCalledTimes(1);
+      expect(mockDelete).toHaveBeenCalledTimes(1);
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
   });
 });
