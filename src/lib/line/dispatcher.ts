@@ -19,6 +19,32 @@ import {
 } from '@/lib/tools';
 import type { PendingActionDoc } from '@/types/firestore';
 
+export const DEFAULT_EVENT_TIMEOUT_MS = 50_000;
+
+/**
+ * Wraps an asynchronous operation with an explicit deadline to prevent serverless function timeouts
+ * from terminating event processing silently before a fallback response can be returned.
+ */
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  timeoutMessage = 'Operation timed out',
+): Promise<T> {
+  let timer: NodeJS.Timeout | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new AppError(timeoutMessage, 'NET_TIMEOUT'));
+    }, ms);
+  });
+
+  return Promise.race([
+    promise.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    timeoutPromise,
+  ]);
+}
+
 /**
  * Resolves the appropriate pipeline failure stage from the event and caught error.
  */
@@ -379,14 +405,19 @@ export async function handleWebhookEvent(event: webhook.Event): Promise<void> {
 }
 
 /**
- * Iterates through webhook events and processes each event safely.
+ * Iterates through webhook events and processes each event safely within an execution deadline.
  * Catches per-event errors so one failed event does not crash or abort processing for others,
  * logging structured telemetry and replying with an elderly-friendly, polite fallback message.
  */
-export async function processWebhookEvents(events: webhook.Event[]): Promise<void> {
+export async function processWebhookEvents(
+  events: webhook.Event[],
+  options?: { timeoutMs?: number },
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_EVENT_TIMEOUT_MS;
+
   for (const event of events) {
     try {
-      await handleWebhookEvent(event);
+      await withTimeout(handleWebhookEvent(event), timeoutMs);
     } catch (error) {
       const stage = resolveErrorStage(event, error);
       const userId = event.source?.userId;

@@ -777,6 +777,37 @@ describe('LINE Webhook Dispatcher', () => {
 
       consoleErrorSpy.mockRestore();
     });
+
+    it('times out long-running event processing gracefully and sends network fallback reply (R2)', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const audioEvent = {
+        type: 'message' as const,
+        replyToken: 'token-timeout',
+        source: { userId: 'u-slow' },
+        message: { id: 'm-slow', type: 'audio' as const },
+      } as unknown as webhook.Event;
+
+      const { processAudioMessage } = await import('@/lib/speech/handler');
+      vi.mocked(processAudioMessage).mockImplementationOnce(
+        () => new Promise((resolve) => setTimeout(resolve, 80)),
+      );
+
+      await processWebhookEvents([audioEvent], { timeoutMs: 10 });
+
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-timeout',
+        messages: [
+          {
+            type: 'text',
+            text: expect.stringContaining('สัญญาณเชื่อมต่อติดขัดชั่วคราว'),
+          },
+        ],
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 
   describe('resolveErrorStage', () => {
