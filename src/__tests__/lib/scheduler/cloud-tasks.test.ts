@@ -326,6 +326,24 @@ describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
         audience: 'https://senior.app',
       });
     });
+
+    it('rejects with error when fireAt exceeds 30-day schedule limit (R4)', async () => {
+      const farFutureDate = new Date(Date.now() + 31 * 24 * 60 * 60 * 1000);
+      const mockClient = {
+        createTask: vi.fn(),
+        queuePath: vi.fn(),
+      } as unknown as CloudTasksClient;
+
+      await expect(
+        scheduleNotification({
+          userId: 'u1',
+          itemId: 'i1',
+          itemType: 'reminder',
+          fireAt: farFutureDate,
+          client: mockClient,
+        }),
+      ).rejects.toThrow('Cloud Tasks scheduleTime cannot exceed 30 days in the future');
+    });
   });
 
   describe('cancelScheduledTask', () => {
