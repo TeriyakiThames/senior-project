@@ -20,6 +20,79 @@ import {
 import type { PendingActionDoc } from '@/types/firestore';
 
 export const DEFAULT_EVENT_TIMEOUT_MS = 50_000;
+export const DEFAULT_DEDUP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * In-memory deduplication cache tracking processed event IDs and message IDs with timestamps.
+ */
+const processedEventCache = new Map<string, number>();
+
+/**
+ * Extracts a unique string identifier from a LINE webhook event.
+ */
+export function getEventIdentifier(event: webhook.Event): string | null {
+  const eventObj = event as {
+    webhookEventId?: string;
+    message?: { id?: string };
+  };
+
+  if (eventObj.webhookEventId && typeof eventObj.webhookEventId === 'string') {
+    return `webhook:${eventObj.webhookEventId}`;
+  }
+
+  if (eventObj.message?.id && typeof eventObj.message.id === 'string') {
+    return `msg:${eventObj.message.id}`;
+  }
+
+  return null;
+}
+
+/**
+ * Checks whether an event has already been processed or is a redelivery duplicate.
+ */
+export function isEventDuplicate(event: webhook.Event, ttlMs = DEFAULT_DEDUP_TTL_MS): boolean {
+  const eventId = getEventIdentifier(event);
+  if (!eventId) {
+    return false;
+  }
+
+  const now = Date.now();
+
+  // Housekeeping: remove expired keys if map grows large
+  if (processedEventCache.size > 2000) {
+    for (const [key, timestamp] of processedEventCache.entries()) {
+      if (now - timestamp > ttlMs) {
+        processedEventCache.delete(key);
+      }
+    }
+  }
+
+  if (processedEventCache.has(eventId)) {
+    const timestamp = processedEventCache.get(eventId)!;
+    if (now - timestamp < ttlMs) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Records an event as processed in the deduplication cache.
+ */
+export function markEventProcessed(event: webhook.Event): void {
+  const eventId = getEventIdentifier(event);
+  if (eventId) {
+    processedEventCache.set(eventId, Date.now());
+  }
+}
+
+/**
+ * Clears the in-memory deduplication cache (useful for testing).
+ */
+export function clearProcessedEventCache(): void {
+  processedEventCache.clear();
+}
 
 /**
  * Wraps an asynchronous operation with an explicit deadline to prevent serverless function timeouts
@@ -406,16 +479,24 @@ export async function handleWebhookEvent(event: webhook.Event): Promise<void> {
 
 /**
  * Iterates through webhook events and processes each event safely within an execution deadline.
+ * Drops duplicate events and redeliveries via webhookEventId / message.id deduplication.
  * Catches per-event errors so one failed event does not crash or abort processing for others,
  * logging structured telemetry and replying with an elderly-friendly, polite fallback message.
  */
 export async function processWebhookEvents(
   events: webhook.Event[],
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; skipDeduplication?: boolean },
 ): Promise<void> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_EVENT_TIMEOUT_MS;
 
   for (const event of events) {
+    if (!options?.skipDeduplication && isEventDuplicate(event)) {
+      continue;
+    }
+    if (!options?.skipDeduplication) {
+      markEventProcessed(event);
+    }
+
     try {
       await withTimeout(handleWebhookEvent(event), timeoutMs);
     } catch (error) {
