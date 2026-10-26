@@ -3,6 +3,7 @@ import { lineClient } from '@/lib/line/client';
 import { alarmsRef, remindersRef } from '@/lib/firebase/collections';
 import { buildAlarmNotification, buildReminderNotification } from '@/lib/line/flex-messages';
 import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
+import { isValidWebhookSecret } from '@/lib/scheduler/webhook-auth';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AlarmDoc, ReminderDoc } from '@/types/firestore';
@@ -10,9 +11,13 @@ import { logError } from '@/lib/utils/errors';
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get('x-webhook-secret');
-  const configuredSecret = process.env.WEBHOOK_SECRET;
+  const authHeader = request.headers.get('authorization');
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
 
-  if (!configuredSecret || secret !== configuredSecret) {
+  const isSecretValid =
+    isValidWebhookSecret(secret) || (bearerToken ? isValidWebhookSecret(bearerToken) : false);
+
+  if (!isSecretValid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

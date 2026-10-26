@@ -141,6 +141,52 @@ describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
       expect(mockQueuePath).toHaveBeenCalledWith('env-project', 'asia-southeast1', 'env-queue');
       expect(mockCreateTask).toHaveBeenCalledTimes(1);
     });
+
+    it('extracts primary secret when WEBHOOK_SECRET is comma-separated (S5 rotation)', async () => {
+      process.env.WEBHOOK_SECRET = 'primary-secret-key, secondary-rotated-key';
+
+      const mockCreateTask = vi.fn().mockResolvedValue([{ name: 'task-rot' }]);
+      const mockClient = {
+        createTask: mockCreateTask,
+        queuePath: vi.fn().mockReturnValue('projects/p/locations/l/queues/q'),
+      } as unknown as CloudTasksClient;
+
+      await scheduleNotification({
+        userId: 'u1',
+        itemId: 'i1',
+        itemType: 'alarm',
+        fireAt: new Date(),
+        client: mockClient,
+      });
+
+      const callArg = mockCreateTask.mock.calls[0][0];
+      expect(callArg.task.httpRequest.headers['X-Webhook-Secret']).toBe('primary-secret-key');
+    });
+
+    it('attaches oidcToken when serviceAccountEmail is configured (S5 task identity)', async () => {
+      process.env.CLOUD_TASKS_SERVICE_ACCOUNT_EMAIL = 'sa@gcp.iam.gserviceaccount.com';
+      process.env.NEXT_PUBLIC_APP_URL = 'https://senior.app';
+
+      const mockCreateTask = vi.fn().mockResolvedValue([{ name: 'task-oidc' }]);
+      const mockClient = {
+        createTask: mockCreateTask,
+        queuePath: vi.fn().mockReturnValue('projects/p/locations/l/queues/q'),
+      } as unknown as CloudTasksClient;
+
+      await scheduleNotification({
+        userId: 'u1',
+        itemId: 'i1',
+        itemType: 'reminder',
+        fireAt: new Date(),
+        client: mockClient,
+      });
+
+      const callArg = mockCreateTask.mock.calls[0][0];
+      expect(callArg.task.httpRequest.oidcToken).toEqual({
+        serviceAccountEmail: 'sa@gcp.iam.gserviceaccount.com',
+        audience: 'https://senior.app',
+      });
+    });
   });
 
   describe('cancelScheduledTask', () => {
