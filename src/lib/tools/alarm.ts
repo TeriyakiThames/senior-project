@@ -53,14 +53,14 @@ export async function handleSetAlarm(
 
   const alarmData: AlarmDoc = {
     time: params.time,
-    recurrence: params.recurrence,
+    recurrence: params.recurrence ?? 'once',
     enabled: true,
     nextFireAt: Timestamp.fromDate(fireAt),
     createdAt: Timestamp.now(),
   };
 
-  if (params.label !== undefined) {
-    alarmData.label = params.label;
+  if (params.label !== undefined && params.label.trim()) {
+    alarmData.label = params.label.trim();
   }
   if (params.daysOfWeek !== undefined) {
     alarmData.daysOfWeek = params.daysOfWeek;

@@ -2,9 +2,18 @@ import { initializeApp, getApps, cert, type ServiceAccount } from 'firebase-admi
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 
+function configureFirestore(db: Firestore): Firestore {
+  try {
+    db.settings({ ignoreUndefinedProperties: true });
+  } catch {
+    // Ignore if settings have already been configured
+  }
+  return db;
+}
+
 function getFirebaseAdmin(): { db: Firestore; auth: Auth } {
   if (getApps().length > 0) {
-    return { db: getFirestore(), auth: getAuth() };
+    return { db: configureFirestore(getFirestore()), auth: getAuth() };
   }
 
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -12,7 +21,7 @@ function getFirebaseAdmin(): { db: Firestore; auth: Auth } {
     try {
       const serviceAccount = JSON.parse(serviceAccountKey) as ServiceAccount;
       const app = initializeApp({ credential: cert(serviceAccount) });
-      return { db: getFirestore(app), auth: getAuth(app) };
+      return { db: configureFirestore(getFirestore(app)), auth: getAuth(app) };
     } catch {
       // Ignore parse failure and try default init
     }
@@ -20,14 +29,14 @@ function getFirebaseAdmin(): { db: Firestore; auth: Auth } {
 
   try {
     const app = initializeApp();
-    return { db: getFirestore(app), auth: getAuth(app) };
+    return { db: configureFirestore(getFirestore(app)), auth: getAuth(app) };
   } catch {
     // Fallback for build / CI environments without live credentials
     const app = initializeApp(
       { projectId: process.env.GOOGLE_CLOUD_PROJECT_ID || 'senior-project-dummy' },
       'fallback-app',
     );
-    return { db: getFirestore(app), auth: getAuth(app) };
+    return { db: configureFirestore(getFirestore(app)), auth: getAuth(app) };
   }
 }
 
