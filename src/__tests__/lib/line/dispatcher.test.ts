@@ -173,6 +173,95 @@ describe('LINE Webhook Dispatcher', () => {
       expect(updateUserProfile).toHaveBeenCalledTimes(1);
     });
 
+    it('does not update user profile facts when tool execution fails', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_reminder',
+        confidence: 0.95,
+        isAmbiguous: false,
+      });
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: false,
+        message: 'เกิดข้อผิดพลาดในการตั้งเตือน กรุณาลองใหม่อีกครั้งค่ะ',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-fail-123',
+        source: { type: 'user' as const, userId: 'user-123' },
+        message: {
+          id: 'msg-fail',
+          type: 'text' as const,
+          text: 'เตือนกินยาลดความดันตอนบ่ายสอง',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(executeTool).toHaveBeenCalledTimes(1);
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-fail-123',
+        messages: [{ type: 'text', text: 'เกิดข้อผิดพลาดในการตั้งเตือน กรุณาลองใหม่อีกครั้งค่ะ' }],
+      });
+      expect(updateUserProfile).not.toHaveBeenCalled();
+    });
+
+    it('does not update user profile facts when tool returns a pending draft confirmation card', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_reminder',
+        confidence: 0.95,
+        isAmbiguous: false,
+      });
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        flexMessage: { type: 'flex', altText: 'ยืนยันเตือน: กินยา' },
+        data: { message: 'กินยา', time: '14:00 น.' },
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-pending-123',
+        source: { type: 'user' as const, userId: 'user-123' },
+        message: {
+          id: 'msg-pending',
+          type: 'text' as const,
+          text: 'เตือนกินยาตอนบ่ายสอง',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(executeTool).toHaveBeenCalledTimes(1);
+      expect(updateUserProfile).not.toHaveBeenCalled();
+    });
+
+    it('updates user profile facts when tool execution succeeds without pending draft', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_alarm',
+        confidence: 0.95,
+        isAmbiguous: false,
+      });
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        message: 'ตั้งปลุก เวลา 07:00 น. เรียบร้อยแล้วค่ะ',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-alarm-123',
+        source: { type: 'user' as const, userId: 'user-123' },
+        message: {
+          id: 'msg-alarm',
+          type: 'text' as const,
+          text: 'ตั้งปลุก 7 โมงเช้า',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(executeTool).toHaveBeenCalledTimes(1);
+      expect(updateUserProfile).toHaveBeenCalledTimes(1);
+    });
+
     it('does not send reply if replyToken is missing', async () => {
       const event = {
         type: 'message' as const,
