@@ -1,3 +1,10 @@
+## [1.28.3](https://github.com/TeriyakiThames/senior-project/compare/v1.28.2...v1.28.3) (2026-10-29)
+
+
+### Bug Fixes
+
+* point serverless file tracing to pnpm virtual store for cloud tasks ([#94](https://github.com/TeriyakiThames/senior-project/issues/94)) ([c1c8488](https://github.com/TeriyakiThames/senior-project/commit/c1c84882d53c04f1472fd089a362fc4dee05d6af))
+
 ## [1.28.2](https://github.com/TeriyakiThames/senior-project/compare/v1.28.1...v1.28.2) (2026-10-26)
 
 
