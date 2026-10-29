@@ -130,8 +130,13 @@ async function extractUserFacts(
 
   const systemInstruction = `You are a memory extraction assistant for an elderly Thai user companion.
 Analyze the user message and assistant reply to discover any NEW personal facts about the user (e.g. name, preferences, daily routine, family relationships, habits, health notes).
-Return ONLY a valid JSON array of concise string statements in the user's language (primarily Thai).
-If no new personal facts were mentioned or they are already covered in Existing facts, return an empty array [].
+
+Rules for memory extraction:
+1. Only extract personal facts that the user explicitly stated or confirmed about themselves (e.g. "ผมชื่อ...", "ยายชอบกิน...", "จำไว้ว่าฉันแพ้...").
+2. NEVER extract facts if the assistant response indicates an error, failure, cancellation, or inability to perform a task (e.g. "เกิดข้อผิดพลาด", "ไม่สำเร็จ", "ขออภัย", "ยกเลิก").
+3. Do NOT extract one-time tool requests (such as a single reminder or alarm request) as permanent daily habits unless the user explicitly stated it is their regular habit or recurring routine.
+4. Return ONLY a valid JSON array of concise string statements in the user's language (primarily Thai).
+5. If no new personal facts were mentioned or if the action failed/was cancelled, return an empty array [].
 Do NOT return Markdown formatting or conversational commentary, only the JSON array.`;
 
   const inputPrompt = `Existing facts:

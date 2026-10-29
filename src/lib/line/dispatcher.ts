@@ -364,11 +364,21 @@ export async function handleTextMessage(
     }
 
     // 9. Asynchronously update user profile facts in background
-    updateUserProfile(userId, userText, savedAssistantText, memoryContext.userFacts).catch(
-      (memError) => {
-        logError('ai_memory_update', memError, { userId });
-      },
-    );
+    // Gate knowledge base updates:
+    // - General chat turns are always eligible for learning user facts / preferences.
+    // - Tool calls are strictly gated: only learn if the tool executed successfully and is not a pending draft.
+    const isToolIntent = intentResult.intent !== 'general_chat';
+    const isPendingDraft = Boolean(toolResult.flexMessage);
+    const isToolSuccessful = toolResult.success && !isPendingDraft;
+    const shouldUpdateKnowledgeBase = !isToolIntent || isToolSuccessful;
+
+    if (shouldUpdateKnowledgeBase) {
+      updateUserProfile(userId, userText, savedAssistantText, memoryContext.userFacts).catch(
+        (memError) => {
+          logError('ai_memory_update', memError, { userId });
+        },
+      );
+    }
   }
 }
 
