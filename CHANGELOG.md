@@ -1,3 +1,10 @@
+# [1.31.0](https://github.com/TeriyakiThames/senior-project/compare/v1.30.1...v1.31.0) (2026-10-29)
+
+
+### Features
+
+* add contextual feature suggestion chat bubble and anti-hallucination safeguards ([#99](https://github.com/TeriyakiThames/senior-project/issues/99)) ([8c5ea97](https://github.com/TeriyakiThames/senior-project/commit/8c5ea97b188a0eabaccc0f8ce08236d552ba0687))
+
 ## [1.30.1](https://github.com/TeriyakiThames/senior-project/compare/v1.30.0...v1.30.1) (2026-10-29)
 
 
