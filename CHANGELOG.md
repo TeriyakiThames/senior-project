@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/TeriyakiThames/senior-project/compare/v1.28.4...v1.29.0) (2026-10-29)
+
+
+### Features
+
+* add Gemini multimodal fallback and credential resolution for speech-to-text ([#96](https://github.com/TeriyakiThames/senior-project/issues/96)) ([b090edd](https://github.com/TeriyakiThames/senior-project/commit/b090eddb32066cbffd7751e47610b1f59e8108a0))
+
 ## [1.28.4](https://github.com/TeriyakiThames/senior-project/compare/v1.28.3...v1.28.4) (2026-10-29)
 
 
