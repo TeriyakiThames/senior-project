@@ -34,6 +34,7 @@ const mockPendingRef = vi.fn().mockReturnValue({ doc: mockPendingDoc });
 vi.mock('@/lib/line/client', () => ({
   lineClient: {
     replyMessage: vi.fn().mockResolvedValue({}),
+    showLoadingAnimation: vi.fn().mockResolvedValue({}),
     getProfile: vi.fn().mockResolvedValue({
       displayName: 'คุณยายสมศรี',
       userId: 'user-123',
@@ -870,6 +871,136 @@ describe('LINE Webhook Dispatcher', () => {
       expect(resolveErrorStage(audioEvent, new Error('generic error'))).toBe('stt');
       expect(resolveErrorStage(dummyEvent, new Error('ECONNRESET from server'))).toBe('network');
       expect(resolveErrorStage(dummyEvent, new Error('something else'))).toBe('default');
+    });
+  });
+
+  describe('Loading Animation Integration', () => {
+    it('triggers loading animation before heavy AI pipeline in 1-on-1 text message', async () => {
+      const event = {
+        type: 'message',
+        source: { type: 'user', userId: 'user-123' },
+        replyToken: 'token-load-1',
+        message: { id: 'msg-load-1', type: 'text', text: 'เตือนกินยาตอนบ่าย 3 โมง' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.showLoadingAnimation).toHaveBeenCalledWith({
+        chatId: 'user-123',
+        loadingSeconds: 60,
+      });
+      expect(lineClient.replyMessage).toHaveBeenCalled();
+    });
+
+    it('does not trigger loading animation if event source is not a 1-on-1 user chat', async () => {
+      const event = {
+        type: 'message',
+        source: { type: 'group', groupId: 'group-123', userId: 'user-123' },
+        replyToken: 'token-load-group',
+        message: { id: 'msg-load-group', type: 'text', text: 'เตือนกินยา' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.showLoadingAnimation).not.toHaveBeenCalled();
+      expect(lineClient.replyMessage).toHaveBeenCalled();
+    });
+
+    it('does not trigger loading animation if loadingAlreadyStarted option is true', async () => {
+      const event = {
+        type: 'message',
+        source: { type: 'user', userId: 'user-123' },
+        replyToken: 'token-load-already',
+        message: { id: 'msg-load-already', type: 'text', text: 'สวัสดีค่ะ' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event, undefined, { loadingAlreadyStarted: true });
+
+      expect(lineClient.showLoadingAnimation).not.toHaveBeenCalled();
+      expect(lineClient.replyMessage).toHaveBeenCalled();
+    });
+
+    it('does not trigger loading animation for deterministic short-circuits like snooze', async () => {
+      const event = {
+        type: 'message',
+        source: { type: 'user', userId: 'user-123' },
+        replyToken: 'token-load-snooze',
+        message: { id: 'msg-load-snooze', type: 'text', text: 'snooze_reminder:item-1' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.showLoadingAnimation).not.toHaveBeenCalled();
+      expect(lineClient.replyMessage).toHaveBeenCalled();
+    });
+
+    it('continues processing and successfully replies even if showLoadingAnimation fails', async () => {
+      vi.mocked(lineClient.showLoadingAnimation).mockRejectedValueOnce(
+        new Error('LINE API 500 error'),
+      );
+
+      const event = {
+        type: 'message',
+        source: { type: 'user', userId: 'user-123' },
+        replyToken: 'token-load-fail',
+        message: { id: 'msg-load-fail', type: 'text', text: 'บันทึกว่าวันนี้ไปซื้อของ' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.showLoadingAnimation).toHaveBeenCalledWith({
+        chatId: 'user-123',
+        loadingSeconds: 60,
+      });
+      expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it('triggers loading animation at the start of handleAudioMessage before STT', async () => {
+      const { processAudioMessage } = await import('@/lib/speech/handler');
+      vi.mocked(processAudioMessage).mockImplementationOnce(async (evt, callback) => {
+        if (callback) {
+          await callback('สวัสดีจ้า');
+        }
+        return 'สวัสดีจ้า';
+      });
+
+      const audioEvent = {
+        type: 'message',
+        source: { type: 'user', userId: 'user-123' },
+        replyToken: 'token-load-audio',
+        message: {
+          id: 'audio-load-1',
+          type: 'audio',
+          duration: 3000,
+          contentProvider: { type: 'line' },
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.AudioMessageContent };
+
+      await handleAudioMessage(audioEvent);
+
+      expect(lineClient.showLoadingAnimation).toHaveBeenCalledTimes(1);
+      expect(lineClient.showLoadingAnimation).toHaveBeenCalledWith({
+        chatId: 'user-123',
+        loadingSeconds: 60,
+      });
+      expect(lineClient.replyMessage).toHaveBeenCalled();
+    });
+
+    it('triggers loading animation in handlePostbackEvent for 1-on-1 user postback', async () => {
+      const postbackEvent = {
+        type: 'postback',
+        source: { type: 'user', userId: 'user-123' },
+        replyToken: 'token-load-postback',
+        postback: { data: 'action=confirm_note' },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(postbackEvent);
+
+      expect(lineClient.showLoadingAnimation).toHaveBeenCalledWith({
+        chatId: 'user-123',
+        loadingSeconds: 20,
+      });
+      expect(lineClient.replyMessage).toHaveBeenCalled();
     });
   });
 });
