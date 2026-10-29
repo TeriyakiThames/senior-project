@@ -6,11 +6,7 @@ const withNextIntl = createNextIntlPlugin('./src/lib/i18n/request.ts');
 const nextConfig: NextConfig = {
   serverExternalPackages: ['@google-cloud/speech', '@google-cloud/tasks', 'firebase-admin'],
   outputFileTracingIncludes: {
-    '/api/webhook': [
-      './node_modules/@google-cloud/tasks/**/*.json',
-      './node_modules/@google-cloud/speech/**/*.json',
-    ],
-    '/api/notify': ['./node_modules/@google-cloud/tasks/**/*.json'],
+    '/*': ['./node_modules/.pnpm/@google-cloud+tasks*/**/@google-cloud/tasks/build/esm/**/*.json'],
   },
 };
 
