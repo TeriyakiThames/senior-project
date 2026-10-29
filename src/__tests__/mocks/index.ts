@@ -10,6 +10,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 export function createMockLineClient(overrides?: Record<string, any>) {
   return {
     replyMessage: vi.fn().mockResolvedValue({}),
+    showLoadingAnimation: vi.fn().mockResolvedValue({}),
     pushMessage: vi.fn().mockResolvedValue({}),
     getProfile: vi.fn().mockResolvedValue({
       userId: 'mock-line-user-id',

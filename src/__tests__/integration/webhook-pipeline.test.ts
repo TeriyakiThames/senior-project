@@ -67,6 +67,7 @@ const inMemoryDb = new InMemoryDatabase();
 vi.mock('@/lib/line/client', () => ({
   lineClient: {
     replyMessage: vi.fn().mockResolvedValue({}),
+    showLoadingAnimation: vi.fn().mockResolvedValue({}),
     getProfile: vi.fn().mockImplementation((uid: string) =>
       Promise.resolve({
         userId: uid,

@@ -1,5 +1,6 @@
 import { webhook, type messagingApi } from '@line/bot-sdk';
 import { lineClient } from './client';
+import { startLoadingAnimation } from './loading';
 import { processAudioMessage, getUserProfile } from '@/lib/speech/handler';
 import { resolvePersonaParticles } from '@/lib/ai/persona';
 import { AppError, logError, getFallbackMessage, type ErrorStage } from '@/lib/utils/errors';
@@ -162,6 +163,7 @@ export function resolveErrorStage(event: webhook.Event, error: unknown): ErrorSt
 export async function handleTextMessage(
   event: webhook.MessageEvent & { message: webhook.TextMessageContent },
   transcribedText?: string,
+  options?: { loadingAlreadyStarted?: boolean },
 ): Promise<void> {
   const replyToken = event.replyToken;
   if (!replyToken) {
@@ -267,7 +269,13 @@ export async function handleTextMessage(
     }
   }
 
-  // 4. Load memory context
+  // 4. Trigger LINE Loading Animation before initiating heavy AI & tool processing
+  const isDirectUserChat = event.source?.type === 'user' && !!userId;
+  if (isDirectUserChat && !options?.loadingAlreadyStarted) {
+    await startLoadingAnimation(userId, { loadingSeconds: 60 });
+  }
+
+  // 5. Load memory context
   let memoryContext;
   try {
     memoryContext = userId
@@ -389,6 +397,11 @@ export async function handlePostbackEvent(event: webhook.PostbackEvent): Promise
   const user = await getOrCreateUser(userId, displayName);
   const data = event.postback.data ?? '';
 
+  const isDirectUserChat = event.source?.type === 'user';
+  if (isDirectUserChat) {
+    await startLoadingAnimation(userId, { loadingSeconds: 20 });
+  }
+
   if (data === 'action=confirm_reminder' || data === 'action=confirm_note') {
     const toolRes =
       data === 'action=confirm_reminder'
@@ -448,10 +461,17 @@ export async function handlePostbackEvent(event: webhook.PostbackEvent): Promise
 export async function handleAudioMessage(
   event: webhook.MessageEvent & { message: webhook.AudioMessageContent },
 ): Promise<void> {
+  const userId = event.source?.userId;
+  const isDirectUserChat = event.source?.type === 'user' && !!userId;
+  if (isDirectUserChat) {
+    await startLoadingAnimation(userId, { loadingSeconds: 60 });
+  }
+
   await processAudioMessage(event, async (transcribedText) => {
     await handleTextMessage(
       event as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent },
       transcribedText,
+      { loadingAlreadyStarted: true },
     );
   });
 }
