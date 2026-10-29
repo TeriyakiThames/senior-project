@@ -1,3 +1,10 @@
+## [1.28.4](https://github.com/TeriyakiThames/senior-project/compare/v1.28.3...v1.28.4) (2026-10-29)
+
+
+### Bug Fixes
+
+* prevent firestore undefined property errors in reminder and alarm handlers ([#95](https://github.com/TeriyakiThames/senior-project/issues/95)) ([d3ebe71](https://github.com/TeriyakiThames/senior-project/commit/d3ebe71bc5e2a851f982d708ac00c12572cd779e))
+
 ## [1.28.3](https://github.com/TeriyakiThames/senior-project/compare/v1.28.2...v1.28.3) (2026-10-29)
 
 
