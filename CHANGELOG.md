@@ -1,3 +1,10 @@
+## [1.30.1](https://github.com/TeriyakiThames/senior-project/compare/v1.30.0...v1.30.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* gate knowledge base updates behind successful tool execution and strengthen memory prompt ([#98](https://github.com/TeriyakiThames/senior-project/issues/98)) ([ebb8249](https://github.com/TeriyakiThames/senior-project/commit/ebb82493c0228f005e40d57ada8a0cb86cd1bf33))
+
 # [1.30.0](https://github.com/TeriyakiThames/senior-project/compare/v1.29.0...v1.30.0) (2026-10-29)
 
 
