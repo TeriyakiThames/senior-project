@@ -268,5 +268,50 @@ describe('Alarm Tool Handler (SCHED-03)', () => {
       expect(mockDelete).toHaveBeenCalledTimes(1);
       expect(mockUpdate).not.toHaveBeenCalled();
     });
+
+    it('does not include undefined fields in alarm document to prevent Firestore undefined errors', async () => {
+      const now = createBangkokDate(2026, 10, 16, 6, 0, 0);
+      const mockDocId = 'alarm-strict-check';
+      let capturedAlarmData: any;
+
+      const mockAdd = vi.fn().mockImplementation((data: any) => {
+        for (const [key, value] of Object.entries(data)) {
+          if (value === undefined) {
+            throw new Error(
+              `Cannot use "undefined" as a Firestore value (found in field "${key}").`,
+            );
+          }
+        }
+        capturedAlarmData = data;
+        return Promise.resolve({
+          id: mockDocId,
+          update: vi.fn().mockResolvedValue(undefined),
+          delete: vi.fn().mockResolvedValue(undefined),
+        });
+      });
+
+      vi.mocked(collections.alarmsRef).mockReturnValue({
+        add: mockAdd,
+      } as unknown as ReturnType<typeof collections.alarmsRef>);
+
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue('task-strict-123');
+
+      const result = await handleSetAlarm('ตั้งปลุก 7 โมงเช้า', '', mockUser, {
+        now,
+        params: {
+          time: '07:00',
+          recurrence: 'once',
+          label: undefined,
+          daysOfWeek: undefined,
+          dayOfMonth: undefined,
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect('label' in capturedAlarmData).toBe(false);
+      expect('daysOfWeek' in capturedAlarmData).toBe(false);
+      expect('dayOfMonth' in capturedAlarmData).toBe(false);
+      expect(capturedAlarmData.recurrence).toBe('once');
+    });
   });
 });

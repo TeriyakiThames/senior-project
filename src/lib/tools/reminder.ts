@@ -147,15 +147,22 @@ export async function handleSetReminder(
 
   // Interactive pre-confirmation draft flow (Ticket LINE-07)
   const expiresAtDate = new Date(now.getTime() + 5 * 60 * 1000);
+  const pendingReminderData: Record<string, unknown> = {
+    message: cleanMessage,
+    scheduledAt: fireAt.toISOString(),
+    recurrence: params.recurrence ?? 'once',
+  };
+
+  if (params.daysOfWeek !== undefined) {
+    pendingReminderData.daysOfWeek = params.daysOfWeek;
+  }
+  if (params.dayOfMonth !== undefined) {
+    pendingReminderData.dayOfMonth = params.dayOfMonth;
+  }
+
   const pendingData: PendingActionDoc = {
     type: 'confirm_reminder',
-    data: {
-      message: cleanMessage,
-      scheduledAt: fireAt.toISOString(),
-      recurrence: params.recurrence ?? 'once',
-      daysOfWeek: params.daysOfWeek,
-      dayOfMonth: params.dayOfMonth,
-    },
+    data: pendingReminderData,
     expiresAt: Timestamp.fromDate(expiresAtDate),
   };
 
@@ -229,6 +236,18 @@ export async function handleConfirmReminder(
       daysOfWeek?: number[];
       dayOfMonth?: number;
     };
+
+    if (
+      !draft ||
+      typeof draft.message !== 'string' ||
+      !draft.message.trim() ||
+      !draft.scheduledAt
+    ) {
+      return {
+        success: false,
+        message: REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE,
+      };
+    }
 
     let fireAt = parseBangkokDateTime(draft.scheduledAt);
     if (!fireAt || isNaN(fireAt.getTime()) || fireAt.getTime() <= now.getTime()) {
@@ -340,6 +359,18 @@ export async function handleUpdatePendingReminderTime(
       dayOfMonth?: number;
     };
 
+    if (
+      !draft ||
+      typeof draft.message !== 'string' ||
+      !draft.message.trim() ||
+      !draft.scheduledAt
+    ) {
+      return {
+        success: false,
+        message: REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE,
+      };
+    }
+
     // Calculate new target fire time from chosen datetime picker value
     const targetDate = parseBangkokDateTime(newDatetimeIso);
     const fireAt =
@@ -348,12 +379,21 @@ export async function handleUpdatePendingReminderTime(
         : new Date(now.getTime() + 10 * 60 * 1000);
 
     const expiresAtDate = new Date(now.getTime() + 5 * 60 * 1000);
+    const updatedData: Record<string, unknown> = {
+      message: draft.message.trim(),
+      scheduledAt: fireAt.toISOString(),
+      recurrence: draft.recurrence ?? 'once',
+    };
+    if (draft.daysOfWeek !== undefined) {
+      updatedData.daysOfWeek = draft.daysOfWeek;
+    }
+    if (draft.dayOfMonth !== undefined) {
+      updatedData.dayOfMonth = draft.dayOfMonth;
+    }
+
     const updatedPendingData: PendingActionDoc = {
       type: 'confirm_reminder',
-      data: {
-        ...draft,
-        scheduledAt: fireAt.toISOString(),
-      },
+      data: updatedData,
       expiresAt: Timestamp.fromDate(expiresAtDate),
     };
 

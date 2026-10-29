@@ -207,6 +207,43 @@ describe('Reminder Tool Handler (SCHED-04, LINE-07)', () => {
       expect(collections.remindersRef).not.toHaveBeenCalled();
       expect(collections.pendingActionsRef).not.toHaveBeenCalled();
     });
+
+    it('does not include undefined properties in pending draft to prevent Firestore undefined errors', async () => {
+      const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
+      let capturedDocData: any;
+      const mockSet = vi.fn().mockImplementation((data: any) => {
+        // Emulate Firestore strict undefined check
+        for (const [key, value] of Object.entries(data.data)) {
+          if (value === undefined) {
+            throw new Error(
+              `Cannot use "undefined" as a Firestore value (found in field "data.${key}").`,
+            );
+          }
+        }
+        capturedDocData = data;
+        return Promise.resolve();
+      });
+
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({ set: mockSet }),
+      } as any);
+
+      const scheduledAt = createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString();
+      const result = await handleSetReminder('เตือนกินยา', '', mockUser, {
+        now,
+        params: {
+          message: 'กินยา',
+          scheduledAt,
+          recurrence: 'once',
+          daysOfWeek: undefined,
+          dayOfMonth: undefined,
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect('daysOfWeek' in capturedDocData.data).toBe(false);
+      expect('dayOfMonth' in capturedDocData.data).toBe(false);
+    });
   });
 
   describe('handleConfirmReminder', () => {
@@ -338,6 +375,49 @@ describe('Reminder Tool Handler (SCHED-04, LINE-07)', () => {
           }),
         }),
       );
+    });
+
+    it('does not include undefined properties when updating pending reminder time', async () => {
+      const now = createBangkokDate(2026, 10, 16, 7, 0, 0);
+      let capturedDocData: any;
+      const mockSet = vi.fn().mockImplementation((data: any) => {
+        for (const [key, value] of Object.entries(data.data)) {
+          if (value === undefined) {
+            throw new Error(
+              `Cannot use "undefined" as a Firestore value (found in field "data.${key}").`,
+            );
+          }
+        }
+        capturedDocData = data;
+        return Promise.resolve();
+      });
+
+      const mockPendingDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            type: 'confirm_reminder',
+            data: {
+              message: 'กินยาลดไข้',
+              scheduledAt: createBangkokDate(2026, 10, 16, 8, 0, 0).toISOString(),
+              recurrence: 'once',
+            },
+            expiresAt: Timestamp.fromDate(new Date(now.getTime() + 4 * 60 * 1000)),
+          }),
+        }),
+        set: mockSet,
+      };
+
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockPendingDoc),
+      } as any);
+
+      const newDatetimeIso = createBangkokDate(2026, 10, 16, 10, 30, 0).toISOString();
+      const result = await handleUpdatePendingReminderTime(mockUser, newDatetimeIso, { now });
+
+      expect(result.success).toBe(true);
+      expect('daysOfWeek' in capturedDocData.data).toBe(false);
+      expect('dayOfMonth' in capturedDocData.data).toBe(false);
     });
 
     it('rolls back (deletes) created reminder document if scheduleNotification fails (R4)', async () => {
