@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { webhook } from '@line/bot-sdk';
-import { processWebhookEvents } from '@/lib/line/dispatcher';
+import { processWebhookEvents, clearProcessedEventCache } from '@/lib/line/dispatcher';
 import { lineClient } from '@/lib/line/client';
 import * as jev from '@/lib/ai/jev';
 import * as gemini from '@/lib/ai/gemini';
@@ -253,17 +253,21 @@ vi.mock('@/lib/firebase/collections', () => {
 
 describe('Webhook Pipeline Integration Suite', () => {
   const TEST_USER_ID = 'U_INTEGRATION_TEST_ELDER_001';
+  let eventSeq = 0;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateTask.mockResolvedValue([{ name: 'projects/test/queues/q/tasks/mock-task-1' }]);
     inMemoryDb.reset();
+    clearProcessedEventCache();
   });
 
   function createFakeLineMessageEvent(
     text: string,
     replyToken = 'reply-token-test',
   ): webhook.Event {
+    eventSeq += 1;
+    const uniqueSuffix = `${Date.now()}-${eventSeq}-${Math.random().toString(36).substring(7)}`;
     return {
       type: 'message',
       mode: 'active',
@@ -272,11 +276,11 @@ describe('Webhook Pipeline Integration Suite', () => {
         type: 'user',
         userId: TEST_USER_ID,
       },
-      webhookEventId: `event-${Date.now()}`,
+      webhookEventId: `event-${uniqueSuffix}`,
       deliveryContext: { isRedelivery: false },
       replyToken,
       message: {
-        id: `msg-${Date.now()}`,
+        id: `msg-${uniqueSuffix}`,
         type: 'text',
         text,
       },
