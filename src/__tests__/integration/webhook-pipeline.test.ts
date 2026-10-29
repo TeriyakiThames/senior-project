@@ -326,13 +326,17 @@ describe('Webhook Pipeline Integration Suite', () => {
     expect(createdAlarm.recurrence).toBe('daily');
     expect(createdAlarm.cloudTaskName).toBe('projects/test/queues/q/tasks/mock-task-1');
 
-    // 4. LINE Reply verification
+    // 4. LINE Reply verification: primary message + contextual suggestion chat bubble
     expect(lineClient.replyMessage).toHaveBeenCalledWith({
       replyToken: 'token-alarm',
       messages: [
         {
           type: 'text',
           text: 'ตั้งปลุก "ตื่นนอน" เวลา 07:00 น. เรียบร้อยแล้วค่ะ',
+        },
+        {
+          type: 'text',
+          text: 'นอกจากนี้ หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือช่วยจดบันทึกข้อความให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
         },
       ],
     });
@@ -347,7 +351,7 @@ describe('Webhook Pipeline Integration Suite', () => {
   });
 
   it('Flow 2: Reminder multi-turn creation pipeline with datetime picker and confirmation', async () => {
-    // --- Turn 1: Reminder Request (produces pre-confirmation card) ---
+    // --- Turn 1: Reminder Request (produces pre-confirmation card + suggestions) ---
     vi.mocked(jev.classifyIntent).mockResolvedValue({
       intent: 'set_reminder',
       confidence: 0.94,
@@ -380,7 +384,7 @@ describe('Webhook Pipeline Integration Suite', () => {
     // 3. Document persistence in Firestore reminders collection is NOT yet committed
     expect(inMemoryDb.getReminders(TEST_USER_ID).size).toBe(0);
 
-    // 4. LINE Reply verification: Flex Message with confirmation card
+    // 4. LINE Reply verification: Flex Message with confirmation card + suggestion bubble underneath
     expect(lineClient.replyMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         replyToken: 'token-reminder',
@@ -389,6 +393,10 @@ describe('Webhook Pipeline Integration Suite', () => {
             type: 'flex',
             altText: expect.stringContaining('ยืนยันเตือน: กินยาความดันหลังอาหาร'),
           }),
+          {
+            type: 'text',
+            text: 'นอกจากนี้ หนูยังช่วยจดบันทึกข้อความ (เช่น จดเรื่องสำคัญ) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
+          },
         ],
       }),
     );
@@ -449,13 +457,17 @@ describe('Webhook Pipeline Integration Suite', () => {
     // 7. Pending action draft was cleared
     expect(inMemoryDb.getPendingActions(TEST_USER_ID).has('current')).toBe(false);
 
-    // 8. LINE Reply verification
+    // 8. LINE Reply verification: confirmed message + suggestion bubble
     expect(lineClient.replyMessage).toHaveBeenCalledWith({
       replyToken: 'token-reminder-confirm',
       messages: [
         {
           type: 'text',
           text: 'ตั้งเตือน "กินยาความดันหลังอาหาร" เวลา 20:00 น. เรียบร้อยแล้วค่ะ',
+        },
+        {
+          type: 'text',
+          text: 'หากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
         },
       ],
     });
@@ -472,7 +484,7 @@ describe('Webhook Pipeline Integration Suite', () => {
   });
 
   it('Flow 3: Note capture & confirmation multi-turn pipeline', async () => {
-    // --- Turn 1: Note Draft Capture ---
+    // --- Turn 1: Note Draft Capture (produces draft flex card + suggestion bubble) ---
     vi.mocked(jev.classifyIntent).mockResolvedValue({
       intent: 'save_note',
       confidence: 0.92,
@@ -499,7 +511,7 @@ describe('Webhook Pipeline Integration Suite', () => {
     // Verify notes collection is still empty (not confirmed yet)
     expect(inMemoryDb.getNotes(TEST_USER_ID).size).toBe(0);
 
-    // Verify Flex Message confirmation card sent to LINE
+    // Verify Flex Message confirmation card + suggestion bubble sent to LINE
     expect(lineClient.replyMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         replyToken: 'token-note-draft',
@@ -508,6 +520,10 @@ describe('Webhook Pipeline Integration Suite', () => {
             type: 'flex',
             altText: expect.stringContaining('หมอนัดวันพุธหน้า'),
           }),
+          {
+            type: 'text',
+            text: 'หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ อยากให้หนูช่วยตั้งเตือนหรือตั้งนาฬิกาปลุกเรื่องนี้ด้วยไหมคะ',
+          },
         ],
       }),
     );
@@ -525,13 +541,17 @@ describe('Webhook Pipeline Integration Suite', () => {
     const confirmedNote = Array.from(userNotes.values())[0];
     expect(confirmedNote.summary).toBe('หมอนัดวันพุธหน้า เวลา 9 โมงเช้า');
 
-    // Verify LINE received confirmation reply
+    // Verify LINE received confirmation reply + suggestion bubble
     expect(lineClient.replyMessage).toHaveBeenCalledWith({
       replyToken: 'token-note-confirm',
       messages: [
         {
           type: 'text',
           text: 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย',
+        },
+        {
+          type: 'text',
+          text: 'หากต้องการให้หนูช่วยตั้งเตือนความจำ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
         },
       ],
     });

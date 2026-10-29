@@ -8,6 +8,7 @@ import { getOrCreateUser, saveMessages, pendingActionsRef } from '@/lib/firebase
 import { loadMemoryContext, updateUserProfile } from '@/lib/ai/memory';
 import { generateResponse } from '@/lib/ai/gemini';
 import { classifyIntent } from '@/lib/ai/jev';
+import { buildFeatureSuggestionBubble } from '@/lib/ai/feature-suggestions';
 import {
   executeTool,
   handleSnooze,
@@ -155,7 +156,7 @@ export function resolveErrorStage(event: webhook.Event, error: unknown): ErrorSt
  * 3. Loads 3-tier memory context.
  * 4. Executes conversational response generation (Gemini) and deterministic intent classification (Jev) concurrently.
  * 5. Executes the matching tool (alarm, reminder, notes, list, delete, actions).
- * 6. Dispatches a single reply to LINE with Flex Message or text.
+ * 6. Dispatches reply to LINE with Flex Message or text, followed by contextual feature suggestions bubble underneath.
  * 7. Records the conversation turn in Firestore messages history and asynchronously learns new profile facts.
  *
  * Accepts optional transcribedText to process recognized audio input.
@@ -163,7 +164,7 @@ export function resolveErrorStage(event: webhook.Event, error: unknown): ErrorSt
 export async function handleTextMessage(
   event: webhook.MessageEvent & { message: webhook.TextMessageContent },
   transcribedText?: string,
-  options?: { loadingAlreadyStarted?: boolean },
+  options?: { loadingAlreadyStarted?: boolean; disableSuggestions?: boolean },
 ): Promise<void> {
   const replyToken = event.replyToken;
   if (!replyToken) {
@@ -230,11 +231,12 @@ export async function handleTextMessage(
   if (user && (isConfirm || isCancel)) {
     try {
       let toolRes: ToolResult;
+      let pendingType: string | null = null;
+
       if (isCancel) {
         toolRes = await handleCancelAction(user);
       } else {
         // Inspect current pending action in Firestore to determine whether to confirm reminder or note
-        let pendingType: string | null = null;
         try {
           const pendingSnap = await pendingActionsRef(user.lineUserId).doc('current').get();
           pendingType = pendingSnap.exists
@@ -253,9 +255,28 @@ export async function handleTextMessage(
         toolRes.message ||
         (isCancel ? 'ยกเลิกเรียบร้อยแล้วค่ะ' : 'ดำเนินการเรียบร้อยแล้วค่ะ คุณตาคุณยาย');
 
+      const messages: messagingApi.Message[] = [{ type: 'text', text: replyText }];
+
+      // Attach contextual suggestion bubble underneath confirmation/cancellation
+      if (toolRes.success && !options?.disableSuggestions) {
+        const actionType = isCancel
+          ? 'cancel_action'
+          : pendingType === 'confirm_reminder'
+            ? 'confirm_reminder'
+            : 'confirm_note';
+        const suggestionBubble = buildFeatureSuggestionBubble({
+          actionType,
+          userDoc: user,
+          userText,
+        });
+        if (suggestionBubble) {
+          messages.push(suggestionBubble);
+        }
+      }
+
       await lineClient.replyMessage({
         replyToken,
-        messages: [{ type: 'text', text: replyText }],
+        messages,
       });
 
       if (userId) {
@@ -330,7 +351,7 @@ export async function handleTextMessage(
       : new AppError((error as Error).message, 'TOOL_EXEC_FAIL');
   }
 
-  // 7. Dispatch reply to LINE (single reply token)
+  // 7. Dispatch reply to LINE (single reply token, with contextual suggestions bubble underneath)
   let lineMessages: messagingApi.Message[];
   let savedAssistantText: string;
 
@@ -350,6 +371,18 @@ export async function handleTextMessage(
     savedAssistantText = fallbackText;
   }
 
+  // Attach safe-guarded feature suggestions chat bubble underneath
+  if (toolResult.success && !options?.disableSuggestions) {
+    const suggestionBubble = buildFeatureSuggestionBubble({
+      intent: intentResult?.intent,
+      userText,
+      userDoc: currentUser,
+    });
+    if (suggestionBubble) {
+      lineMessages.push(suggestionBubble);
+    }
+  }
+
   await lineClient.replyMessage({
     replyToken,
     messages: lineMessages,
@@ -364,18 +397,31 @@ export async function handleTextMessage(
     }
 
     // 9. Asynchronously update user profile facts in background
-    updateUserProfile(userId, userText, savedAssistantText, memoryContext.userFacts).catch(
-      (memError) => {
-        logError('ai_memory_update', memError, { userId });
-      },
-    );
+    // Gate knowledge base updates:
+    // - General chat turns are always eligible for learning user facts / preferences.
+    // - Tool calls are strictly gated: only learn if the tool executed successfully and is not a pending draft.
+    const isToolIntent = intentResult.intent !== 'general_chat';
+    const isPendingDraft = Boolean(toolResult.flexMessage);
+    const isToolSuccessful = toolResult.success && !isPendingDraft;
+    const shouldUpdateKnowledgeBase = !isToolIntent || isToolSuccessful;
+
+    if (shouldUpdateKnowledgeBase) {
+      updateUserProfile(userId, userText, savedAssistantText, memoryContext.userFacts).catch(
+        (memError) => {
+          logError('ai_memory_update', memError, { userId });
+        },
+      );
+    }
   }
 }
 
 /**
  * Handles incoming LINE postback events (e.g. datetimepicker selection, reminder confirm/cancel buttons).
  */
-export async function handlePostbackEvent(event: webhook.PostbackEvent): Promise<void> {
+export async function handlePostbackEvent(
+  event: webhook.PostbackEvent,
+  options?: { disableSuggestions?: boolean },
+): Promise<void> {
   const replyToken = event.replyToken;
   if (!replyToken) {
     return;
@@ -403,15 +449,25 @@ export async function handlePostbackEvent(event: webhook.PostbackEvent): Promise
   }
 
   if (data === 'action=confirm_reminder' || data === 'action=confirm_note') {
-    const toolRes =
-      data === 'action=confirm_reminder'
-        ? await handleConfirmReminder(user)
-        : await handleConfirmNote(user);
+    const isReminder = data === 'action=confirm_reminder';
+    const toolRes = isReminder ? await handleConfirmReminder(user) : await handleConfirmNote(user);
 
     const replyText = toolRes.message || 'ดำเนินการเรียบร้อยแล้วค่ะ';
+    const messages: messagingApi.Message[] = [{ type: 'text', text: replyText }];
+
+    if (toolRes.success && !options?.disableSuggestions) {
+      const suggestionBubble = buildFeatureSuggestionBubble({
+        actionType: isReminder ? 'confirm_reminder' : 'confirm_note',
+        userDoc: user,
+      });
+      if (suggestionBubble) {
+        messages.push(suggestionBubble);
+      }
+    }
+
     await lineClient.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: replyText }],
+      messages,
     });
     await saveMessages(userId, 'ยืนยัน', replyText);
     return;
@@ -420,9 +476,21 @@ export async function handlePostbackEvent(event: webhook.PostbackEvent): Promise
   if (data === 'action=cancel_reminder' || data === 'action=cancel_action') {
     const toolRes = await handleCancelAction(user);
     const replyText = toolRes.message || 'ยกเลิกเรียบร้อยแล้วค่ะ';
+    const messages: messagingApi.Message[] = [{ type: 'text', text: replyText }];
+
+    if (toolRes.success && !options?.disableSuggestions) {
+      const suggestionBubble = buildFeatureSuggestionBubble({
+        actionType: 'cancel_action',
+        userDoc: user,
+      });
+      if (suggestionBubble) {
+        messages.push(suggestionBubble);
+      }
+    }
+
     await lineClient.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: replyText }],
+      messages,
     });
     await saveMessages(userId, 'ยกเลิก', replyText);
     return;

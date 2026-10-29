@@ -329,7 +329,7 @@ describe('LINE Webhook Dispatcher', () => {
       });
     });
 
-    it('short-circuits note confirmation button "บันทึกเลย" directly to handleConfirmNote', async () => {
+    it('short-circuits note confirmation button "บันทึกเลย" directly to handleConfirmNote and attaches suggestions', async () => {
       const event = {
         type: 'message' as const,
         replyToken: 'token-confirm',
@@ -348,7 +348,13 @@ describe('LINE Webhook Dispatcher', () => {
       expect(classifyIntent).not.toHaveBeenCalled();
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-confirm',
-        messages: [{ type: 'text', text: 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย' }],
+        messages: [
+          { type: 'text', text: 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย' },
+          {
+            type: 'text',
+            text: 'หากต้องการให้หนูช่วยตั้งเตือนความจำ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
+          },
+        ],
       });
     });
 
@@ -377,11 +383,17 @@ describe('LINE Webhook Dispatcher', () => {
       expect(classifyIntent).not.toHaveBeenCalled();
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-confirm-rem',
-        messages: [{ type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' }],
+        messages: [
+          { type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' },
+          {
+            type: 'text',
+            text: 'หากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
+          },
+        ],
       });
     });
 
-    it('short-circuits note cancel button "ยกเลิก" directly to handleCancelAction', async () => {
+    it('short-circuits note cancel button "ยกเลิก" directly to handleCancelAction and attaches suggestions', async () => {
       const event = {
         type: 'message' as const,
         replyToken: 'token-cancel',
@@ -400,7 +412,13 @@ describe('LINE Webhook Dispatcher', () => {
       expect(classifyIntent).not.toHaveBeenCalled();
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-cancel',
-        messages: [{ type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' }],
+        messages: [
+          { type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' },
+          {
+            type: 'text',
+            text: 'คุณตาคุณยายสามารถบอกให้หนูช่วยตั้งเตือน ตั้งนาฬิกาปลุก หรือจดบันทึกเรื่องอื่นได้เสมอนะคะ',
+          },
+        ],
       });
     });
 
@@ -462,7 +480,7 @@ describe('LINE Webhook Dispatcher', () => {
   });
 
   describe('handlePostbackEvent', () => {
-    it('handles confirm_reminder postback action', async () => {
+    it('handles confirm_reminder postback action with contextual suggestion bubble', async () => {
       const event = {
         type: 'postback' as const,
         replyToken: 'token-pb-confirm',
@@ -477,7 +495,13 @@ describe('LINE Webhook Dispatcher', () => {
       expect(handleConfirmReminder).toHaveBeenCalledWith(expect.any(Object));
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-pb-confirm',
-        messages: [{ type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' }],
+        messages: [
+          { type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' },
+          {
+            type: 'text',
+            text: 'หากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
+          },
+        ],
       });
       expect(saveMessages).toHaveBeenCalledWith(
         'user-123',
@@ -486,7 +510,7 @@ describe('LINE Webhook Dispatcher', () => {
       );
     });
 
-    it('handles cancel_reminder postback action', async () => {
+    it('handles cancel_reminder postback action with contextual suggestion bubble', async () => {
       const event = {
         type: 'postback' as const,
         replyToken: 'token-pb-cancel',
@@ -501,7 +525,13 @@ describe('LINE Webhook Dispatcher', () => {
       expect(handleCancelAction).toHaveBeenCalledWith(expect.any(Object));
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-pb-cancel',
-        messages: [{ type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' }],
+        messages: [
+          { type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' },
+          {
+            type: 'text',
+            text: 'คุณตาคุณยายสามารถบอกให้หนูช่วยตั้งเตือน ตั้งนาฬิกาปลุก หรือจดบันทึกเรื่องอื่นได้เสมอนะคะ',
+          },
+        ],
       });
       expect(saveMessages).toHaveBeenCalledWith(
         'user-123',
@@ -569,6 +599,194 @@ describe('LINE Webhook Dispatcher', () => {
     });
   });
 
+  describe('Contextual Feature Suggestions Chat Bubble', () => {
+    it('attaches complementary suggestions underneath note flex message when saving a note', async () => {
+      const mockFlex: messagingApi.FlexMessage = {
+        type: 'flex',
+        altText: '📝 สรุปบันทึก: ซื้อนม 2 กล่อง',
+        contents: { type: 'bubble' },
+      };
+
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'save_note',
+        confidence: 0.98,
+        isAmbiguous: false,
+      });
+
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        flexMessage: mockFlex,
+        data: { summary: 'ซื้อนม 2 กล่อง' },
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-note-suggest',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-note-sug',
+          type: 'text' as const,
+          text: 'ช่วยจดว่าซื้อนม 2 กล่อง',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-note-suggest',
+        messages: [
+          mockFlex,
+          {
+            type: 'text',
+            text: 'หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ อยากให้หนูช่วยตั้งเตือนหรือตั้งนาฬิกาปลุกเรื่องนี้ด้วยไหมคะ',
+          },
+        ],
+      });
+    });
+
+    it('attaches complementary suggestions underneath text reply when setting an alarm', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_alarm',
+        confidence: 0.99,
+        isAmbiguous: false,
+      });
+
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        message: 'ตั้งนาฬิกาปลุกเวลา 06:00 น. เรียบร้อยแล้วค่ะ ⏰',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-alarm-suggest',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-alarm-sug',
+          type: 'text' as const,
+          text: 'ปลุก 6 โมงเช้า',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-alarm-suggest',
+        messages: [
+          { type: 'text', text: 'ตั้งนาฬิกาปลุกเวลา 06:00 น. เรียบร้อยแล้วค่ะ ⏰' },
+          {
+            type: 'text',
+            text: 'นอกจากนี้ หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือช่วยจดบันทึกข้อความให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
+          },
+        ],
+      });
+    });
+
+    it('attaches complementary suggestions underneath text reply when setting a reminder', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_reminder',
+        confidence: 0.99,
+        isAmbiguous: false,
+      });
+
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        message: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยาตอนสองทุ่ม 🔔',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-rem-suggest',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-rem-sug',
+          type: 'text' as const,
+          text: 'เตือนกินยาตอนสองทุ่ม',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-rem-suggest',
+        messages: [
+          { type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยาตอนสองทุ่ม 🔔' },
+          {
+            type: 'text',
+            text: 'นอกจากนี้ หนูยังช่วยจดบันทึกข้อความ (เช่น จดเรื่องสำคัญ) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
+          },
+        ],
+      });
+    });
+
+    it('attaches full capabilities chat bubble when user asks "ทำอะไรได้บ้าง"', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'general_chat',
+        confidence: 0.95,
+        isAmbiguous: false,
+      });
+
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        message: 'ยินดีค่ะคุณยาย',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-capabilities-suggest',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-cap-sug',
+          type: 'text' as const,
+          text: 'หนูทำอะไรได้บ้างคะ',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-capabilities-suggest',
+        messages: [
+          { type: 'text', text: 'ยินดีค่ะคุณยาย' },
+          {
+            type: 'text',
+            text: expect.stringContaining('• ตั้งเตือนความจำ'),
+          },
+        ],
+      });
+    });
+
+    it('suppresses suggestion bubble when disableSuggestions option is true', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_alarm',
+        confidence: 0.99,
+        isAmbiguous: false,
+      });
+
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        message: 'ตั้งนาฬิกาปลุกเวลา 06:00 น. เรียบร้อยแล้วค่ะ ⏰',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-alarm-no-suggest',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-alarm-no-sug',
+          type: 'text' as const,
+          text: 'ปลุก 6 โมงเช้า',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event, undefined, { disableSuggestions: true });
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-alarm-no-suggest',
+        messages: [{ type: 'text', text: 'ตั้งนาฬิกาปลุกเวลา 06:00 น. เรียบร้อยแล้วค่ะ ⏰' }],
+      });
+    });
+  });
+
   describe('handleWebhookEvent', () => {
     it('routes postback event to postback handler', async () => {
       const event = {
@@ -585,6 +803,7 @@ describe('LINE Webhook Dispatcher', () => {
       expect(handleConfirmReminder).toHaveBeenCalledTimes(1);
       expect(lineClient.replyMessage).toHaveBeenCalledTimes(1);
     });
+
     it('routes text message event to text handler', async () => {
       const event = {
         type: 'message' as const,
