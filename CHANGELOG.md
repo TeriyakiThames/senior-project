@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/TeriyakiThames/senior-project/compare/v1.29.0...v1.30.0) (2026-10-29)
+
+
+### Features
+
+* implement line loading animation for ai and speech processing ([#97](https://github.com/TeriyakiThames/senior-project/issues/97)) ([f693c09](https://github.com/TeriyakiThames/senior-project/commit/f693c094362d8939719bb59ca5c4dc632a10b2af))
+
 # [1.29.0](https://github.com/TeriyakiThames/senior-project/compare/v1.28.4...v1.29.0) (2026-10-29)
 
 
