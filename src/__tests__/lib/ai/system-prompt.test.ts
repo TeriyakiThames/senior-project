@@ -73,4 +73,18 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('ก่อนบันทึกโน้ต');
     expect(prompt).toContain('รอการยืนยัน');
   });
+
+  it('includes strict capability boundaries and anti-hallucination rules', () => {
+    const prompt = buildSystemPrompt({ now: FROZEN_NOW });
+
+    expect(prompt).toContain('## ขอบเขตความสามารถที่ระบบทำได้จริง');
+    expect(prompt).toContain('ห้ามกุเรื่องหรือสัญญาความสามารถอื่นเด็ดขาด');
+    expect(prompt).toContain('1. ตั้งเตือนความจำ');
+    expect(prompt).toContain('2. ตั้งนาฬิกาปลุก');
+    expect(prompt).toContain('3. จดบันทึกข้อความ');
+    expect(prompt).toContain('4. ดูรายการทั้งหมด');
+    expect(prompt).toContain('5. ลบรายการ');
+    expect(prompt).toContain('6. รับข้อความเสียงภาษาไทย');
+    expect(prompt).toContain('ห้ามเสนอหรืออ้างว่าสามารถทำสิ่งอื่นที่ไม่มีในระบบ');
+  });
 });
