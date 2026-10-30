@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
 import { NoteCard, type NoteItem } from '@/components/liff/NoteCard';
+import { DetailHeader } from '@/components/layout/DetailHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Loading } from '@/components/ui/Loading';
-import { PageWrapper } from '@/components/layout/PageWrapper';
+import { Toast } from '@/components/ui/Toast';
+import { groupNotesByDate } from '@/lib/utils/date';
 
 interface NotesData {
   notes?: NoteItem[];
@@ -20,106 +21,150 @@ export default function NotesPage() {
   const { isReady } = useLiff();
   const { data, loading, deleteItem } = useLiffData<NotesData>('notes');
 
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<NoteItem | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  if (!isReady || loading) {
-    return (
-      <PageWrapper className="flex items-center justify-center min-h-[60vh]">
-        <Loading message={t('loading')} />
-      </PageWrapper>
-    );
-  }
+  const notes = useMemo(() => data?.notes ?? [], [data?.notes]);
 
-  const notes = data?.notes ?? [];
+  const dateGroups = useMemo(() => {
+    return groupNotesByDate(notes, locale);
+  }, [notes, locale]);
 
-  const handleDeleteRequest = (id: string, title: string) => {
-    setDeleteTarget({ id, title });
+  const handleDeleteRequest = (note: NoteItem) => {
+    setDeleteTarget(note);
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     const { id } = deleteTarget;
-    setDeleteTarget(null);
+    setIsDeleting(true);
     try {
       await deleteItem(id, 'note');
+      setDeleteTarget(null);
+      setShowToast(true);
     } catch (err) {
       console.error('Failed to delete note:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleCancelDelete = () => {
+    if (isDeleting) return;
     setDeleteTarget(null);
   };
 
+  if (!isReady || loading) {
+    return (
+      <div className="min-h-screen bg-[#F2F7FA] flex items-center justify-center p-6">
+        <div className="text-center">
+          <div
+            className="w-12 h-12 border-4 border-[#3E81F7] border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            aria-hidden="true"
+          />
+          <p className="text-[#21215C] text-senior-base font-semibold">{t('loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <PageWrapper>
-      {/* Top Header with Back Navigation */}
-      <header className="mb-6">
-        <Link
-          href={`/${locale}/liff`}
-          className="inline-flex items-center gap-1.5 text-senior-base text-senior-muted hover:text-senior-text min-h-touch py-2 font-medium focus:outline-none focus:ring-2 focus:ring-line-green rounded-md mb-1"
-          aria-label={t('back')}
-        >
-          <span aria-hidden="true">←</span>
-          <span>{t('back')}</span>
-        </Link>
-        <h1 className="text-senior-2xl font-bold text-senior-text">📝 {t('notes')}</h1>
-      </header>
+    <div className="min-h-screen bg-[#F2F7FA] text-[#21215C]">
+      {/* Top LINE Service App Bar + Category Header matching Figma Image 1 & 3 */}
+      <DetailHeader
+        title={t('notes')}
+        subtitle={notes.length > 0 ? t('notesSubtitle', { count: notes.length }) : undefined}
+        badgeBgColor="bg-[#EEE1FA]"
+        badgeIcon={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              fill="#9A59EF"
+              stroke="#544378"
+              strokeWidth="2.2"
+              strokeLinejoin="round"
+            />
+            <path d="M14 2v6h6" stroke="#544378" strokeWidth="2.2" strokeLinejoin="round" />
+            <path d="M8 13h8M8 17h5" stroke="#544378" strokeWidth="2.2" strokeLinecap="round" />
+          </svg>
+        }
+      />
 
-      {/* Notes Content */}
-      <section aria-labelledby="notes-list-heading">
-        <h2 id="notes-list-heading" className="sr-only">
-          {t('notes')}
-        </h2>
-
+      <main className="px-5 pt-1 pb-16 max-w-[440px] mx-auto">
         {notes.length === 0 ? (
-          <div className="bg-white rounded-card border border-gray-200 p-6 text-center shadow-sm">
-            <div
-              className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl"
-              aria-hidden="true"
-            >
-              📝
-            </div>
-            <p className="text-senior-lg font-bold text-senior-text mb-2">{t('emptyNotesTitle')}</p>
-            <div className="bg-senior-bg border border-purple-200 rounded-card p-4 mt-4 inline-block text-left w-full">
-              <p className="text-senior-sm font-semibold text-purple-700 flex items-center gap-1.5 mb-1">
-                <span aria-hidden="true">💡</span>
-                <span>{t('tip')}</span>
-              </p>
-              <p className="text-senior-base text-senior-text">{t('emptyNotesHint')}</p>
-            </div>
-          </div>
+          /* Empty State matching Figma Image 3 */
+          <EmptyState
+            badgeBgColor="bg-[#EEE1FA]"
+            badgeIcon={
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                  fill="#9A59EF"
+                  stroke="#544378"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                />
+                <path d="M14 2v6h6" stroke="#544378" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M8 13h8M8 17h5" stroke="#544378" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            }
+            title={t('emptyNotesTitle')}
+            description={
+              <div className="space-y-1">
+                <p>{t('emptyNotesHintLine1')}</p>
+                <p>{t('emptyNotesHintLine2')}</p>
+              </div>
+            }
+            actionLabel={t('goToChat')}
+            actionButtonColor="bg-[#3E81F7]"
+          />
         ) : (
-          <div className="space-y-3">
-            {notes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onDelete={() => handleDeleteRequest(note.id, note.summary)}
-              />
+          /* Date-Grouped Notes List matching Figma Image 1 */
+          <div className="space-y-6">
+            {dateGroups.map((group) => (
+              <section key={group.label} aria-labelledby={`heading-${group.label}`}>
+                <h3
+                  id={`heading-${group.label}`}
+                  className="text-xl font-bold text-[#21215C] mb-3 tracking-tight"
+                >
+                  {group.label}
+                </h3>
+                <div className="space-y-3">
+                  {group.items.map((note) => (
+                    <NoteCard
+                      key={note.id}
+                      note={note}
+                      onDelete={() => handleDeleteRequest(note)}
+                    />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
-      </section>
+      </main>
 
-      {/* Confirmation Dialog */}
+      {/* Delete Confirmation Modal matching Figma Image 2 */}
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title={t('confirmDeleteTitle')}
-        message={
-          deleteTarget?.title
-            ? `"${deleteTarget.title}" — ${t('confirmDeleteMessage')}`
-            : t('confirmDeleteMessage')
-        }
-        confirmLabel={t('delete')}
-        cancelLabel={t('cancel')}
+        title={t('confirmDeleteNoteTitle')}
+        contentPreview={deleteTarget?.content || deleteTarget?.summary}
+        warningText={t('confirmDeleteWarning')}
+        confirmLabel={t('deleteNote')}
+        cancelLabel={t('doNotDelete')}
         confirmVariant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />
-    </PageWrapper>
+
+      {/* Floating Bottom Toast Feedback matching Figma Image 3 */}
+      <Toast
+        isOpen={showToast}
+        message={t('noteDeletedToast')}
+        durationMs={3000}
+        onClose={() => setShowToast(false)}
+      />
+    </div>
   );
 }

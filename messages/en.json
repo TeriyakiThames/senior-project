@@ -61,7 +61,18 @@
     "notesCount": "{count} notes",
     "plansCount": "{count} plans",
     "emptyUpcomingTitle": "No upcoming items yet",
-    "emptyUpcomingHint": "Try asking to set an alarm or reminder in chat"
+    "emptyUpcomingHint": "Try asking to set an alarm or reminder in chat",
+    "notesSubtitle": "{count} notes · Newest first",
+    "confirmDeleteNoteTitle": "Delete this note?",
+    "confirmDeleteWarning": "Once deleted, it cannot be recovered",
+    "deleteNote": "Delete note",
+    "doNotDelete": "Don't delete",
+    "emptyNotesHintLine1": "Speak or type in chat:",
+    "emptyNotesHintLine2": "“Note that...” and tap “Save now”",
+    "goToChat": "Go to chat",
+    "noteDeletedToast": "Note deleted",
+    "yesterday": "Yesterday",
+    "otherDate": "Other"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

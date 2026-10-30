@@ -20,7 +20,7 @@ export function BottomNav() {
   const cleanPath = pathname.replace(/^\/(th|en)/, '') || '/liff';
 
   // In the SVG-based design, the dashboard page (/liff) functions as an integrated hub without floating bottom nav.
-  if (cleanPath === '/liff') {
+  if (cleanPath === '/liff' || cleanPath.startsWith('/liff/notes')) {
     return null;
   }
 

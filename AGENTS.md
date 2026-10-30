@@ -106,6 +106,44 @@ The top hub features a 2-column, 2-row grid of large, rounded pastel cards (`rou
 - **Outlined Buttons:** `2px solid #7D84A3`, `#FFFFFF` background, `#21215C` bold typography, `16px` (`rounded-2xl`) radius, minimum `52px` height.
 - **Tip Card Banner:** Rounded `#EAF0F6` container with `#E1E8F8` round icon badge, `#3E5EB5` mic icon, and two-line natural Thai speech guidance.
 
+#### 2.5.5 Detail Pages & Modular Component Specifications (Figma Ground Truth)
+
+Detail pages (such as Notes, Alarms, Reminders, and Plans) adhere to a shared, reusable component system configured per category:
+
+1. **Detail Page Header (`DetailHeader`):**
+   - **LINE App Bar:** Fixed `54px` height with subtle bottom border, close `X` (`#111111`), service name `[ชื่อบริการ]`, and options `...` linking to settings.
+   - **Back Navigation & Title:** Large chevron `<` back button (`#21215C`), `48x48px` squircle category badge (`rounded-2xl`) using the category's pastel background (`#EEE1FA` for Notes, `#FBEFD8` for Alarms, `#E1E8F8` for Reminders, `#FDE5F0` for Plans), bold heading (`#21215C`, `text-3xl font-extrabold`), and count/sort order descriptor subtitle (`#7D84A3`, e.g. `12 โน้ต · ใหม่สุดอยู่บนสุด`).
+
+2. **Date-Grouped Item Listing (`NoteCard` & `ItemCard`):**
+   - **Date Section Headings:** Crisp bold slate/indigo text (`text-xl font-bold #21215C`) grouped chronologically (newest first). Header rules: `วันนี้` for today, `เมื่อวาน · 21 ต.ค.` for yesterday, and `{weekday} 20 ต.ค.` (with `วัน` prefix omitted in Thai, e.g. `อังคาร 20 ต.ค.`) for past dates.
+   - **Item Containers:** Pure white `#FFFFFF` surface, `24px` (`rounded-3xl`) radius, soft dual shadow (`0 2px 6px rgba(33, 33, 92, 0.06), 0 8px 24px rgba(33, 33, 92, 0.08)`).
+   - **Item Body:** Deep Indigo Navy `#21215C`, `text-lg` / `text-senior-base`, relaxed line height, break-words.
+   - **Footer Meta & Action Row:**
+     - Left: Source pill (`bg-[#EAF0F6]`, rounded-full, mic 🎤 or keyboard ⌨️ icon + `เสียง` or `พิมพ์`) paired with clean timestamp text (`#7D84A3`, e.g. `14:15 น.`).
+     - Right: Outlined crimson delete button with `1.5px` border in `#942626`, `#FFFFFF` surface, red trash can icon + `ลบ` label, `rounded-2xl` radius, minimum `48px` touch target.
+
+3. **Destructive Delete Confirmation Modal (`ConfirmDialog`):**
+   - **Backdrop:** Semi-transparent Deep Indigo Navy overlay `bg-[#21215C]/40` with subtle blur.
+   - **Dialog Card:** Pure white `#FFFFFF` container with `24px` (`rounded-3xl`) radius, centered with `max-w-[360px]`.
+   - **Header Badge:** Centered `64x64px` circular badge (`#FEE2E2`) with dark crimson `#942626` trash icon.
+   - **Title:** Polite Thai confirmation (`ลบโน้ตนี้ไหมคะ`, configurable per category).
+   - **Content Preview Box:** Rounded container (`rounded-2xl`, `#F0F4F9` background, `p-4`) displaying the note text or item details in `#21215C`.
+   - **Warning Text:** Muted slate guidance (`#7D84A3`, `ลบแล้วจะเอากลับมาไม่ได้นะคะ`).
+   - **Stacked Vertical Buttons:**
+     - Primary Destructive: Full-width solid crimson `#942626` button (`h-[54px]`, `rounded-2xl`), white trash icon + `ลบโน้ต`.
+     - Secondary Cancel: Full-width white button with `2px solid #7D84A3` border, `#21215C` text (`ไม่ลบ`), `rounded-2xl`.
+
+4. **Empty State Screen (`EmptyState`):**
+   - **Category Badge:** Large centered `128x128px` circular pastel container matching the category palette (`#EEE1FA` for Notes) with the category icon.
+   - **Title:** Polite empty notice (`ยังไม่มีโน้ตค่ะ`, `text-2xl sm:text-3xl font-extrabold #21215C`).
+   - **Conversational Speech Guidance:** Two-line natural Thai speech prompt (e.g. `พูดหรือพิมพ์ในแชตว่า\n“จดไว้หน่อย...” แล้วกด “บันทึกเลย”`) in `#4B4F72`.
+   - **Call-to-Action:** Royal Azure Blue `#3E81F7` full-width button (`h-[54px]`, `rounded-2xl`) with microphone icon and `ไปที่แชต` that directs the elder back to the LINE 1-on-1 chat.
+
+5. **Floating Toast Feedback (`Toast`):**
+   - Floating dark container at the bottom (`bg-[#21215C]`, `rounded-2xl`, `py-3.5 px-5`, `shadow-2xl`).
+   - White checkmark icon `✓` with concise confirmation text (e.g. `ลบโน้ตแล้วค่ะ`).
+   - Auto-dismisses after 3 seconds, accessible with `role="status"` and `aria-live="polite"`.
+
 ---
 
 ## 3. Security Boundaries & Trust Zones
