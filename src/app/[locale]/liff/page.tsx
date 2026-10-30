@@ -217,34 +217,9 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F7FA] text-[#21215C]">
-      {/* Top Header Bar matching SVG: Close 'X', Service Title '[ชื่อบริการ]', Options '...' */}
+      {/* Top Header Bar: Service Title 'Senior Project', Options '...' */}
       <header className="w-full bg-white h-[54px] px-5 flex items-center justify-between border-b border-[#F2F7FA]">
-        <button
-          type="button"
-          onClick={() => {
-            if (
-              typeof window !== 'undefined' &&
-              (
-                window as unknown as {
-                  liff?: { isInClient: () => boolean; closeWindow: () => void };
-                }
-              ).liff?.isInClient()
-            ) {
-              (window as unknown as { liff: { closeWindow: () => void } }).liff.closeWindow();
-            }
-          }}
-          className="min-w-[48px] min-h-[48px] flex items-center justify-start text-[#111111] hover:opacity-75 transition-opacity"
-          aria-label={t('cancel')}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path
-              d="M1.5 1.5L12.5 12.5M12.5 1.5L1.5 12.5"
-              stroke="#111111"
-              strokeWidth="2.0174"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <div className="min-w-[48px] min-h-[48px]" aria-hidden="true" />
 
         <h1 className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
           {t('serviceName')}
