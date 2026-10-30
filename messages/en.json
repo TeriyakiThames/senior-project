@@ -72,7 +72,21 @@
     "goToChat": "Go to chat",
     "noteDeletedToast": "Note deleted",
     "yesterday": "Yesterday",
-    "otherDate": "Other"
+    "otherDate": "Other",
+    "alarmsSubtitle": "{count} alarms · Wake up with LINE chat message",
+    "confirmDeleteAlarmTitle": "Delete this alarm?",
+    "deleteAlarm": "Delete alarm",
+    "alarmDeletedToast": "Alarm deleted",
+    "emptyAlarmsHintLine1": "Speak or type in chat:",
+    "emptyAlarmsHintLine2": "“Wake me up at...” and tap “Set alarm”",
+    "alarmEnabled": "Active",
+    "alarmDisabled": "Off",
+    "nextAlarm": "Next",
+    "tipAlarmTitle": "Want to set more alarms?",
+    "tipAlarmHint": "Speak or type in the chat, e.g. “Wake me up at 6 AM every day”",
+    "weekdays": "Mon-Fri",
+    "weekends": "Sat-Sun",
+    "dayOfMonth": "Day {day} of month"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

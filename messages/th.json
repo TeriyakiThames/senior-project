@@ -72,7 +72,21 @@
     "goToChat": "ไปที่แชต",
     "noteDeletedToast": "ลบโน้ตแล้วค่ะ",
     "yesterday": "เมื่อวาน",
-    "otherDate": "อื่นๆ"
+    "otherDate": "อื่นๆ",
+    "alarmsSubtitle": "{count} รายการ · ปลุกด้วยข้อความในแชต LINE",
+    "confirmDeleteAlarmTitle": "ลบนาฬิกาปลุกนี้ไหมคะ",
+    "deleteAlarm": "ลบนาฬิกาปลุก",
+    "alarmDeletedToast": "ลบนาฬิกาปลุกแล้วค่ะ",
+    "emptyAlarmsHintLine1": "พูดหรือพิมพ์ในแชตว่า",
+    "emptyAlarmsHintLine2": "“ปลุกตอน...” แล้วกด “ตั้งปลุก”",
+    "alarmEnabled": "เปิดอยู่",
+    "alarmDisabled": "ปิดอยู่",
+    "nextAlarm": "ครั้งต่อไป",
+    "tipAlarmTitle": "อยากตั้งปลุกเพิ่ม",
+    "tipAlarmHint": "พูดหรือพิมพ์ในแชตได้เลยค่ะ เช่น “ปลุกหกโมงเช้าทุกวัน”",
+    "weekdays": "จ.-ศ.",
+    "weekends": "ส.-อา.",
+    "dayOfMonth": "ทุกวันที่ {day}"
   },
   "errors": {
     "generic": "เกิดข้อผิดพลาดค่ะ ลองใหม่อีกครั้งนะคะ",

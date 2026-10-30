@@ -1,3 +1,6 @@
+import type { Recurrence } from '@/types/firestore';
+import { AlarmScheduleCalculator } from '@/lib/utils/recurrence';
+
 /**
  * Formats a date for the dashboard header according to the user's locale.
  * Thai (th) uses the Buddhist Era (พ.ศ.), while English (en) uses the Gregorian calendar.
@@ -166,4 +169,148 @@ export function groupNotesByDate<
   }
 
   return groups;
+}
+
+/**
+ * Formats recurrence for alarms according to the user's locale.
+ * - 'daily' -> "ทุกวัน" (th) / "Daily" (en)
+ * - 'weekly' with daysOfWeek [1, 2, 3, 4, 5] -> "จ.-ศ." (th) / "Mon-Fri" (en)
+ * - 'weekly' with daysOfWeek [0, 6] -> "ส.-อา." (th) / "Sat-Sun" (en)
+ * - 'weekly' with single day (e.g. [1]) -> "ทุกวันจันทร์" (th) / "Every Mon" (en)
+ * - 'weekly' without days -> "ทุกสัปดาห์" (th) / "Weekly" (en)
+ * - 'monthly' with dayOfMonth -> "ทุกวันที่ {day}" (th) / "Day {day} of month" (en)
+ * - 'monthly' without dayOfMonth -> "ทุกเดือน" (th) / "Monthly" (en)
+ * - 'once' -> "ครั้งเดียว" (th) / "Once" (en)
+ */
+export function formatAlarmRecurrence(
+  params: { recurrence?: string; daysOfWeek?: number[]; dayOfMonth?: number },
+  locale: string = 'th',
+): string {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const { recurrence, daysOfWeek, dayOfMonth } = params;
+
+  if (!recurrence || recurrence === 'once') {
+    return isThai ? 'ครั้งเดียว' : 'Once';
+  }
+
+  if (recurrence === 'daily') {
+    return isThai ? 'ทุกวัน' : 'Daily';
+  }
+
+  if (recurrence === 'weekly') {
+    if (daysOfWeek && daysOfWeek.length > 0) {
+      const sortedDays = [...daysOfWeek].sort((a, b) => a - b);
+      const isWeekdays =
+        sortedDays.length === 5 &&
+        sortedDays[0] === 1 &&
+        sortedDays[1] === 2 &&
+        sortedDays[2] === 3 &&
+        sortedDays[3] === 4 &&
+        sortedDays[4] === 5;
+      if (isWeekdays) {
+        return isThai ? 'จ.-ศ.' : 'Mon-Fri';
+      }
+
+      const isWeekends = sortedDays.length === 2 && sortedDays[0] === 0 && sortedDays[1] === 6;
+      if (isWeekends) {
+        return isThai ? 'ส.-อา.' : 'Sat-Sun';
+      }
+
+      // Single day
+      if (sortedDays.length === 1) {
+        const dayNamesTh = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+        const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const day = sortedDays[0];
+        if (day >= 0 && day <= 6) {
+          return isThai ? `ทุกวัน${dayNamesTh[day]}` : `Every ${dayNamesEn[day]}`;
+        }
+      }
+
+      // Multiple custom days: e.g. "จ., พ., ศ."
+      const shortDaysTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+      const shortDaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const names = sortedDays
+        .filter((d) => d >= 0 && d <= 6)
+        .map((d) => (isThai ? shortDaysTh[d] : shortDaysEn[d]));
+      return names.join(', ');
+    }
+    return isThai ? 'ทุกสัปดาห์' : 'Weekly';
+  }
+
+  if (recurrence === 'monthly') {
+    if (typeof dayOfMonth === 'number' && dayOfMonth >= 1 && dayOfMonth <= 31) {
+      return isThai ? `ทุกวันที่ ${dayOfMonth}` : `Day ${dayOfMonth} of month`;
+    }
+    return isThai ? 'ทุกเดือน' : 'Monthly';
+  }
+
+  return recurrence;
+}
+
+/**
+ * Formats next alarm trigger time for alarm cards (e.g. "พรุ่งนี้ ศ. 23 ต.ค.", "อา. 1 พ.ย.").
+ */
+export function formatAlarmNextFire(
+  date: Date,
+  locale: string = 'th',
+  baseNow: Date = new Date(),
+): string {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const targetLocale = isThai ? 'th-TH' : 'en-US';
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffTime = startOfTarget.getTime() - startOfBase.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  const rawWeekday = new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
+  const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
+  const day = date.getDate();
+
+  if (diffDays === 0) {
+    return isThai ? `วันนี้ ${rawWeekday} ${day} ${month}` : `Today, ${rawWeekday} ${day} ${month}`;
+  }
+
+  if (diffDays === 1) {
+    return isThai
+      ? `พรุ่งนี้ ${rawWeekday} ${day} ${month}`
+      : `Tomorrow, ${rawWeekday} ${day} ${month}`;
+  }
+
+  if (isThai) {
+    return `${rawWeekday} ${day} ${month}`;
+  }
+
+  return `${rawWeekday}, ${day} ${month}`;
+}
+
+/**
+ * Resolves or computes the next fire Date for an alarm item.
+ */
+export function getAlarmNextFireDate(
+  alarm: {
+    time: string;
+    recurrence?: string;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+    nextFireAt?: { _seconds?: number } | string | Date | null;
+  },
+  baseNow: Date = new Date(),
+): Date | null {
+  const parsed = parseTimestamp(alarm.nextFireAt);
+  if (parsed && parsed.getTime() > baseNow.getTime()) {
+    return parsed;
+  }
+
+  const calc = new AlarmScheduleCalculator(
+    {
+      time: alarm.time,
+      recurrence: (alarm.recurrence as Recurrence) || 'daily',
+      daysOfWeek: alarm.daysOfWeek,
+      dayOfMonth: alarm.dayOfMonth,
+    },
+    baseNow,
+  );
+  return calc.calculateNextFireTime();
 }

@@ -62,4 +62,32 @@ describe('i18n Message Catalogs & Config', () => {
       expect((enMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
     }
   });
+
+  it('should include all required keys for Alarms page', () => {
+    const requiredAlarmKeys = [
+      'alarms',
+      'alarmsSubtitle',
+      'emptyAlarmsTitle',
+      'emptyAlarmsHintLine1',
+      'emptyAlarmsHintLine2',
+      'alarmEnabled',
+      'alarmDisabled',
+      'nextAlarm',
+      'confirmDeleteAlarmTitle',
+      'deleteAlarm',
+      'alarmDeletedToast',
+      'tipAlarmTitle',
+      'tipAlarmHint',
+      'weekdays',
+      'weekends',
+      'dayOfMonth',
+    ];
+
+    for (const key of requiredAlarmKeys) {
+      expect(thMessages.dashboard).toHaveProperty(key);
+      expect(enMessages.dashboard).toHaveProperty(key);
+      expect((thMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
+      expect((enMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
+    }
+  });
 });

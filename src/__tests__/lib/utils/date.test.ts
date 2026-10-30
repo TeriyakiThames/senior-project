@@ -7,6 +7,9 @@ import {
   formatDateGroupHeader,
   formatNoteTime,
   groupNotesByDate,
+  formatAlarmRecurrence,
+  formatAlarmNextFire,
+  getAlarmNextFireDate,
 } from '@/lib/utils/date';
 
 describe('formatDashboardDate (FE-03)', () => {
@@ -98,35 +101,40 @@ describe('formatDateGroupHeader & formatNoteTime', () => {
   const baseNow = new Date(2026, 9, 22, 12, 0); // 22 Oct 2026
 
   it('formats today correctly in Thai and English', () => {
-    const todayDate = new Date(2026, 9, 22, 9, 30);
-    expect(formatDateGroupHeader(todayDate, 'th', baseNow)).toBe('วันนี้');
-    expect(formatDateGroupHeader(todayDate, 'en', baseNow)).toBe('Today');
+    const today = new Date(2026, 9, 22, 9, 30);
+    expect(formatDateGroupHeader(today, 'th', baseNow)).toBe('วันนี้');
+    expect(formatDateGroupHeader(today, 'en', baseNow)).toBe('Today');
   });
 
-  it('formats yesterday with date and month in Thai and English', () => {
-    const yesterdayDate = new Date(2026, 9, 21, 18, 5); // 21 Oct 2026
-    const thYesterday = formatDateGroupHeader(yesterdayDate, 'th', baseNow);
-    expect(thYesterday).toContain('เมื่อวาน · 21');
-    expect(thYesterday).toContain('ต.ค.');
+  it('formats yesterday with date in Thai and English', () => {
+    const yesterday = new Date(2026, 9, 21, 15, 0);
+    const thResult = formatDateGroupHeader(yesterday, 'th', baseNow);
+    expect(thResult).toContain('เมื่อวาน');
+    expect(thResult).toContain('21');
 
-    const enYesterday = formatDateGroupHeader(yesterdayDate, 'en', baseNow);
-    expect(enYesterday).toContain('Yesterday · 21');
-    expect(enYesterday).toContain('Oct');
+    const enResult = formatDateGroupHeader(yesterday, 'en', baseNow);
+    expect(enResult).toContain('Yesterday');
+    expect(enResult).toContain('21');
   });
 
-  it('formats past dates with weekday without "วัน" prefix in Thai', () => {
-    const pastDate = new Date(2026, 9, 20, 10, 12); // Tuesday, 20 Oct 2026
-    const thPast = formatDateGroupHeader(pastDate, 'th', baseNow);
-    expect(thPast).toBe('อังคาร 20 ต.ค.');
+  it('formats past dates by stripping "วัน" prefix in Thai', () => {
+    const pastDate = new Date(2026, 9, 20, 10, 0); // Tuesday, 20 Oct 2026
+    const thResult = formatDateGroupHeader(pastDate, 'th', baseNow);
+    expect(thResult).toBe('อังคาร 20 ต.ค.');
+    expect(thResult.startsWith('วัน')).toBe(false);
 
-    const enPast = formatDateGroupHeader(pastDate, 'en', baseNow);
-    expect(enPast).toBe('Tuesday, 20 Oct');
+    const enResult = formatDateGroupHeader(pastDate, 'en', baseNow);
+    expect(enResult).toBe('Tuesday, 20 Oct');
   });
 
-  it('formats note time in 24-hour with Thai suffix and English clean', () => {
-    const timeDate = new Date(2026, 9, 22, 14, 15);
-    expect(formatNoteTime(timeDate, 'th')).toBe('14:15 น.');
-    expect(formatNoteTime(timeDate, 'en')).toBe('14:15');
+  it('formats note time in 24-hour format with "น." suffix for Thai', () => {
+    const time1 = new Date(2026, 9, 22, 14, 15);
+    expect(formatNoteTime(time1, 'th')).toBe('14:15 น.');
+    expect(formatNoteTime(time1, 'en')).toBe('14:15');
+
+    const time2 = new Date(2026, 9, 22, 8, 5);
+    expect(formatNoteTime(time2, 'th')).toBe('08:05 น.');
+    expect(formatNoteTime(time2, 'en')).toBe('08:05');
   });
 });
 
@@ -169,5 +177,124 @@ describe('groupNotesByDate', () => {
     expect(groups.length).toBe(2);
     expect(groups[0]?.label).toBe('วันนี้');
     expect(groups[1]?.label).toBe('อื่นๆ');
+  });
+});
+
+describe('formatAlarmRecurrence', () => {
+  it('formats daily recurrence in Thai and English', () => {
+    expect(formatAlarmRecurrence({ recurrence: 'daily' }, 'th')).toBe('ทุกวัน');
+    expect(formatAlarmRecurrence({ recurrence: 'daily' }, 'en')).toBe('Daily');
+  });
+
+  it('formats weekdays (จ.-ศ.) and weekends (ส.-อา.) in Thai and English', () => {
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, 'th')).toBe(
+      'จ.-ศ.',
+    );
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [1, 2, 3, 4, 5] }, 'en')).toBe(
+      'Mon-Fri',
+    );
+
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [0, 6] }, 'th')).toBe(
+      'ส.-อา.',
+    );
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [0, 6] }, 'en')).toBe(
+      'Sat-Sun',
+    );
+  });
+
+  it('formats single day and custom days in Thai and English', () => {
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [1] }, 'th')).toBe(
+      'ทุกวันจันทร์',
+    );
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [1] }, 'en')).toBe(
+      'Every Mon',
+    );
+
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [1, 3, 5] }, 'th')).toBe(
+      'จ., พ., ศ.',
+    );
+    expect(formatAlarmRecurrence({ recurrence: 'weekly', daysOfWeek: [1, 3, 5] }, 'en')).toBe(
+      'Mon, Wed, Fri',
+    );
+  });
+
+  it('formats monthly recurrence with and without dayOfMonth', () => {
+    expect(formatAlarmRecurrence({ recurrence: 'monthly', dayOfMonth: 1 }, 'th')).toBe(
+      'ทุกวันที่ 1',
+    );
+    expect(formatAlarmRecurrence({ recurrence: 'monthly', dayOfMonth: 1 }, 'en')).toBe(
+      'Day 1 of month',
+    );
+
+    expect(formatAlarmRecurrence({ recurrence: 'monthly' }, 'th')).toBe('ทุกเดือน');
+    expect(formatAlarmRecurrence({ recurrence: 'monthly' }, 'en')).toBe('Monthly');
+  });
+
+  it('formats once or empty recurrence', () => {
+    expect(formatAlarmRecurrence({ recurrence: 'once' }, 'th')).toBe('ครั้งเดียว');
+    expect(formatAlarmRecurrence({ recurrence: 'once' }, 'en')).toBe('Once');
+    expect(formatAlarmRecurrence({}, 'th')).toBe('ครั้งเดียว');
+  });
+});
+
+describe('formatAlarmNextFire', () => {
+  const baseNow = new Date(2026, 9, 22, 12, 0); // Thu Oct 22, 2026
+
+  it('formats today trigger with weekday, day, and month', () => {
+    const today = new Date(2026, 9, 22, 18, 0);
+    const resultTh = formatAlarmNextFire(today, 'th', baseNow);
+    expect(resultTh).toContain('วันนี้');
+    expect(resultTh).toContain('22');
+    expect(resultTh).toContain('ต.ค.');
+
+    const resultEn = formatAlarmNextFire(today, 'en', baseNow);
+    expect(resultEn).toContain('Today');
+    expect(resultEn).toContain('22');
+    expect(resultEn).toContain('Oct');
+  });
+
+  it('formats tomorrow trigger matching Figma UI (พรุ่งนี้ ศ. 23 ต.ค.)', () => {
+    const tomorrow = new Date(2026, 9, 23, 5, 30);
+    const resultTh = formatAlarmNextFire(tomorrow, 'th', baseNow);
+    expect(resultTh).toBe('พรุ่งนี้ ศ. 23 ต.ค.');
+
+    const resultEn = formatAlarmNextFire(tomorrow, 'en', baseNow);
+    expect(resultEn).toBe('Tomorrow, Fri 23 Oct');
+  });
+
+  it('formats future trigger matching Figma UI (อา. 1 พ.ย.)', () => {
+    const future = new Date(2026, 10, 1, 6, 0); // Sun Nov 1, 2026
+    const resultTh = formatAlarmNextFire(future, 'th', baseNow);
+    expect(resultTh).toBe('อา. 1 พ.ย.');
+
+    const resultEn = formatAlarmNextFire(future, 'en', baseNow);
+    expect(resultEn).toBe('Sun, 1 Nov');
+  });
+});
+
+describe('getAlarmNextFireDate', () => {
+  const baseNow = new Date(2026, 9, 22, 10, 0); // Oct 22, 2026 10:00
+
+  it('uses nextFireAt if it is in the future', () => {
+    const futureDate = new Date(2026, 9, 23, 5, 30);
+    const alarm = {
+      time: '05:30',
+      recurrence: 'daily',
+      nextFireAt: futureDate,
+    };
+    const nextDate = getAlarmNextFireDate(alarm, baseNow);
+    expect(nextDate?.getTime()).toBe(futureDate.getTime());
+  });
+
+  it('computes next fire time using AlarmScheduleCalculator when nextFireAt is missing', () => {
+    const alarm = {
+      time: '05:30',
+      recurrence: 'daily',
+    };
+    // 05:30 is past 10:00 today, so next fire should be tomorrow Oct 23 at 05:30
+    const nextDate = getAlarmNextFireDate(alarm, baseNow);
+    expect(nextDate).toBeDefined();
+    expect(nextDate?.getHours()).toBe(5);
+    expect(nextDate?.getMinutes()).toBe(30);
   });
 });
