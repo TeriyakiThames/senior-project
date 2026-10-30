@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { DetailHeader } from '@/components/layout/DetailHeader';
+import { APP_VERSION } from '@/lib/constants/version';
 
 export default function SettingsPage() {
   const locale = useLocale();
@@ -150,7 +151,9 @@ export default function SettingsPage() {
                 <span aria-hidden="true">🎙️</span>
                 <span>{t('voiceAssistantBadge')}</span>
               </span>
-              <span className="text-sm font-medium text-[#7D84A3]">{t('version')} 1.28.2</span>
+              <span className="text-sm font-medium text-[#7D84A3]">
+                {t('version')} {APP_VERSION}
+              </span>
             </div>
           </div>
         </section>
