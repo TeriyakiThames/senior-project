@@ -1,3 +1,10 @@
+# [1.32.0](https://github.com/TeriyakiThames/senior-project/compare/v1.31.0...v1.32.0) (2026-10-30)
+
+
+### Features
+
+* refactor ui according to figma designs ([#101](https://github.com/TeriyakiThames/senior-project/issues/101)) ([df089f9](https://github.com/TeriyakiThames/senior-project/commit/df089f9d80dafc49008858dc9017ec6b122dc30b))
+
 # [1.31.0](https://github.com/TeriyakiThames/senior-project/compare/v1.30.1...v1.31.0) (2026-10-29)
 
 
