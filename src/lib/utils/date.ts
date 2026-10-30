@@ -1,6 +1,8 @@
 import type { Recurrence } from '@/types/firestore';
 import { AlarmScheduleCalculator } from '@/lib/utils/recurrence';
 
+export const THAI_SHORT_WEEKDAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
 /**
  * Formats a date for the dashboard header according to the user's locale.
  * Thai (th) uses the Buddhist Era (พ.ศ.), while English (en) uses the Gregorian calendar.
@@ -227,7 +229,7 @@ export function formatAlarmRecurrence(
       }
 
       // Multiple custom days: e.g. "จ., พ., ศ."
-      const shortDaysTh = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+      const shortDaysTh = THAI_SHORT_WEEKDAYS;
       const shortDaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const names = sortedDays
         .filter((d) => d >= 0 && d <= 6)
@@ -264,7 +266,9 @@ export function formatAlarmNextFire(
   const diffTime = startOfTarget.getTime() - startOfBase.getTime();
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-  const rawWeekday = new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
+  const rawWeekday = isThai
+    ? THAI_SHORT_WEEKDAYS[date.getDay()]
+    : new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
   const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
   const day = date.getDate();
 
@@ -346,7 +350,9 @@ export function formatReminderCardHeader(
     return { time, dateLabel: isThai ? 'เมื่อวาน' : 'Yesterday' };
   }
 
-  const rawWeekday = new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
+  const rawWeekday = isThai
+    ? THAI_SHORT_WEEKDAYS[date.getDay()]
+    : new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
   const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
   const day = date.getDate();
 

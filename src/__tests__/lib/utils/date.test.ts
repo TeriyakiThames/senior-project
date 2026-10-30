@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createBangkokDate, getBangkokComponents } from '@/lib/utils/recurrence';
 import {
   formatDashboardDate,
   parseTimestamp,
@@ -275,10 +276,10 @@ describe('formatAlarmNextFire', () => {
 });
 
 describe('getAlarmNextFireDate', () => {
-  const baseNow = new Date(2026, 9, 22, 10, 0); // Oct 22, 2026 10:00
+  const baseNow = createBangkokDate(2026, 10, 22, 10, 0); // Oct 22, 2026 10:00 Bangkok time
 
   it('uses nextFireAt if it is in the future', () => {
-    const futureDate = new Date(2026, 9, 23, 5, 30);
+    const futureDate = createBangkokDate(2026, 10, 23, 5, 30);
     const alarm = {
       time: '05:30',
       recurrence: 'daily',
@@ -296,8 +297,10 @@ describe('getAlarmNextFireDate', () => {
     // 05:30 is past 10:00 today, so next fire should be tomorrow Oct 23 at 05:30
     const nextDate = getAlarmNextFireDate(alarm, baseNow);
     expect(nextDate).toBeDefined();
-    expect(nextDate?.getHours()).toBe(5);
-    expect(nextDate?.getMinutes()).toBe(30);
+    const bkk = getBangkokComponents(nextDate!);
+    expect(bkk.hours).toBe(5);
+    expect(bkk.minutes).toBe(30);
+    expect(bkk.day).toBe(23);
   });
 });
 
