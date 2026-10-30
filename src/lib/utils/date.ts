@@ -1,3 +1,8 @@
+import type { Recurrence } from '@/types/firestore';
+import { AlarmScheduleCalculator } from '@/lib/utils/recurrence';
+
+export const THAI_SHORT_WEEKDAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
 /**
  * Formats a date for the dashboard header according to the user's locale.
  * Thai (th) uses the Buddhist Era (พ.ศ.), while English (en) uses the Gregorian calendar.
@@ -68,4 +73,375 @@ export function formatRecurrenceLabel(recurrence?: string, locale: string = 'th'
   };
   const labels = isThai ? thaiLabels : enLabels;
   return labels[recurrence] || recurrence;
+}
+
+/**
+ * Formats a date group header for item listings (e.g. Notes page).
+ * - Today: "วันนี้" (th) / "Today" (en)
+ * - Yesterday: "เมื่อวาน · 21 ต.ค." (th) / "Yesterday · 21 Oct" (en)
+ * - Past dates: "อังคาร 20 ต.ค." (th, stripped "วัน" prefix) / "Tuesday, 20 Oct" (en)
+ */
+export function formatDateGroupHeader(
+  date: Date,
+  locale: string = 'th',
+  baseNow: Date = new Date(),
+): string {
+  const isThai = locale.toLowerCase().startsWith('th');
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffTime = startOfBase.getTime() - startOfTarget.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  const targetLocale = isThai ? 'th-TH' : 'en-US';
+  const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
+  const day = date.getDate();
+
+  if (diffDays === 0) {
+    return isThai ? 'วันนี้' : 'Today';
+  }
+
+  if (diffDays === 1) {
+    return isThai ? `เมื่อวาน · ${day} ${month}` : `Yesterday · ${day} ${month}`;
+  }
+
+  const rawWeekday = new Intl.DateTimeFormat(targetLocale, { weekday: 'long' }).format(date);
+  if (isThai) {
+    // Strip "วัน" prefix (e.g. "วันอังคาร" -> "อังคาร") matching Figma design specification
+    const weekday = rawWeekday.replace(/^วัน/, '');
+    return `${weekday} ${day} ${month}`;
+  }
+
+  return `${rawWeekday}, ${day} ${month}`;
+}
+
+/**
+ * Formats time for notes (e.g. "14:15 น." for Thai, "14:15" for English).
+ */
+export function formatNoteTime(date: Date, locale: string = 'th'): string {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return isThai ? `${hours}:${minutes} น.` : `${hours}:${minutes}`;
+}
+
+/**
+ * Groups and sorts items by date descending (newest first).
+ */
+export function groupNotesByDate<
+  T extends { createdAt?: { _seconds?: number } | string | Date | null },
+>(
+  notes: T[],
+  locale: string = 'th',
+  baseNow: Date = new Date(),
+): { label: string; date: Date | null; items: T[] }[] {
+  const sorted = [...notes].sort((a, b) => {
+    const timeA = parseTimestamp(a.createdAt)?.getTime() ?? 0;
+    const timeB = parseTimestamp(b.createdAt)?.getTime() ?? 0;
+    return timeB - timeA;
+  });
+
+  const groups: { label: string; date: Date | null; items: T[] }[] = [];
+  const map = new Map<string, { label: string; date: Date | null; items: T[] }>();
+
+  for (const item of sorted) {
+    const parsed = parseTimestamp(item.createdAt);
+    if (!parsed) {
+      const fallbackLabel = locale.toLowerCase().startsWith('th') ? 'อื่นๆ' : 'Other';
+      let group = map.get(fallbackLabel);
+      if (!group) {
+        group = { label: fallbackLabel, date: null, items: [] };
+        map.set(fallbackLabel, group);
+        groups.push(group);
+      }
+      group.items.push(item);
+      continue;
+    }
+
+    const key = `${parsed.getFullYear()}-${parsed.getMonth()}-${parsed.getDate()}`;
+    let group = map.get(key);
+    if (!group) {
+      const label = formatDateGroupHeader(parsed, locale, baseNow);
+      group = { label, date: parsed, items: [] };
+      map.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+
+  return groups;
+}
+
+/**
+ * Formats recurrence for alarms according to the user's locale.
+ * - 'daily' -> "ทุกวัน" (th) / "Daily" (en)
+ * - 'weekly' with daysOfWeek [1, 2, 3, 4, 5] -> "จ.-ศ." (th) / "Mon-Fri" (en)
+ * - 'weekly' with daysOfWeek [0, 6] -> "ส.-อา." (th) / "Sat-Sun" (en)
+ * - 'weekly' with single day (e.g. [1]) -> "ทุกวันจันทร์" (th) / "Every Mon" (en)
+ * - 'weekly' without days -> "ทุกสัปดาห์" (th) / "Weekly" (en)
+ * - 'monthly' with dayOfMonth -> "ทุกวันที่ {day}" (th) / "Day {day} of month" (en)
+ * - 'monthly' without dayOfMonth -> "ทุกเดือน" (th) / "Monthly" (en)
+ * - 'once' -> "ครั้งเดียว" (th) / "Once" (en)
+ */
+export function formatAlarmRecurrence(
+  params: { recurrence?: string; daysOfWeek?: number[]; dayOfMonth?: number },
+  locale: string = 'th',
+): string {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const { recurrence, daysOfWeek, dayOfMonth } = params;
+
+  if (!recurrence || recurrence === 'once') {
+    return isThai ? 'ครั้งเดียว' : 'Once';
+  }
+
+  if (recurrence === 'daily') {
+    return isThai ? 'ทุกวัน' : 'Daily';
+  }
+
+  if (recurrence === 'weekly') {
+    if (daysOfWeek && daysOfWeek.length > 0) {
+      const sortedDays = [...daysOfWeek].sort((a, b) => a - b);
+      const isWeekdays =
+        sortedDays.length === 5 &&
+        sortedDays[0] === 1 &&
+        sortedDays[1] === 2 &&
+        sortedDays[2] === 3 &&
+        sortedDays[3] === 4 &&
+        sortedDays[4] === 5;
+      if (isWeekdays) {
+        return isThai ? 'จ.-ศ.' : 'Mon-Fri';
+      }
+
+      const isWeekends = sortedDays.length === 2 && sortedDays[0] === 0 && sortedDays[1] === 6;
+      if (isWeekends) {
+        return isThai ? 'ส.-อา.' : 'Sat-Sun';
+      }
+
+      // Single day
+      if (sortedDays.length === 1) {
+        const dayNamesTh = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+        const dayNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const day = sortedDays[0];
+        if (day >= 0 && day <= 6) {
+          return isThai ? `ทุกวัน${dayNamesTh[day]}` : `Every ${dayNamesEn[day]}`;
+        }
+      }
+
+      // Multiple custom days: e.g. "จ., พ., ศ."
+      const shortDaysTh = THAI_SHORT_WEEKDAYS;
+      const shortDaysEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const names = sortedDays
+        .filter((d) => d >= 0 && d <= 6)
+        .map((d) => (isThai ? shortDaysTh[d] : shortDaysEn[d]));
+      return names.join(', ');
+    }
+    return isThai ? 'ทุกสัปดาห์' : 'Weekly';
+  }
+
+  if (recurrence === 'monthly') {
+    if (typeof dayOfMonth === 'number' && dayOfMonth >= 1 && dayOfMonth <= 31) {
+      return isThai ? `ทุกวันที่ ${dayOfMonth}` : `Day ${dayOfMonth} of month`;
+    }
+    return isThai ? 'ทุกเดือน' : 'Monthly';
+  }
+
+  return recurrence;
+}
+
+/**
+ * Formats next alarm trigger time for alarm cards (e.g. "พรุ่งนี้ ศ. 23 ต.ค.", "อา. 1 พ.ย.").
+ */
+export function formatAlarmNextFire(
+  date: Date,
+  locale: string = 'th',
+  baseNow: Date = new Date(),
+): string {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const targetLocale = isThai ? 'th-TH' : 'en-US';
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const diffTime = startOfTarget.getTime() - startOfBase.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  const rawWeekday = isThai
+    ? THAI_SHORT_WEEKDAYS[date.getDay()]
+    : new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
+  const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
+  const day = date.getDate();
+
+  if (diffDays === 0) {
+    return isThai ? `วันนี้ ${rawWeekday} ${day} ${month}` : `Today, ${rawWeekday} ${day} ${month}`;
+  }
+
+  if (diffDays === 1) {
+    return isThai
+      ? `พรุ่งนี้ ${rawWeekday} ${day} ${month}`
+      : `Tomorrow, ${rawWeekday} ${day} ${month}`;
+  }
+
+  if (isThai) {
+    return `${rawWeekday} ${day} ${month}`;
+  }
+
+  return `${rawWeekday}, ${day} ${month}`;
+}
+
+/**
+ * Resolves or computes the next fire Date for an alarm item.
+ */
+export function getAlarmNextFireDate(
+  alarm: {
+    time: string;
+    recurrence?: string;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+    nextFireAt?: { _seconds?: number } | string | Date | null;
+  },
+  baseNow: Date = new Date(),
+): Date | null {
+  const parsed = parseTimestamp(alarm.nextFireAt);
+  if (parsed && parsed.getTime() > baseNow.getTime()) {
+    return parsed;
+  }
+
+  const calc = new AlarmScheduleCalculator(
+    {
+      time: alarm.time,
+      recurrence: (alarm.recurrence as Recurrence) || 'daily',
+      daysOfWeek: alarm.daysOfWeek,
+      dayOfMonth: alarm.dayOfMonth,
+    },
+    baseNow,
+  );
+  return calc.calculateNextFireTime();
+}
+
+/**
+ * Formats time and relative date for reminder card headers matching Figma Ground Truth:
+ * - Time: "14:30 น." (th) / "14:30" (en)
+ * - Date: "วันนี้" (th) / "Today" (en) for today
+ * - Date: "ศ. 23 ต.ค." (th) / "Fri, 23 Oct" (en) for other dates
+ */
+export function formatReminderCardHeader(
+  date: Date,
+  locale: string = 'th',
+  baseNow: Date = new Date(),
+): { time: string; dateLabel: string } {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const targetLocale = isThai ? 'th-TH' : 'en-US';
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const time = isThai ? `${hours}:${minutes} น.` : `${hours}:${minutes}`;
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffTime = startOfTarget.getTime() - startOfBase.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return { time, dateLabel: isThai ? 'วันนี้' : 'Today' };
+  }
+
+  if (diffDays === -1) {
+    return { time, dateLabel: isThai ? 'เมื่อวาน' : 'Yesterday' };
+  }
+
+  const rawWeekday = isThai
+    ? THAI_SHORT_WEEKDAYS[date.getDay()]
+    : new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
+  const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
+  const day = date.getDate();
+
+  if (isThai) {
+    return { time, dateLabel: `${rawWeekday} ${day} ${month}` };
+  }
+
+  return { time, dateLabel: `${rawWeekday}, ${day} ${month}` };
+}
+
+export interface ReminderTimelineGroup<T> {
+  id: 'today' | 'tomorrow' | 'later' | 'other';
+  label: string;
+  items: T[];
+}
+
+/**
+ * Groups and sorts reminders chronologically into timeline sections matching the Figma design:
+ * - "วันนี้" (Today): due today or overdue
+ * - "พรุ่งนี้" (Tomorrow): due tomorrow
+ * - "หลังจากนั้น" (Later): due after tomorrow
+ * Items within each section are sorted chronologically ascending (soonest first).
+ */
+export function groupRemindersByTimeline<
+  T extends {
+    nextFireAt?: { _seconds?: number } | string | Date | null;
+    scheduledAt?: { _seconds?: number } | string | Date | null;
+  },
+>(reminders: T[], locale: string = 'th', baseNow: Date = new Date()): ReminderTimelineGroup<T>[] {
+  const isThai = locale.toLowerCase().startsWith('th');
+
+  // Sort chronologically ascending (earliest first)
+  const sorted = [...reminders].sort((a, b) => {
+    const timeA =
+      parseTimestamp(a.nextFireAt || a.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const timeB =
+      parseTimestamp(b.nextFireAt || b.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return timeA - timeB;
+  });
+
+  const todayGroup: ReminderTimelineGroup<T> = {
+    id: 'today',
+    label: isThai ? 'วันนี้' : 'Today',
+    items: [],
+  };
+
+  const tomorrowGroup: ReminderTimelineGroup<T> = {
+    id: 'tomorrow',
+    label: isThai ? 'พรุ่งนี้' : 'Tomorrow',
+    items: [],
+  };
+
+  const laterGroup: ReminderTimelineGroup<T> = {
+    id: 'later',
+    label: isThai ? 'หลังจากนั้น' : 'Later',
+    items: [],
+  };
+
+  const otherGroup: ReminderTimelineGroup<T> = {
+    id: 'other',
+    label: isThai ? 'อื่นๆ' : 'Other',
+    items: [],
+  };
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+
+  for (const item of sorted) {
+    const targetDate = parseTimestamp(item.nextFireAt || item.scheduledAt);
+    if (!targetDate) {
+      otherGroup.items.push(item);
+      continue;
+    }
+
+    const startOfTarget = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+    );
+    const diffTime = startOfTarget.getTime() - startOfBase.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      todayGroup.items.push(item);
+    } else if (diffDays === 1) {
+      tomorrowGroup.items.push(item);
+    } else {
+      laterGroup.items.push(item);
+    }
+  }
+
+  return [todayGroup, tomorrowGroup, laterGroup, otherGroup].filter((g) => g.items.length > 0);
 }

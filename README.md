@@ -14,7 +14,33 @@ The project provides an intuitive personal assistant for elderly Thai users to m
 - **Elderly-Focused AI Persona:** Respectful, warm, patient, and polite Thai phrasing (ครับ/ค่ะ), avoiding robotic jargon or condescending baby talk.
 - **Dual AI Architecture:** Separates conversational empathy (Gemini 3.5 Flash-Lite) from deterministic intent classification and parameter extraction (TypeSafe AI Jev model).
 - **Three-Tier Persistent Memory:** Short-term conversational context, rolling daily summaries, and long-term learned user facts stored in Firestore.
-- **Elderly-Accessible UI:** LIFF dashboard adhering to senior usability standards (minimum 16px/1rem text, 20px base font, and minimum 48px touch targets).
+- **Elderly-Accessible UI Design Language:** LIFF dashboard adhering to the SVG-based pastel hub specification (soft powder `#F2F7FA` canvas, high-contrast Deep Indigo Navy `#21215C` typography, pastel category 2x2 grid, white rounded panels, and minimum 48px touch targets, discarding all previous UI paradigms).
+
+---
+
+## 🎨 UI Design Language & Visual System (SVG-Based Specification)
+
+The user interface is modeled directly from the master SVG design, discarding all previous design patterns in favor of a soothing, elder-accessible, pastel-themed hub.
+
+### 1. Palette & Surface Tokens
+
+- **Canvas / Background:** `#F2F7FA` (Soft Powder Sky)
+- **Primary Text:** `#21215C` (Deep Indigo Navy for glare-free readability)
+- **Secondary / Metadata Text:** `#7D84A3` and `#4B4F72` (Slate Gray)
+- **Surface Panels:** Pure White `#FFFFFF` with `24px` (`rounded-3xl`) radius and dual drop shadow (`0 2px 6px rgba(33, 33, 92, 0.06), 0 8px 24px rgba(33, 33, 92, 0.08)`)
+
+### 2. Four-Category Pastel Hub (2x2 Grid)
+
+- **⏰ Alarms (นาฬิกาปลุก):** Background `#FBEFD8`, Golden Amber Badge `#FCCE57`, Typography & Accents `#7A4E00`
+- **🔔 Reminders (การเตือน):** Background `#E1E8F8`, Azure Blue Badge `#3E81F7`, Typography & Accents `#385289`
+- **📝 Notes (โน้ต):** Background `#EEE1FA`, Vibrant Violet Badge `#9A59EF`, Typography & Accents `#544378`
+- **📅 My Plans (แผนของฉัน):** Background `#FDE5F0`, Rose Magenta Badge `#E8216F`, Typography & Accents `#B4225A`
+
+### 3. Chronological Upcoming Stream ("ต่อไป") & Recent Notes ("โน้ตล่าสุด")
+
+- **Upcoming Items:** Single white panel displaying time (`22px` bold `#21215C`), relative day indicator, item title, status badge pill (`การเตือน`, `การเตือน · เลื่อนเวลา`, `แผน`, `นาฬิกาปลุก`), and chevron navigation.
+- **Recent Notes:** White panel featuring top notes with input origin tags (`🎤 เสียง` vs `⌨️ พิมพ์`), timestamp, and an outlined action button (`ดูโน้ตทั้งหมด >`).
+- **Voice/Text Assistance Banner:** Soft `#EAF0F6` card with mic icon and natural Thai conversational prompt.
 
 ---
 

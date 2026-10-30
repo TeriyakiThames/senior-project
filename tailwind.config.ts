@@ -7,10 +7,11 @@ const config: Config = {
       colors: {
         'line-green': '#06C755',
         'line-green-dark': '#05a648',
-        'senior-bg': '#F8F6F2', // Warm off-white background
-        'senior-text': '#2D2D2D', // High-contrast dark text
-        'senior-muted': '#6B7280',
-        'senior-accent': '#4F46E5', // Indigo accent for actions
+        'senior-bg': '#F2F7FA', // SVG canvas background (replaces previous #F8F6F2)
+        'senior-text': '#21215C', // SVG deep indigo navy text (replaces previous #2D2D2D)
+        'senior-muted': '#7D84A3', // SVG slate gray (replaces previous #6B7280)
+        'senior-secondary': '#4B4F72', // SVG dark slate secondary text
+        'senior-accent': '#3E81F7', // SVG azure blue
         'senior-danger': '#EF4444',
         'senior-warning': '#F59E0B',
       },
@@ -26,7 +27,10 @@ const config: Config = {
         'touch-lg': '4rem', // 64px large touch target
       },
       borderRadius: {
-        card: '1rem',
+        card: '1.5rem', // 24px rounded corners matching SVG
+      },
+      boxShadow: {
+        'hub-card': '0 2px 6px rgba(33, 33, 92, 0.06), 0 8px 24px rgba(33, 33, 92, 0.08)',
       },
     },
   },
