@@ -2,6 +2,7 @@
 
 import { type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import liff from '@line/liff';
 
 export interface EmptyStateProps {
   /** Background color class for the large circular badge (e.g. "bg-[#EEE1FA]") */
@@ -20,6 +21,34 @@ export interface EmptyStateProps {
   actionButtonColor?: string;
   /** Click handler for action button (defaults to closing LIFF window to return to LINE chat) */
   onAction?: () => void;
+  /** Whether to show the action button (defaults to true) */
+  showActionButton?: boolean;
+}
+
+/**
+ * Handles closing the LIFF window to return to the LINE chat,
+ * or redirecting to the LINE universal link if running in an external browser.
+ */
+export function handleCloseOrRedirectToLine(onAction?: () => void): void {
+  if (onAction) {
+    onAction();
+    return;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      if (
+        typeof liff !== 'undefined' &&
+        typeof liff.isInClient === 'function' &&
+        liff.isInClient()
+      ) {
+        liff.closeWindow();
+        return;
+      }
+    } catch (err) {
+      console.warn('[EmptyState] Failed to call liff.closeWindow():', err);
+    }
+    window.location.href = 'https://line.me/R/';
+  }
 }
 
 export function EmptyState({
@@ -31,25 +60,9 @@ export function EmptyState({
   actionIcon,
   actionButtonColor = 'bg-[#3E81F7]',
   onAction,
+  showActionButton = true,
 }: EmptyStateProps) {
   const t = useTranslations('dashboard');
-
-  const handleAction = () => {
-    if (onAction) {
-      onAction();
-      return;
-    }
-    if (
-      typeof window !== 'undefined' &&
-      (
-        window as unknown as {
-          liff?: { isInClient: () => boolean; closeWindow: () => void };
-        }
-      ).liff?.isInClient()
-    ) {
-      (window as unknown as { liff: { closeWindow: () => void } }).liff.closeWindow();
-    }
-  };
 
   return (
     <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
@@ -73,27 +86,29 @@ export function EmptyState({
       )}
 
       {/* Action CTA Button */}
-      <button
-        type="button"
-        onClick={handleAction}
-        className={`w-full max-w-[340px] h-[54px] ${actionButtonColor} hover:opacity-90 active:scale-[0.98] rounded-2xl text-white font-bold text-lg flex items-center justify-center gap-2.5 mx-auto transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3E81F7]`}
-      >
-        {actionIcon || (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            aria-hidden="true"
-          >
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" strokeLinecap="round" />
-          </svg>
-        )}
-        <span>{actionLabel || t('goToChat')}</span>
-      </button>
+      {showActionButton && (
+        <button
+          type="button"
+          onClick={() => handleCloseOrRedirectToLine(onAction)}
+          className={`w-full max-w-[340px] h-[54px] ${actionButtonColor} hover:opacity-90 active:scale-[0.98] rounded-2xl text-white font-bold text-lg flex items-center justify-center gap-2.5 mx-auto transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3E81F7]`}
+        >
+          {actionIcon || (
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              aria-hidden="true"
+            >
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" strokeLinecap="round" />
+            </svg>
+          )}
+          <span>{actionLabel || t('goToChat')}</span>
+        </button>
+      )}
     </div>
   );
 }
