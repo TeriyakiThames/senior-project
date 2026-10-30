@@ -20,7 +20,7 @@
     "back": "Back to Home",
     "emptyAlarmsTitle": "No alarms set yet",
     "emptyAlarmsHint": "Try saying \"Set an alarm for 7 AM\" in chat",
-    "emptyRemindersTitle": "No reminders set yet",
+    "emptyRemindersTitle": "No reminders yet",
     "emptyRemindersHint": "Try saying \"Remind me to take medicine at 2 PM\" in chat",
     "emptyNotesTitle": "No notes yet",
     "emptyNotesHint": "Try saying \"Note that I need to buy rice\" in chat",
@@ -86,7 +86,18 @@
     "tipAlarmHint": "Speak or type in the chat, e.g. “Wake me up at 6 AM every day”",
     "weekdays": "Mon-Fri",
     "weekends": "Sat-Sun",
-    "dayOfMonth": "Day {day} of month"
+    "dayOfMonth": "Day {day} of month",
+    "remindersSubtitle": "{count} items · Reminded via LINE chat",
+    "confirmDeleteReminderTitle": "Delete this reminder?",
+    "deleteReminder": "Delete reminder",
+    "reminderDeletedToast": "Reminder deleted",
+    "emptyRemindersHintLine1": "Speak or type in chat:",
+    "emptyRemindersHintLine2": "“Remind me at...” and tap “Set reminder”",
+    "completedRemindersHidden": "Completed items are hidden",
+    "willRemindAgain": "Will remind again at {time}",
+    "later": "Later",
+    "tipReminderTitle": "Want to set more reminders?",
+    "tipReminderHint": "Speak or type in the chat, e.g. “Remind me to take medicine at 8 PM”"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

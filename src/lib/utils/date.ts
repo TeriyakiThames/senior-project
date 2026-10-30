@@ -314,3 +314,128 @@ export function getAlarmNextFireDate(
   );
   return calc.calculateNextFireTime();
 }
+
+/**
+ * Formats time and relative date for reminder card headers matching Figma Ground Truth:
+ * - Time: "14:30 น." (th) / "14:30" (en)
+ * - Date: "วันนี้" (th) / "Today" (en) for today
+ * - Date: "ศ. 23 ต.ค." (th) / "Fri, 23 Oct" (en) for other dates
+ */
+export function formatReminderCardHeader(
+  date: Date,
+  locale: string = 'th',
+  baseNow: Date = new Date(),
+): { time: string; dateLabel: string } {
+  const isThai = locale.toLowerCase().startsWith('th');
+  const targetLocale = isThai ? 'th-TH' : 'en-US';
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const time = isThai ? `${hours}:${minutes} น.` : `${hours}:${minutes}`;
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+  const startOfTarget = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffTime = startOfTarget.getTime() - startOfBase.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return { time, dateLabel: isThai ? 'วันนี้' : 'Today' };
+  }
+
+  if (diffDays === -1) {
+    return { time, dateLabel: isThai ? 'เมื่อวาน' : 'Yesterday' };
+  }
+
+  const rawWeekday = new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
+  const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
+  const day = date.getDate();
+
+  if (isThai) {
+    return { time, dateLabel: `${rawWeekday} ${day} ${month}` };
+  }
+
+  return { time, dateLabel: `${rawWeekday}, ${day} ${month}` };
+}
+
+export interface ReminderTimelineGroup<T> {
+  id: 'today' | 'tomorrow' | 'later' | 'other';
+  label: string;
+  items: T[];
+}
+
+/**
+ * Groups and sorts reminders chronologically into timeline sections matching the Figma design:
+ * - "วันนี้" (Today): due today or overdue
+ * - "พรุ่งนี้" (Tomorrow): due tomorrow
+ * - "หลังจากนั้น" (Later): due after tomorrow
+ * Items within each section are sorted chronologically ascending (soonest first).
+ */
+export function groupRemindersByTimeline<
+  T extends {
+    nextFireAt?: { _seconds?: number } | string | Date | null;
+    scheduledAt?: { _seconds?: number } | string | Date | null;
+  },
+>(reminders: T[], locale: string = 'th', baseNow: Date = new Date()): ReminderTimelineGroup<T>[] {
+  const isThai = locale.toLowerCase().startsWith('th');
+
+  // Sort chronologically ascending (earliest first)
+  const sorted = [...reminders].sort((a, b) => {
+    const timeA =
+      parseTimestamp(a.nextFireAt || a.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const timeB =
+      parseTimestamp(b.nextFireAt || b.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return timeA - timeB;
+  });
+
+  const todayGroup: ReminderTimelineGroup<T> = {
+    id: 'today',
+    label: isThai ? 'วันนี้' : 'Today',
+    items: [],
+  };
+
+  const tomorrowGroup: ReminderTimelineGroup<T> = {
+    id: 'tomorrow',
+    label: isThai ? 'พรุ่งนี้' : 'Tomorrow',
+    items: [],
+  };
+
+  const laterGroup: ReminderTimelineGroup<T> = {
+    id: 'later',
+    label: isThai ? 'หลังจากนั้น' : 'Later',
+    items: [],
+  };
+
+  const otherGroup: ReminderTimelineGroup<T> = {
+    id: 'other',
+    label: isThai ? 'อื่นๆ' : 'Other',
+    items: [],
+  };
+
+  const startOfBase = new Date(baseNow.getFullYear(), baseNow.getMonth(), baseNow.getDate());
+
+  for (const item of sorted) {
+    const targetDate = parseTimestamp(item.nextFireAt || item.scheduledAt);
+    if (!targetDate) {
+      otherGroup.items.push(item);
+      continue;
+    }
+
+    const startOfTarget = new Date(
+      targetDate.getFullYear(),
+      targetDate.getMonth(),
+      targetDate.getDate(),
+    );
+    const diffTime = startOfTarget.getTime() - startOfBase.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) {
+      todayGroup.items.push(item);
+    } else if (diffDays === 1) {
+      tomorrowGroup.items.push(item);
+    } else {
+      laterGroup.items.push(item);
+    }
+  }
+
+  return [todayGroup, tomorrowGroup, laterGroup, otherGroup].filter((g) => g.items.length > 0);
+}

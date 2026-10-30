@@ -10,6 +10,8 @@ import {
   formatAlarmRecurrence,
   formatAlarmNextFire,
   getAlarmNextFireDate,
+  formatReminderCardHeader,
+  groupRemindersByTimeline,
 } from '@/lib/utils/date';
 
 describe('formatDashboardDate (FE-03)', () => {
@@ -296,5 +298,136 @@ describe('getAlarmNextFireDate', () => {
     expect(nextDate).toBeDefined();
     expect(nextDate?.getHours()).toBe(5);
     expect(nextDate?.getMinutes()).toBe(30);
+  });
+});
+
+describe('formatReminderCardHeader', () => {
+  const baseNow = new Date(2026, 9, 22, 10, 0); // Thu Oct 22, 2026 10:00
+
+  it('formats today reminders with 24h time and "วันนี้" / "Today"', () => {
+    const today = new Date(2026, 9, 22, 14, 30);
+    const th = formatReminderCardHeader(today, 'th', baseNow);
+    expect(th.time).toBe('14:30 น.');
+    expect(th.dateLabel).toBe('วันนี้');
+
+    const en = formatReminderCardHeader(today, 'en', baseNow);
+    expect(en.time).toBe('14:30');
+    expect(en.dateLabel).toBe('Today');
+  });
+
+  it('formats tomorrow reminders with short weekday and date matching Figma UI', () => {
+    const tomorrow = new Date(2026, 9, 23, 8, 30); // Fri Oct 23, 2026
+    const th = formatReminderCardHeader(tomorrow, 'th', baseNow);
+    expect(th.time).toBe('08:30 น.');
+    expect(th.dateLabel).toBe('ศ. 23 ต.ค.');
+
+    const en = formatReminderCardHeader(tomorrow, 'en', baseNow);
+    expect(en.time).toBe('08:30');
+    expect(en.dateLabel).toBe('Fri, 23 Oct');
+  });
+
+  it('formats later reminders matching Figma UI (จ. 26 ต.ค.)', () => {
+    const later = new Date(2026, 9, 26, 7, 0); // Mon Oct 26, 2026
+    const th = formatReminderCardHeader(later, 'th', baseNow);
+    expect(th.time).toBe('07:00 น.');
+    expect(th.dateLabel).toBe('จ. 26 ต.ค.');
+
+    const en = formatReminderCardHeader(later, 'en', baseNow);
+    expect(en.time).toBe('07:00');
+    expect(en.dateLabel).toBe('Mon, 26 Oct');
+  });
+
+  it('formats yesterday reminders with "เมื่อวาน" / "Yesterday"', () => {
+    const yesterday = new Date(2026, 9, 21, 20, 0);
+    const th = formatReminderCardHeader(yesterday, 'th', baseNow);
+    expect(th.time).toBe('20:00 น.');
+    expect(th.dateLabel).toBe('เมื่อวาน');
+
+    const en = formatReminderCardHeader(yesterday, 'en', baseNow);
+    expect(en.time).toBe('20:00');
+    expect(en.dateLabel).toBe('Yesterday');
+  });
+});
+
+describe('groupRemindersByTimeline', () => {
+  const baseNow = new Date(2026, 9, 22, 10, 0); // Thu Oct 22, 2026
+
+  it('groups and sorts reminders chronologically into today, tomorrow, and later', () => {
+    const reminders = [
+      {
+        id: 'r4',
+        message: 'ตรวจเลือด',
+        nextFireAt: new Date(2026, 9, 26, 7, 0), // Mon Oct 26 (+4 days)
+      },
+      {
+        id: 'r2',
+        message: 'กินยามื้อเย็น',
+        nextFireAt: new Date(2026, 9, 22, 20, 0), // Today 20:00
+      },
+      {
+        id: 'r1',
+        message: 'โทรหาลูกหลาน',
+        nextFireAt: new Date(2026, 9, 22, 14, 30), // Today 14:30
+      },
+      {
+        id: 'r3',
+        message: 'กินยามื้อเช้า',
+        nextFireAt: new Date(2026, 9, 23, 8, 30), // Tomorrow 08:30
+      },
+    ];
+
+    const groups = groupRemindersByTimeline(reminders, 'th', baseNow);
+    expect(groups.length).toBe(3);
+
+    // Group 0: วันนี้
+    expect(groups[0]?.id).toBe('today');
+    expect(groups[0]?.label).toBe('วันนี้');
+    expect(groups[0]?.items.length).toBe(2);
+    expect(groups[0]?.items[0]?.id).toBe('r1'); // 14:30 before 20:00
+    expect(groups[0]?.items[1]?.id).toBe('r2');
+
+    // Group 1: พรุ่งนี้
+    expect(groups[1]?.id).toBe('tomorrow');
+    expect(groups[1]?.label).toBe('พรุ่งนี้');
+    expect(groups[1]?.items.length).toBe(1);
+    expect(groups[1]?.items[0]?.id).toBe('r3');
+
+    // Group 2: หลังจากนั้น
+    expect(groups[2]?.id).toBe('later');
+    expect(groups[2]?.label).toBe('หลังจากนั้น');
+    expect(groups[2]?.items.length).toBe(1);
+    expect(groups[2]?.items[0]?.id).toBe('r4');
+  });
+
+  it('supports English locale labels', () => {
+    const reminders = [
+      { id: '1', nextFireAt: new Date(2026, 9, 22, 12, 0) },
+      { id: '2', nextFireAt: new Date(2026, 9, 23, 12, 0) },
+      { id: '3', nextFireAt: new Date(2026, 9, 25, 12, 0) },
+    ];
+
+    const groups = groupRemindersByTimeline(reminders, 'en', baseNow);
+    expect(groups.map((g) => g.label)).toEqual(['Today', 'Tomorrow', 'Later']);
+  });
+
+  it('omits groups that have no items', () => {
+    const reminders = [{ id: '1', nextFireAt: new Date(2026, 9, 25, 12, 0) }];
+
+    const groups = groupRemindersByTimeline(reminders, 'th', baseNow);
+    expect(groups.length).toBe(1);
+    expect(groups[0]?.id).toBe('later');
+  });
+
+  it('places undated items in other group', () => {
+    const reminders = [
+      { id: '1', nextFireAt: null, scheduledAt: null },
+      { id: '2', nextFireAt: new Date(2026, 9, 22, 12, 0) },
+    ];
+
+    const groups = groupRemindersByTimeline(reminders, 'th', baseNow);
+    expect(groups.length).toBe(2);
+    expect(groups[0]?.id).toBe('today');
+    expect(groups[1]?.id).toBe('other');
+    expect(groups[1]?.label).toBe('อื่นๆ');
   });
 });

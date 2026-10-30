@@ -11,6 +11,7 @@ export interface MockReminder {
   message: string;
   status: 'pending' | 'snoozed' | 'done';
   nextFireAt: string;
+  scheduledAt?: string;
   recurrence?: string;
 }
 
@@ -52,16 +53,76 @@ function getDefaultMockStore(): MockStore {
     reminders: [
       {
         id: 'mock-reminder-1',
-        message: 'Reminder 1',
-        status: 'pending',
-        nextFireAt: nextHour.toISOString(),
-        recurrence: 'daily',
+        message: 'โทรหาลูกหลาน',
+        status: 'snoozed',
+        scheduledAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          14,
+          30,
+        ).toISOString(),
+        nextFireAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          14,
+          45,
+        ).toISOString(),
+        recurrence: 'once',
       },
       {
         id: 'mock-reminder-2',
-        message: 'Reminder 2',
+        message: 'กินยาความดัน มื้อเย็น',
         status: 'pending',
-        nextFireAt: new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString(),
+        scheduledAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          20,
+          0,
+        ).toISOString(),
+        nextFireAt: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0).toISOString(),
+        recurrence: 'daily',
+      },
+      {
+        id: 'mock-reminder-3',
+        message: 'กินยาความดัน มื้อเช้า',
+        status: 'pending',
+        scheduledAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1,
+          8,
+          30,
+        ).toISOString(),
+        nextFireAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1,
+          8,
+          30,
+        ).toISOString(),
+        recurrence: 'daily',
+      },
+      {
+        id: 'mock-reminder-4',
+        message: 'ไปตรวจเลือด\nงดอาหารตั้งแต่สองทุ่มคืนก่อน',
+        status: 'pending',
+        scheduledAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 3,
+          7,
+          0,
+        ).toISOString(),
+        nextFireAt: new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 3,
+          7,
+          0,
+        ).toISOString(),
         recurrence: 'once',
       },
     ],

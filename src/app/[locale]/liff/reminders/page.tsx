@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState, useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
 import { ReminderCard, type ReminderItem } from '@/components/liff/ReminderCard';
+import { DetailHeader } from '@/components/layout/DetailHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { Loading } from '@/components/ui/Loading';
-import { PageWrapper } from '@/components/layout/PageWrapper';
+import { Toast } from '@/components/ui/Toast';
+import { groupRemindersByTimeline, parseTimestamp } from '@/lib/utils/date';
 
 interface RemindersData {
   reminders?: ReminderItem[];
@@ -20,108 +21,190 @@ export default function RemindersPage() {
   const { isReady } = useLiff();
   const { data, loading, deleteItem } = useLiffData<RemindersData>('reminders');
 
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string;
-    title: string;
-  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ReminderItem | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  if (!isReady || loading) {
-    return (
-      <PageWrapper className="flex items-center justify-center min-h-[60vh]">
-        <Loading message={t('loading')} />
-      </PageWrapper>
-    );
-  }
+  // Filter out any completed items to strictly guarantee only active reminders are shown
+  const reminders = useMemo(
+    () => (data?.reminders ?? []).filter((r) => r.status !== 'done'),
+    [data?.reminders],
+  );
 
-  const reminders = data?.reminders ?? [];
+  const timelineGroups = useMemo(() => {
+    return groupRemindersByTimeline(reminders, locale);
+  }, [reminders, locale]);
 
-  const handleDeleteRequest = (id: string, title: string) => {
-    setDeleteTarget({ id, title });
+  const handleDeleteRequest = (reminder: ReminderItem) => {
+    setDeleteTarget(reminder);
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     const { id } = deleteTarget;
-    setDeleteTarget(null);
+    setIsDeleting(true);
     try {
       await deleteItem(id, 'reminder');
+      setDeleteTarget(null);
+      setShowToast(true);
     } catch (err) {
       console.error('Failed to delete reminder:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleCancelDelete = () => {
+    if (isDeleting) return;
     setDeleteTarget(null);
   };
 
+  if (!isReady || loading) {
+    return (
+      <div className="min-h-screen bg-[#F2F7FA] flex items-center justify-center p-6">
+        <div className="text-center">
+          <div
+            className="w-12 h-12 border-4 border-[#3E81F7] border-t-transparent rounded-full animate-spin mx-auto mb-4"
+            aria-hidden="true"
+          />
+          <p className="text-[#21215C] text-senior-base font-semibold">{t('loading')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isThai = locale.toLowerCase().startsWith('th');
+
+  const deleteTargetPreview = deleteTarget
+    ? (() => {
+        const d = parseTimestamp(deleteTarget.nextFireAt || deleteTarget.scheduledAt);
+        if (d) {
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          const timeStr = isThai ? `${hours}:${minutes} น.` : `${hours}:${minutes}`;
+          return `${timeStr} · ${deleteTarget.message}`;
+        }
+        return deleteTarget.message;
+      })()
+    : '';
+
   return (
-    <PageWrapper>
-      {/* Top Header with Back Navigation */}
-      <header className="mb-6">
-        <Link
-          href={`/${locale}/liff`}
-          className="inline-flex items-center gap-1.5 text-senior-base text-senior-muted hover:text-senior-text min-h-touch py-2 font-medium focus:outline-none focus:ring-2 focus:ring-line-green rounded-md mb-1"
-          aria-label={t('back')}
-        >
-          <span aria-hidden="true">←</span>
-          <span>{t('back')}</span>
-        </Link>
-        <h1 className="text-senior-2xl font-bold text-senior-text">📋 {t('reminders')}</h1>
-      </header>
+    <div className="min-h-screen bg-[#F2F7FA] text-[#21215C]">
+      {/* Top LINE Service App Bar + Category Header matching Figma Ground Truth */}
+      <DetailHeader
+        title={t('reminders')}
+        subtitle={
+          reminders.length > 0 ? t('remindersSubtitle', { count: reminders.length }) : undefined
+        }
+        badgeBgColor="bg-[#E1E8F8]"
+        badgeIcon={
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+              fill="#3E81F7"
+              stroke="#385289"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M13.73 21a2 2 0 0 1-3.46 0"
+              stroke="#385289"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        }
+      />
 
-      {/* Reminders Content */}
-      <section aria-labelledby="reminders-list-heading">
-        <h2 id="reminders-list-heading" className="sr-only">
-          {t('reminders')}
-        </h2>
-
+      <main className="px-5 pt-1 pb-16 max-w-[440px] mx-auto">
         {reminders.length === 0 ? (
-          <div className="bg-white rounded-card border border-gray-200 p-6 text-center shadow-sm">
-            <div
-              className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl"
-              aria-hidden="true"
-            >
-              📋
-            </div>
-            <p className="text-senior-lg font-bold text-senior-text mb-2">
-              {t('emptyRemindersTitle')}
-            </p>
-            <div className="bg-senior-bg border border-green-200 rounded-card p-4 mt-4 inline-block text-left w-full">
-              <p className="text-senior-sm font-semibold text-line-green flex items-center gap-1.5 mb-1">
-                <span aria-hidden="true">💡</span>
-                <span>{locale.startsWith('th') ? 'คำแนะนำ' : 'Tip'}</span>
-              </p>
-              <p className="text-senior-base text-senior-text">{t('emptyRemindersHint')}</p>
-            </div>
-          </div>
+          /* Empty State matching Figma Specification */
+          <EmptyState
+            badgeBgColor="bg-[#E1E8F8]"
+            badgeIcon={
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+                  fill="#3E81F7"
+                  stroke="#385289"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M13.73 21a2 2 0 0 1-3.46 0"
+                  stroke="#385289"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            }
+            title={t('emptyRemindersTitle')}
+            description={
+              <div className="space-y-1">
+                <p>{t('emptyRemindersHintLine1')}</p>
+                <p>{t('emptyRemindersHintLine2')}</p>
+              </div>
+            }
+            actionLabel={t('goToChat')}
+            actionButtonColor="bg-[#3E81F7]"
+          />
         ) : (
-          <div className="space-y-3">
-            {reminders.map((reminder) => (
-              <ReminderCard
-                key={reminder.id}
-                reminder={reminder}
-                onDelete={() => handleDeleteRequest(reminder.id, reminder.message)}
-              />
-            ))}
+          /* Grouped Reminders List matching Figma Image Ground Truth */
+          <div>
+            <div className="space-y-6">
+              {timelineGroups.map((group) => (
+                <section key={group.id} aria-labelledby={`heading-${group.id}`}>
+                  <h3
+                    id={`heading-${group.id}`}
+                    className="text-xl font-bold text-[#21215C] mb-3 tracking-tight"
+                  >
+                    {group.label}
+                  </h3>
+                  <div className="space-y-3">
+                    {group.items.map((reminder) => (
+                      <ReminderCard
+                        key={reminder.id}
+                        reminder={reminder}
+                        onDelete={() => handleDeleteRequest(reminder)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            {/* Bottom Notice: Completed items are hidden */}
+            <p className="text-center text-[#7D84A3] text-sm sm:text-base font-medium mt-8">
+              {t('completedRemindersHidden')}
+            </p>
           </div>
         )}
-      </section>
+      </main>
 
-      {/* Confirmation Dialog */}
+      {/* Delete Confirmation Modal matching Figma Specification */}
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title={t('confirmDeleteTitle')}
-        message={
-          deleteTarget?.title
-            ? `"${deleteTarget.title}" — ${t('confirmDeleteMessage')}`
-            : t('confirmDeleteMessage')
-        }
-        confirmLabel={t('delete')}
-        cancelLabel={t('cancel')}
+        title={t('confirmDeleteReminderTitle')}
+        contentPreview={deleteTargetPreview}
+        warningText={t('confirmDeleteWarning')}
+        confirmLabel={t('deleteReminder')}
+        cancelLabel={t('doNotDelete')}
         confirmVariant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
       />
-    </PageWrapper>
+
+      {/* Floating Bottom Toast Feedback matching Figma Standard */}
+      <Toast
+        isOpen={showToast}
+        message={t('reminderDeletedToast')}
+        durationMs={3000}
+        onClose={() => setShowToast(false)}
+      />
+    </div>
   );
 }
