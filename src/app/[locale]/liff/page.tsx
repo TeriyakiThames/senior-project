@@ -365,35 +365,27 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          {/* 4. My Plans (แผนของฉัน) */}
+          {/* 4. Settings (ตั้งค่า) */}
           <Link
-            href={`/${locale}/liff/reminders`}
+            href={`/${locale}/liff/settings`}
             className="bg-[#FDE5F0] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#B4225A]"
           >
             <div className="w-7 h-7 rounded-lg bg-[#E8216F] flex items-center justify-center p-1 shadow-xs">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect
-                  x="3"
-                  y="4"
-                  width="18"
-                  height="18"
-                  rx="2"
-                  fill="#E8216F"
-                  stroke="#B4225A"
-                  strokeWidth="2.2"
-                />
+                <circle cx="12" cy="12" r="3" stroke="#B4225A" strokeWidth="2.2" fill="#E8216F" />
                 <path
-                  d="M16 2v4M8 2v4M3 10h18"
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
                   stroke="#B4225A"
                   strokeWidth="2.2"
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               </svg>
             </div>
             <div>
-              <p className="text-[#B4225A] font-bold text-lg leading-tight">{t('myPlans')}</p>
+              <p className="text-[#B4225A] font-bold text-lg leading-tight">{t('settings')}</p>
               <p className="text-[#B4225A]/80 text-sm font-medium mt-0.5">
-                {t('plansCount', { count: plansCount })}
+                {t('settingsSubtitle')}
               </p>
             </div>
           </Link>

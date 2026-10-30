@@ -21,6 +21,8 @@ export interface DetailHeaderProps {
   onClose?: () => void;
   /** Optional settings route for the options menu */
   settingsHref?: string;
+  /** Whether to show the settings options button on the right (defaults to true) */
+  showSettings?: boolean;
 }
 
 export function DetailHeader({
@@ -32,6 +34,7 @@ export function DetailHeader({
   serviceName,
   onClose,
   settingsHref,
+  showSettings = true,
 }: DetailHeaderProps) {
   const locale = useLocale();
   const t = useTranslations('dashboard');
@@ -81,17 +84,21 @@ export function DetailHeader({
           {displayServiceName}
         </h1>
 
-        <Link
-          href={defaultSettingsHref}
-          className="min-w-[48px] min-h-[48px] flex items-center justify-end text-[#111111] hover:opacity-75 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#21215C] rounded-lg"
-          aria-label={t('settings')}
-        >
-          <svg width="18" height="4" viewBox="0 0 18 4" fill="none" aria-hidden="true">
-            <circle cx="2" cy="2" r="1.6" fill="#111111" />
-            <circle cx="9" cy="2" r="1.6" fill="#111111" />
-            <circle cx="16" cy="2" r="1.6" fill="#111111" />
-          </svg>
-        </Link>
+        {showSettings ? (
+          <Link
+            href={defaultSettingsHref}
+            className="min-w-[48px] min-h-[48px] flex items-center justify-end text-[#111111] hover:opacity-75 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#21215C] rounded-lg"
+            aria-label={t('settings')}
+          >
+            <svg width="18" height="4" viewBox="0 0 18 4" fill="none" aria-hidden="true">
+              <circle cx="2" cy="2" r="1.6" fill="#111111" />
+              <circle cx="9" cy="2" r="1.6" fill="#111111" />
+              <circle cx="16" cy="2" r="1.6" fill="#111111" />
+            </svg>
+          </Link>
+        ) : (
+          <div className="min-w-[48px] min-h-[48px]" aria-hidden="true" />
+        )}
       </header>
 
       {/* Sub-Header: Back chevron navigation + Category Squircle Badge + Title + Subtitle */}

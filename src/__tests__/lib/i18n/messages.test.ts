@@ -37,6 +37,7 @@ describe('i18n Message Catalogs & Config', () => {
       'textSource',
       'tip',
       'settings',
+      'settingsSubtitle',
       'profile',
       'name',
       'userId',
