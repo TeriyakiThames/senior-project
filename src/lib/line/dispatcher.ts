@@ -30,6 +30,27 @@ export const DEFAULT_DEDUP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const processedEventCache = new Map<string, number>();
 
 /**
+ * In-memory cache for user display names (TTL: 1 hour) to eliminate redundant LINE getProfile calls.
+ */
+const displayNameCache = new Map<string, { displayName: string; expiresAt: number }>();
+
+export function getCachedDisplayName(userId: string): string | null {
+  const cached = displayNameCache.get(userId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.displayName;
+  }
+  return null;
+}
+
+export function setCachedDisplayName(userId: string, displayName: string, ttlMs = 60 * 60 * 1000): void {
+  displayNameCache.set(userId, { displayName, expiresAt: Date.now() + ttlMs });
+}
+
+export function clearDisplayNameCache(): void {
+  displayNameCache.clear();
+}
+
+/**
  * Extracts a unique string identifier from a LINE webhook event.
  */
 export function getEventIdentifier(event: webhook.Event): string | null {
@@ -94,6 +115,7 @@ export function markEventProcessed(event: webhook.Event): void {
  */
 export function clearProcessedEventCache(): void {
   processedEventCache.clear();
+  clearDisplayNameCache();
 }
 
 /**
@@ -182,17 +204,26 @@ export async function handleTextMessage(
   // 1. Fetch display name & retrieve or create user
   let displayName = 'คุณตาคุณยาย';
   if (userId) {
-    try {
-      const profile = await lineClient.getProfile(userId);
-      if (profile?.displayName) {
-        displayName = profile.displayName;
+    const cachedName = getCachedDisplayName(userId);
+    if (cachedName) {
+      displayName = cachedName;
+    } else {
+      try {
+        const profile = await lineClient.getProfile(userId);
+        if (profile?.displayName) {
+          displayName = profile.displayName;
+          setCachedDisplayName(userId, profile.displayName);
+        }
+      } catch {
+        // Gracefully continue with default display name if profile fetch fails
       }
-    } catch {
-      // Gracefully continue with default display name if profile fetch fails
     }
   }
 
   const user = userId ? await getOrCreateUser(userId, displayName) : null;
+  if (user?.displayName && userId && !getCachedDisplayName(userId)) {
+    setCachedDisplayName(userId, user.displayName);
+  }
 
   // 2. Deterministic short-circuits: Snooze / Dismiss
   if (user && /^(snooze|dismiss)_(alarm|reminder):/.test(userText)) {
@@ -300,7 +331,7 @@ export async function handleTextMessage(
   let memoryContext;
   try {
     memoryContext = userId
-      ? await loadMemoryContext(userId)
+      ? await loadMemoryContext(userId, { user: user ?? undefined })
       : { recentMessages: [], userFacts: [] };
   } catch {
     memoryContext = { recentMessages: [], userFacts: [] };
@@ -433,14 +464,23 @@ export async function handlePostbackEvent(
   }
 
   let displayName = 'คุณตาคุณยาย';
-  try {
-    const profile = await lineClient.getProfile(userId);
-    if (profile?.displayName) {
-      displayName = profile.displayName;
-    }
-  } catch {}
+  const cachedName = getCachedDisplayName(userId);
+  if (cachedName) {
+    displayName = cachedName;
+  } else {
+    try {
+      const profile = await lineClient.getProfile(userId);
+      if (profile?.displayName) {
+        displayName = profile.displayName;
+        setCachedDisplayName(userId, profile.displayName);
+      }
+    } catch {}
+  }
 
   const user = await getOrCreateUser(userId, displayName);
+  if (user?.displayName && !getCachedDisplayName(userId)) {
+    setCachedDisplayName(userId, user.displayName);
+  }
   const data = event.postback.data ?? '';
 
   const isDirectUserChat = event.source?.type === 'user';

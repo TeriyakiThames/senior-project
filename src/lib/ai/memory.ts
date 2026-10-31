@@ -18,6 +18,7 @@ export interface LoadMemoryContextOptions {
   now?: Date;
   client?: GoogleGenAI;
   messagesLimit?: number;
+  user?: UserDoc;
 }
 
 export interface UpdateUserProfileOptions {
@@ -51,15 +52,19 @@ export async function loadMemoryContext(
   lineUserId: string,
   options?: LoadMemoryContextOptions,
 ): Promise<MemoryContext> {
-  const userSnap = await userRef(lineUserId).get();
-  if (!userSnap.exists) {
-    return {
-      recentMessages: [],
-      userFacts: [],
-    };
+  let user = options?.user;
+
+  if (!user) {
+    const userSnap = await userRef(lineUserId).get();
+    if (!userSnap.exists) {
+      return {
+        recentMessages: [],
+        userFacts: [],
+      };
+    }
+    user = userSnap.data() as UserDoc;
   }
 
-  const user = userSnap.data() as UserDoc;
   const limit = options?.messagesLimit ?? 10;
   const recentMessages = await getRecentMessages(lineUserId, limit);
 
