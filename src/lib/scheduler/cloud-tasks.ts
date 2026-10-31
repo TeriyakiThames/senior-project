@@ -53,12 +53,20 @@ export function getCloudTasksClientOptions() {
     credentials?: Record<string, unknown>;
   } = {};
 
-  const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  const credentialsJson =
+    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (credentialsJson) {
     try {
-      options.credentials = JSON.parse(credentialsJson) as Record<string, unknown>;
-    } catch {
-      // Ignore parse failure and fall back to GCP default application credentials
+      const parsed = JSON.parse(credentialsJson) as Record<string, unknown>;
+      if (typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
+      options.credentials = parsed;
+    } catch (parseError) {
+      console.warn(
+        '[CloudTasks] Failed to parse service account credentials JSON, falling back to ADC:',
+        parseError,
+      );
     }
   }
 
