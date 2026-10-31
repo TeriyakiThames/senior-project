@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
@@ -98,23 +99,14 @@ export default function RemindersPage() {
         }
         badgeBgColor="bg-[#E1E8F8]"
         badgeIcon={
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-              fill="#3E81F7"
-              stroke="#385289"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M13.73 21a2 2 0 0 1-3.46 0"
-              stroke="#385289"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Image
+            src="/icons/reminder.svg"
+            alt=""
+            width={26}
+            height={26}
+            unoptimized
+            aria-hidden="true"
+          />
         }
       />
 
@@ -124,23 +116,14 @@ export default function RemindersPage() {
           <EmptyState
             badgeBgColor="bg-[#E1E8F8]"
             badgeIcon={
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-                  fill="#3E81F7"
-                  stroke="#385289"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M13.73 21a2 2 0 0 1-3.46 0"
-                  stroke="#385289"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <Image
+                src="/icons/reminder.svg"
+                alt=""
+                width={56}
+                height={56}
+                unoptimized
+                aria-hidden="true"
+              />
             }
             title={t('emptyRemindersTitle')}
             description={

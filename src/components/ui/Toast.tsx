@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import Image from 'next/image';
 
 export interface ToastProps {
   isOpen: boolean;
@@ -29,19 +30,14 @@ export function Toast({ isOpen, message, icon, durationMs = 3000, onClose }: Toa
     >
       <div className="shrink-0 flex items-center justify-center">
         {icon || (
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+          <Image
+            src="/icons/confirm_tick.svg"
+            alt=""
+            width={20}
+            height={20}
+            unoptimized
             aria-hidden="true"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+          />
         )}
       </div>
       <p className="text-white font-medium text-base sm:text-lg leading-snug">{message}</p>

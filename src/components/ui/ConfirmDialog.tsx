@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import Image from 'next/image';
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -78,19 +79,14 @@ export function ConfirmDialog({
           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${badgeBgColor}`}
         >
           {badgeIcon || (
-            <svg
-              width="28"
-              height="28"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#942626"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <Image
+              src="/icons/trashbin.svg"
+              alt=""
+              width={28}
+              height={28}
+              unoptimized
               aria-hidden="true"
-            >
-              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
-            </svg>
+            />
           )}
         </div>
 
@@ -126,19 +122,15 @@ export function ConfirmDialog({
           >
             {isDanger &&
               (confirmIcon || (
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <Image
+                  src="/icons/trashbin.svg"
+                  alt=""
+                  width={18}
+                  height={18}
+                  unoptimized
+                  className="brightness-0 invert"
                   aria-hidden="true"
-                >
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
-                </svg>
+                />
               ))}
             <span>{confirmLabel}</span>
           </button>

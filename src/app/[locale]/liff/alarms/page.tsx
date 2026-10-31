@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
@@ -89,23 +90,14 @@ export default function AlarmsPage() {
         subtitle={alarms.length > 0 ? t('alarmsSubtitle', { count: alarms.length }) : undefined}
         badgeBgColor="bg-[#FBEFD8]"
         badgeIcon={
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 4l3 2M20 4l-3 2" stroke="#7A4E00" strokeWidth="2.2" strokeLinecap="round" />
-            <circle cx="12" cy="13" r="8" fill="#FCCE57" stroke="#7A4E00" strokeWidth="2" />
-            <path
-              d="M12 9v4l2.5 1.5"
-              stroke="#7A4E00"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M6.5 20l1.5-2M17.5 20l-1.5-2"
-              stroke="#7A4E00"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-            />
-          </svg>
+          <Image
+            src="/icons/clock.svg"
+            alt=""
+            width={26}
+            height={26}
+            unoptimized
+            aria-hidden="true"
+          />
         }
       />
 
@@ -115,28 +107,14 @@ export default function AlarmsPage() {
           <EmptyState
             badgeBgColor="bg-[#FBEFD8]"
             badgeIcon={
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M4 4l3 2M20 4l-3 2"
-                  stroke="#7A4E00"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                />
-                <circle cx="12" cy="13" r="8" fill="#FCCE57" stroke="#7A4E00" strokeWidth="2" />
-                <path
-                  d="M12 9v4l2.5 1.5"
-                  stroke="#7A4E00"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M6.5 20l1.5-2M17.5 20l-1.5-2"
-                  stroke="#7A4E00"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <Image
+                src="/icons/clock.svg"
+                alt=""
+                width={56}
+                height={56}
+                unoptimized
+                aria-hidden="true"
+              />
             }
             title={t('emptyAlarmsTitle')}
             description={
