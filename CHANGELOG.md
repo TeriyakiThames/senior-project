@@ -1,3 +1,10 @@
+## [1.32.4](https://github.com/TeriyakiThames/senior-project/compare/v1.32.3...v1.32.4) (2026-10-31)
+
+
+### Performance Improvements
+
+* optimise end-to-end messaging pipeline latency ([#105](https://github.com/TeriyakiThames/senior-project/issues/105)) ([9cf0e1c](https://github.com/TeriyakiThames/senior-project/commit/9cf0e1cbeb782962eb2c719b018bd10086b3e953))
+
 ## [1.32.3](https://github.com/TeriyakiThames/senior-project/compare/v1.32.2...v1.32.3) (2026-10-31)
 
 
