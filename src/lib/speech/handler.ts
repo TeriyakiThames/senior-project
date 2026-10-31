@@ -70,12 +70,18 @@ export async function processAudioMessage(
   const messageId = event.message.id;
   const userId = event.source?.userId;
 
-  // Retrieve user profile to resolve persona particles
-  const userDoc = await getUserProfile(userId);
-  const particles = resolvePersonaParticles(userDoc);
+  // Retrieve user profile to resolve persona particles concurrently with voice download
+  const userDocPromise = getUserProfile(userId);
+  let userDoc: UserDoc | null = null;
 
   try {
-    const audioBuffer = await downloadVoiceMessage(messageId);
+    const [fetchedUserDoc, audioBuffer] = await Promise.all([
+      userDocPromise,
+      downloadVoiceMessage(messageId),
+    ]);
+    userDoc = fetchedUserDoc;
+    const particles = resolvePersonaParticles(userDoc);
+
     const transcript = (await transcribeThaiAudio(audioBuffer)).trim();
 
     // Inaudible or silent voice note
@@ -102,6 +108,9 @@ export async function processAudioMessage(
     return transcript;
   } catch (error) {
     logError('stt', error, { messageId, userId });
+
+    const fallbackUserDoc = userDoc ?? (await userDocPromise.catch(() => null));
+    const particles = resolvePersonaParticles(fallbackUserDoc);
 
     if (replyToken) {
       try {
