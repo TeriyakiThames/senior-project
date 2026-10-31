@@ -1,12 +1,21 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { notesRef, pendingActionsRef } from '@/lib/firebase/collections';
 import { summarizeNote } from '@/lib/ai/gemini';
+import {
+  extractNoteParams,
+  type NoteParams,
+  type ExtractNoteParamsOptions,
+} from '@/lib/ai/parameter-extractor';
+import { isPureNoteCommand, isClarificationResponse } from '@/lib/utils/note-validation';
 import { buildNoteConfirmation } from '@/lib/line/flex-messages';
 import type { NoteDoc, PendingActionDoc, UserDoc } from '@/types/firestore';
 import type { ToolResult } from './index';
 
 export const NOTE_EMPTY_FALLBACK =
   'หนูยังไม่ได้รับเนื้อหาข้อความเลยค่ะ คุณตาคุณยายช่วยบอกใหม่อีกครั้งได้ไหมคะ เช่น "ช่วยจดว่าต้องไปหาหมอวันจันทร์" ค่ะ';
+
+export const NOTE_CLARIFICATION_MESSAGE =
+  'หนูยังไม่ค่อยแน่ใจเนื้อหาที่ต้องการให้จดเลยค่ะ คุณตาคุณยายช่วยบอกเรื่องที่ต้องการให้จดอีกครั้งได้ไหมคะ เช่น "ช่วยจดว่าต้องไปหาหมอวันจันทร์" ค่ะ';
 
 export const NOTE_EXPIRED_OR_NOT_FOUND_MESSAGE =
   'ไม่พบรายการบันทึกที่รอการยืนยัน หรือรายการหมดอายุแล้วค่ะ (รายการมีอายุ 5 นาทีนะคะ) รบกวนบอกหนูใหม่อีกครั้งได้เลยค่ะ';
@@ -19,6 +28,9 @@ export interface HandleSaveNoteOptions {
   source?: 'voice' | 'text';
   now?: Date;
   summary?: string;
+  isAmbiguous?: boolean;
+  params?: NoteParams | null;
+  extractOptions?: ExtractNoteParamsOptions;
 }
 
 export interface HandleConfirmNoteOptions {
@@ -30,8 +42,9 @@ export interface HandleCancelActionOptions {
 }
 
 /**
- * Handles note creation draft: generates AI summary, saves 5-minute expiring draft
- * in users/{userId}/pendingActions/current, and returns an interactive Flex confirmation card.
+ * Handles note creation draft:
+ * - If user text is unclear, ambiguous, or lacks substantive note content, returns a normal clarification message without a Flex message.
+ * - If clear note content is present, generates AI summary, saves 5-minute expiring draft in users/{userId}/pendingActions/current, and returns an interactive Flex confirmation card.
  */
 export async function handleSaveNote(
   userText: string,
@@ -47,22 +60,62 @@ export async function handleSaveNote(
     };
   }
 
+  // If the request was classified as ambiguous or is purely an imperative command without note content
+  if (options?.isAmbiguous || isPureNoteCommand(trimmedText)) {
+    return {
+      success: false,
+      message: NOTE_CLARIFICATION_MESSAGE,
+    };
+  }
+
   const now = options?.now ?? new Date();
   const source = options?.source ?? 'voice';
+
+  // Substantive content determination
+  let noteContent = trimmedText;
+
+  if (options?.params !== undefined) {
+    if (!options.params || !options.params.content || !options.params.content.trim()) {
+      return {
+        success: false,
+        message: NOTE_CLARIFICATION_MESSAGE,
+      };
+    }
+    noteContent = options.params.content.trim();
+  } else if (!options?.summary) {
+    try {
+      const extracted = await extractNoteParams(trimmedText, options?.extractOptions);
+      if (!extracted || !extracted.content || !extracted.content.trim()) {
+        return {
+          success: false,
+          message: NOTE_CLARIFICATION_MESSAGE,
+        };
+      }
+      noteContent = extracted.content.trim();
+    } catch (err) {
+      console.warn('[NotesTool] Parameter extraction error, falling back to raw content:', err);
+    }
+  }
 
   let summary = options?.summary;
   if (!summary) {
     try {
-      summary = await summarizeNote(trimmedText, { language: user.language });
+      summary = await summarizeNote(noteContent, { language: user.language });
     } catch (error) {
       console.error('[NotesTool] Error summarizing note with Gemini:', error);
-      summary = trimmedText;
+      summary = noteContent;
     }
   }
 
-  if (!summary || !summary.trim()) {
-    summary = trimmedText;
+  // If summary is empty or contains clarification responses, prompt is unclear
+  if (!summary || !summary.trim() || isClarificationResponse(summary)) {
+    return {
+      success: false,
+      message: NOTE_CLARIFICATION_MESSAGE,
+    };
   }
+
+  const cleanSummary = summary.trim();
 
   const expiresAtDate = new Date(now.getTime() + 5 * 60 * 1000);
   const expiresAt = Timestamp.fromDate(expiresAtDate);
@@ -70,8 +123,8 @@ export async function handleSaveNote(
   const pendingData: PendingActionDoc = {
     type: 'confirm_note',
     data: {
-      content: trimmedText,
-      summary: summary.trim(),
+      content: noteContent,
+      summary: cleanSummary,
       source,
     },
     expiresAt,
@@ -81,14 +134,14 @@ export async function handleSaveNote(
     const pendingRef = pendingActionsRef(user.lineUserId).doc('current');
     await pendingRef.set(pendingData);
 
-    const flexMessage = buildNoteConfirmation(summary.trim());
+    const flexMessage = buildNoteConfirmation(cleanSummary);
 
     return {
       success: true,
       flexMessage,
       data: {
-        summary: summary.trim(),
-        content: trimmedText,
+        summary: cleanSummary,
+        content: noteContent,
         source,
         expiresAt: expiresAtDate.toISOString(),
       },

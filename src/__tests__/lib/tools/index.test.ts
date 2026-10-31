@@ -121,10 +121,34 @@ describe('Tool Dispatcher Router', () => {
       'ช่วยจดว่าต้องไปจ่ายค่าน้ำ',
       'รับทราบค่ะ',
       mockUser,
-      expect.objectContaining({}),
+      expect.objectContaining({ isAmbiguous: false }),
     );
     expect(result.success).toBe(true);
     expect(result.flexMessage).toBeDefined();
+  });
+
+  it('forwards isAmbiguous to handleSaveNote when save_note intent is ambiguous', async () => {
+    vi.mocked(notesTool.handleSaveNote).mockResolvedValue({
+      success: false,
+      message: 'หนูยังไม่ค่อยแน่ใจเนื้อหาที่ต้องการให้จดเลยค่ะ',
+    });
+
+    const result = await executeTool({
+      intent: { intent: 'save_note', confidence: 0.9, isAmbiguous: true },
+      userText: 'ช่วยจดโน้ตหน่อย',
+      geminiResponse: 'ได้เลยค่ะ',
+      user: mockUser,
+    });
+
+    expect(notesTool.handleSaveNote).toHaveBeenCalledWith(
+      'ช่วยจดโน้ตหน่อย',
+      'ได้เลยค่ะ',
+      mockUser,
+      expect.objectContaining({ isAmbiguous: true }),
+    );
+    expect(result.success).toBe(false);
+    expect(result.flexMessage).toBeUndefined();
+    expect(result.message).toBe('หนูยังไม่ค่อยแน่ใจเนื้อหาที่ต้องการให้จดเลยค่ะ');
   });
 
   it('routes confirm_action intent to handleConfirmNote', async () => {

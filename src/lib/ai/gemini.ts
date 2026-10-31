@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { buildSystemPrompt } from '@/lib/ai/system-prompt';
 import type { UserDoc, MessageDoc } from '@/types/firestore';
+import { isPureNoteCommand, isClarificationResponse } from '@/lib/utils/note-validation';
 
 const apiKey = process.env.GEMINI_API_KEY;
 const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
@@ -78,6 +79,7 @@ export async function generateResponse(
 
 /**
  * Summarizes note content into a concise 2–3 sentence memo preserving critical facts.
+ * Returns empty string if the content is a pure command or if Gemini indicates unclear content.
  */
 export async function summarizeNote(
   content: string,
@@ -87,18 +89,23 @@ export async function summarizeNote(
     return '';
   }
 
+  const trimmed = content.trim();
+  if (isPureNoteCommand(trimmed)) {
+    return '';
+  }
+
   const client = options?.client ?? ai;
   const model = options?.model ?? defaultModel;
   const language = options?.language ?? 'th';
 
   const instruction =
     language === 'th'
-      ? 'สรุปเนื้อหาโน้ตนี้ให้กระชับ ไม่เกิน 2-3 ประโยค โดยเก็บใจความสำคัญ วันที่ เวลา และสิ่งที่ต้องทำ ไว้อย่างครบถ้วน'
-      : 'Summarize this note concisely in 2-3 sentences. Preserve all critical dates, times, and action items.';
+      ? 'สรุปเนื้อหาโน้ตนี้ให้กระชับ ไม่เกิน 2-3 ประโยค โดยเก็บใจความสำคัญ วันที่ เวลา และสิ่งที่ต้องทำ ไว้อย่างครบถ้วน ห้ามตอบเป็นบทสนทนาถามกลับหรือข้อความขอให้ส่งเนื้อหาเด็ดขาด หากไม่มีเนื้อหาโน้ตที่ชัดเจนให้ตอบว่า "UNCLEAR"'
+      : 'Summarize this note concisely in 2-3 sentences. Preserve all critical dates, times, and action items. Do not respond with conversational questions or requests for more information. If there is no clear note content, reply with "UNCLEAR".';
 
   const interaction = await client.interactions.create({
     model,
-    input: content,
+    input: trimmed,
     system_instruction: instruction,
     generation_config: {
       temperature: 0.3,
@@ -107,7 +114,12 @@ export async function summarizeNote(
     store: false,
   });
 
-  return interaction.output_text ?? content;
+  const output = interaction.output_text?.trim() ?? trimmed;
+  if (isClarificationResponse(output)) {
+    return '';
+  }
+
+  return output;
 }
 
 /**

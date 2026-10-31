@@ -83,6 +83,7 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     case 'save_note':
       return handleSaveNote(userText, geminiResponse, user, {
         now,
+        isAmbiguous: intent.isAmbiguous,
         ...noteOptions,
       });
 
