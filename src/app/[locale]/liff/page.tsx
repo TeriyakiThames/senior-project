@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
@@ -217,27 +218,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F7FA] text-[#21215C]">
-      {/* Top Header Bar: Service Title 'Senior Project', Options '...' */}
-      <header className="w-full bg-white h-[54px] px-5 flex items-center justify-between border-b border-[#F2F7FA]">
-        <div className="min-w-[48px] min-h-[48px]" aria-hidden="true" />
-
-        <h1 className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
-          {t('serviceName')}
-        </h1>
-
-        <Link
-          href={`/${locale}/liff/settings`}
-          className="min-w-[48px] min-h-[48px] flex items-center justify-end text-[#111111] hover:opacity-75 transition-opacity"
-          aria-label={t('settings')}
-        >
-          <svg width="18" height="4" viewBox="0 0 18 4" fill="none" aria-hidden="true">
-            <circle cx="2" cy="2" r="1.6" fill="#111111" />
-            <circle cx="9" cy="2" r="1.6" fill="#111111" />
-            <circle cx="16" cy="2" r="1.6" fill="#111111" />
-          </svg>
-        </Link>
-      </header>
-
       <div className="px-5 pt-4 pb-8 max-w-[440px] mx-auto">
         {/* Date and "ของฉัน" (My Hub) Heading */}
         <section className="mb-4">
@@ -256,24 +236,14 @@ export default function DashboardPage() {
             href={`/${locale}/liff/alarms`}
             className="bg-[#FBEFD8] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#7A4E00]"
           >
-            <div className="w-7 h-7 rounded-full bg-[#FCCE57] flex items-center justify-center relative shadow-xs">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="12" r="8" fill="#FCCE57" />
-                <path
-                  d="M12 7.5v5l3.5 2"
-                  stroke="#7A4E00"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M4.5 5.5l3-2.5M19.5 5.5l-3-2.5"
-                  stroke="#7A4E00"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
+            <Image
+              src="/icons/clock.svg"
+              alt=""
+              width={36}
+              height={36}
+              unoptimized
+              aria-hidden="true"
+            />
             <div>
               <p className="text-[#7A4E00] font-bold text-lg leading-tight">{t('alarms')}</p>
               <p className="text-[#7A4E00]/80 text-sm font-medium mt-0.5">
@@ -287,25 +257,14 @@ export default function DashboardPage() {
             href={`/${locale}/liff/reminders`}
             className="bg-[#E1E8F8] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#385289]"
           >
-            <div className="w-7 h-7 rounded-full bg-[#3E81F7] flex items-center justify-center shadow-xs">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-                  fill="#3E81F7"
-                  stroke="#385289"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M13.73 21a2 2 0 0 1-3.46 0"
-                  stroke="#385289"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
+            <Image
+              src="/icons/reminder.svg"
+              alt=""
+              width={36}
+              height={36}
+              unoptimized
+              aria-hidden="true"
+            />
             <div>
               <p className="text-[#385289] font-bold text-lg leading-tight">{t('reminder')}</p>
               <p className="text-[#385289]/80 text-sm font-medium mt-0.5">
@@ -319,19 +278,14 @@ export default function DashboardPage() {
             href={`/${locale}/liff/notes`}
             className="bg-[#EEE1FA] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#544378]"
           >
-            <div className="w-7 h-7 rounded-lg bg-[#9A59EF] flex items-center justify-center p-1 shadow-xs">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                  fill="#9A59EF"
-                  stroke="#544378"
-                  strokeWidth="2.2"
-                  strokeLinejoin="round"
-                />
-                <path d="M14 2v6h6" stroke="#544378" strokeWidth="2.2" strokeLinejoin="round" />
-                <path d="M8 13h8M8 17h5" stroke="#544378" strokeWidth="2.2" strokeLinecap="round" />
-              </svg>
-            </div>
+            <Image
+              src="/icons/notes.svg"
+              alt=""
+              width={36}
+              height={36}
+              unoptimized
+              aria-hidden="true"
+            />
             <div>
               <p className="text-[#544378] font-bold text-lg leading-tight">{t('notes')}</p>
               <p className="text-[#544378]/80 text-sm font-medium mt-0.5">
@@ -345,18 +299,17 @@ export default function DashboardPage() {
             href={`/${locale}/liff/settings`}
             className="bg-[#FDE5F0] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#B4225A]"
           >
-            <div className="w-7 h-7 rounded-lg bg-[#E8216F] flex items-center justify-center p-1 shadow-xs">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="12" r="3" stroke="#B4225A" strokeWidth="2.2" fill="#E8216F" />
-                <path
-                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                  stroke="#B4225A"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
+                fill="#E8216F"
+                stroke="#B4225A"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="12" cy="12" r="3" fill="#FDE5F0" stroke="#B4225A" strokeWidth="2" />
+            </svg>
             <div>
               <p className="text-[#B4225A] font-bold text-lg leading-tight">{t('settings')}</p>
               <p className="text-[#B4225A]/80 text-sm font-medium mt-0.5">
@@ -425,19 +378,14 @@ export default function DashboardPage() {
                       aria-label={`${t('delete')} ${item.title}`}
                       title={t('delete')}
                     >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                      <Image
+                        src="/icons/trashbin.svg"
+                        alt=""
+                        width={16}
+                        height={16}
+                        unoptimized
                         aria-hidden="true"
-                      >
-                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
-                      </svg>
+                      />
                     </button>
 
                     <Link
@@ -496,31 +444,23 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EAF0F6] text-[#21215C]">
                             {isVoice ? (
-                              <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
+                              <Image
+                                src="/icons/microphone_small.svg"
+                                alt=""
+                                width={14}
+                                height={14}
+                                unoptimized
                                 aria-hidden="true"
-                              >
-                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
-                              </svg>
+                              />
                             ) : (
-                              <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.2"
+                              <Image
+                                src="/icons/keyboard.svg"
+                                alt=""
+                                width={14}
+                                height={14}
+                                unoptimized
                                 aria-hidden="true"
-                              >
-                                <rect x="2" y="4" width="20" height="16" rx="2" />
-                                <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h8M6 16h.01M18 16h.01" />
-                              </svg>
+                              />
                             )}
                             <span>{isVoice ? t('voice') : t('typed')}</span>
                           </span>
@@ -539,19 +479,14 @@ export default function DashboardPage() {
                           aria-label={`${t('delete')} ${note.summary}`}
                           title={t('delete')}
                         >
-                          <svg
-                            width="15"
-                            height="15"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                          <Image
+                            src="/icons/trashbin.svg"
+                            alt=""
+                            width={16}
+                            height={16}
+                            unoptimized
                             aria-hidden="true"
-                          >
-                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" />
-                          </svg>
+                          />
                         </button>
                       </div>
                     </div>
@@ -582,16 +517,14 @@ export default function DashboardPage() {
         {/* Bottom Voice Tip Banner matching SVG */}
         <div className="bg-[#EAF0F6] rounded-2xl p-4 sm:p-5 flex items-center gap-4 border border-[#E1E8F8]">
           <div className="w-12 h-12 rounded-full bg-[#E1E8F8] flex items-center justify-center shrink-0 shadow-xs">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#3E5EB5" />
-              <path
-                d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"
-                stroke="#3E5EB5"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Image
+              src="/icons/microphone_big.svg"
+              alt=""
+              width={24}
+              height={24}
+              unoptimized
+              aria-hidden="true"
+            />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[#21215C] font-bold text-sm sm:text-base leading-snug">

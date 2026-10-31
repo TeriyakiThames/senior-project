@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
@@ -77,17 +78,14 @@ export default function NotesPage() {
         subtitle={notes.length > 0 ? t('notesSubtitle', { count: notes.length }) : undefined}
         badgeBgColor="bg-[#EEE1FA]"
         badgeIcon={
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-              fill="#9A59EF"
-              stroke="#544378"
-              strokeWidth="2.2"
-              strokeLinejoin="round"
-            />
-            <path d="M14 2v6h6" stroke="#544378" strokeWidth="2.2" strokeLinejoin="round" />
-            <path d="M8 13h8M8 17h5" stroke="#544378" strokeWidth="2.2" strokeLinecap="round" />
-          </svg>
+          <Image
+            src="/icons/notes.svg"
+            alt=""
+            width={24}
+            height={24}
+            unoptimized
+            aria-hidden="true"
+          />
         }
       />
 
@@ -97,17 +95,14 @@ export default function NotesPage() {
           <EmptyState
             badgeBgColor="bg-[#EEE1FA]"
             badgeIcon={
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                  fill="#9A59EF"
-                  stroke="#544378"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-                <path d="M14 2v6h6" stroke="#544378" strokeWidth="2" strokeLinejoin="round" />
-                <path d="M8 13h8M8 17h5" stroke="#544378" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              <Image
+                src="/icons/notes.svg"
+                alt=""
+                width={56}
+                height={56}
+                unoptimized
+                aria-hidden="true"
+              />
             }
             title={t('emptyNotesTitle')}
             description={

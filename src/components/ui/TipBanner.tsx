@@ -1,6 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
+import Image from 'next/image';
 
 export interface TipBannerProps {
   /** Main guidance prompt / title */
@@ -21,16 +22,14 @@ export function TipBanner({ title, description, icon, className = '' }: TipBanne
       {/* Round Icon Badge matching SVG Design Language */}
       <div className="w-12 h-12 rounded-full bg-[#E1E8F8] flex items-center justify-center shrink-0 shadow-xs">
         {icon || (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" fill="#3E5EB5" />
-            <path
-              d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"
-              stroke="#3E5EB5"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <Image
+            src="/icons/microphone_big.svg"
+            alt=""
+            width={24}
+            height={24}
+            unoptimized
+            aria-hidden="true"
+          />
         )}
       </div>
 

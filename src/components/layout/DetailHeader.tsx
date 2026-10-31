@@ -31,45 +31,15 @@ export function DetailHeader({
   badgeBgColor,
   badgeIcon,
   backHref,
-  serviceName,
-  settingsHref,
-  showSettings = true,
 }: DetailHeaderProps) {
   const locale = useLocale();
   const t = useTranslations('dashboard');
 
   const defaultBackHref = backHref || `/${locale}/liff`;
-  const defaultSettingsHref = settingsHref || `/${locale}/liff/settings`;
-  const displayServiceName = serviceName || t('serviceName');
 
   return (
     <div className="w-full">
-      {/* Top Header Bar: Service Title 'Senior Project', Options '...' */}
-      <header className="w-full bg-white h-[54px] px-5 flex items-center justify-between border-b border-[#F2F7FA]">
-        <div className="min-w-[48px] min-h-[48px]" aria-hidden="true" />
-
-        <h1 className="text-base sm:text-lg font-bold text-[#111111] tracking-tight">
-          {displayServiceName}
-        </h1>
-
-        {showSettings ? (
-          <Link
-            href={defaultSettingsHref}
-            className="min-w-[48px] min-h-[48px] flex items-center justify-end text-[#111111] hover:opacity-75 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#21215C] rounded-lg"
-            aria-label={t('settings')}
-          >
-            <svg width="18" height="4" viewBox="0 0 18 4" fill="none" aria-hidden="true">
-              <circle cx="2" cy="2" r="1.6" fill="#111111" />
-              <circle cx="9" cy="2" r="1.6" fill="#111111" />
-              <circle cx="16" cy="2" r="1.6" fill="#111111" />
-            </svg>
-          </Link>
-        ) : (
-          <div className="min-w-[48px] min-h-[48px]" aria-hidden="true" />
-        )}
-      </header>
-
-      {/* Sub-Header: Back chevron navigation + Category Squircle Badge + Title + Subtitle */}
+      {/* Category Header: Back chevron navigation + Category Squircle Badge + Title + Subtitle */}
       <div className="pt-4 pb-2 px-5 max-w-[440px] mx-auto">
         <div className="flex items-center gap-3">
           <Link
