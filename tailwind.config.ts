@@ -4,6 +4,9 @@ const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-noto-sans-thai)', 'Noto Sans Thai', 'system-ui', 'sans-serif'],
+      },
       colors: {
         'line-green': '#06C755',
         'line-green-dark': '#05a648',

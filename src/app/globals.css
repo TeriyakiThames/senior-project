@@ -8,7 +8,7 @@ html {
 }
 
 body {
-  font-family: 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif;
+  font-family: var(--font-noto-sans-thai), 'Noto Sans Thai', system-ui, sans-serif;
   min-height: 100dvh;
 }
 
