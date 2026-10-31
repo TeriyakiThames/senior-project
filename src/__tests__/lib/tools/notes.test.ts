@@ -4,12 +4,14 @@ import {
   handleConfirmNote,
   handleCancelAction,
   NOTE_EMPTY_FALLBACK,
+  NOTE_CLARIFICATION_MESSAGE,
   NOTE_EXPIRED_OR_NOT_FOUND_MESSAGE,
   NOTE_CANCELLED_MESSAGE,
   NOTE_CONFIRMED_SUCCESS_MESSAGE,
 } from '@/lib/tools/notes';
 import * as collections from '@/lib/firebase/collections';
 import * as gemini from '@/lib/ai/gemini';
+import * as extractor from '@/lib/ai/parameter-extractor';
 import type { UserDoc } from '@/types/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createMockUserDoc } from '@/__tests__/mocks';
@@ -23,6 +25,10 @@ vi.mock('@/lib/ai/gemini', () => ({
   summarizeNote: vi.fn(),
 }));
 
+vi.mock('@/lib/ai/parameter-extractor', () => ({
+  extractNoteParams: vi.fn(),
+}));
+
 describe('Notes Tool Handlers (SCHED-05)', () => {
   const mockUser: UserDoc = createMockUserDoc({
     lineUserId: 'U_TEST_USER_NOTE_001',
@@ -32,6 +38,9 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(extractor.extractNoteParams).mockImplementation(async (text: string) => ({
+      content: text,
+    }));
   });
 
   describe('handleSaveNote', () => {
@@ -44,6 +53,9 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
         doc: mockDoc,
       } as unknown as ReturnType<typeof collections.pendingActionsRef>);
 
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue({
+        content: 'ต้องไปซื้อยาแก้ปวดที่คลินิกตอนบ่าย',
+      });
       vi.mocked(gemini.summarizeNote).mockResolvedValue('ซื้อยาแก้ปวดที่คลินิก');
 
       const result = await handleSaveNote(
@@ -64,7 +76,7 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
 
       const savedDraft = mockSet.mock.calls[0][0];
       expect(savedDraft.type).toBe('confirm_note');
-      expect(savedDraft.data.content).toBe('ช่วยจดให้หน่อยว่าต้องไปซื้อยาแก้ปวดที่คลินิกตอนบ่าย');
+      expect(savedDraft.data.content).toBe('ต้องไปซื้อยาแก้ปวดที่คลินิกตอนบ่าย');
       expect(savedDraft.data.summary).toBe('ซื้อยาแก้ปวดที่คลินิก');
       expect(savedDraft.data.source).toBe('voice');
 
@@ -82,6 +94,7 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
         doc: mockDoc,
       } as unknown as ReturnType<typeof collections.pendingActionsRef>);
 
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue({ content: 'ไปหาหมอฟัน' });
       vi.mocked(gemini.summarizeNote).mockRejectedValue(new Error('AI API failure'));
 
       const result = await handleSaveNote('ไปหาหมอฟัน', '', mockUser, { now });
@@ -101,6 +114,66 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
 
       expect(result.success).toBe(false);
       expect(result.message).toBe(NOTE_EMPTY_FALLBACK);
+      expect(result.flexMessage).toBeUndefined();
+      expect(collections.pendingActionsRef).not.toHaveBeenCalled();
+    });
+
+    it('returns clarification message and NO flexMessage when input is a pure command without content', async () => {
+      const pureCommands = [
+        'ช่วยจดโน้ตหน่อย',
+        'จดบันทึกให้หน่อย',
+        'ช่วยจดหน่อย',
+        'ช่วยจดที',
+        'จดโน้ต',
+        'บันทึกให้หน่อยค่ะ',
+      ];
+
+      for (const cmd of pureCommands) {
+        const result = await handleSaveNote(cmd, '', mockUser);
+
+        expect(result.success).toBe(false);
+        expect(result.message).toBe(NOTE_CLARIFICATION_MESSAGE);
+        expect(result.flexMessage).toBeUndefined();
+        expect(collections.pendingActionsRef).not.toHaveBeenCalled();
+      }
+    });
+
+    it('returns clarification message and NO flexMessage when request is ambiguous (isAmbiguous: true)', async () => {
+      const result = await handleSaveNote('มีเรื่องจะเล่าให้ฟัง', '', mockUser, {
+        isAmbiguous: true,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(NOTE_CLARIFICATION_MESSAGE);
+      expect(result.flexMessage).toBeUndefined();
+      expect(collections.pendingActionsRef).not.toHaveBeenCalled();
+    });
+
+    it('returns clarification message and NO flexMessage when parameter extraction returns null', async () => {
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue(null);
+
+      const result = await handleSaveNote('เมื่อวานตอนเย็น', '', mockUser);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(NOTE_CLARIFICATION_MESSAGE);
+      expect(result.flexMessage).toBeUndefined();
+      expect(collections.pendingActionsRef).not.toHaveBeenCalled();
+    });
+
+    it('returns clarification message and NO flexMessage when Gemini summary is a clarification prompt', async () => {
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue({
+        content: 'สรุปโน้ตให้หน่อย',
+      });
+      // The exact problematic output from the user screenshot
+      vi.mocked(gemini.summarizeNote).mockResolvedValue(
+        'กรุณาส่งเนื้อหาโน้ตที่ต้องการให้สรุปมาได้เลยครับ ผมจะจัดการสรุปให้กระชับไม่เกิน 2-3 ประโยค โดยคงใจความสำคัญ วันที่ เวลา และสิ่งที่ต้องทำไว้อย่างครบถ้วนครับ',
+      );
+
+      const result = await handleSaveNote('สรุปโน้ตให้หน่อย', '', mockUser);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(NOTE_CLARIFICATION_MESSAGE);
+      expect(result.flexMessage).toBeUndefined();
       expect(collections.pendingActionsRef).not.toHaveBeenCalled();
     });
 
@@ -113,6 +186,7 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
         doc: mockDoc,
       } as unknown as ReturnType<typeof collections.pendingActionsRef>);
 
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue({ content: 'ซื้อผลไม้' });
       vi.mocked(gemini.summarizeNote).mockResolvedValue('ซื้อผลไม้');
 
       const result = await handleSaveNote('ซื้อผลไม้', '', mockUser);

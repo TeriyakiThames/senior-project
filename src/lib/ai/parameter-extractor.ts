@@ -4,6 +4,7 @@ import { geminiClient } from '@/lib/ai/gemini';
 import { jevClient } from '@/lib/ai/jev';
 import type { AlarmParams, ReminderParams } from '@/types/jev';
 import { logError } from '@/lib/utils/errors';
+import { isPureNoteCommand, isClarificationResponse } from '@/lib/utils/note-validation';
 
 export type { AlarmParams, ReminderParams };
 
@@ -23,6 +24,15 @@ export interface ExtractAlarmParamsOptions {
 export interface ExtractReminderParamsOptions {
   client?: GoogleGenAI;
   now?: Date;
+  model?: string;
+}
+
+export interface NoteParams {
+  content: string;
+}
+
+export interface ExtractNoteParamsOptions {
+  client?: GoogleGenAI;
   model?: string;
 }
 
@@ -264,6 +274,86 @@ null`;
     }
 
     return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extracts substantive note content from Thai or English text using Gemini structured JSON generation.
+ * Strips out conversational commands (e.g. "ช่วยจดให้หน่อยว่า", "จดว่า").
+ * Returns null if the user input lacks substantive note content (e.g. pure command like "ช่วยจดโน้ตหน่อย").
+ */
+export async function extractNoteParams(
+  userText: string,
+  options?: ExtractNoteParamsOptions,
+): Promise<NoteParams | null> {
+  if (!userText || !userText.trim()) {
+    return null;
+  }
+
+  const trimmed = userText.trim();
+  if (isPureNoteCommand(trimmed)) {
+    return null;
+  }
+
+  const client = options?.client ?? geminiClient;
+  const model = options?.model ?? defaultGeminiModel;
+
+  const systemInstruction = `You are a structured parameter extractor for note-taking requests.
+Extract the substantive note content that should be recorded from the user's input.
+Remove conversational prefixes or requests to take a note (e.g., 'ช่วยจดให้หน่อยว่า', 'ช่วยจดว่า', 'จดว่า', 'บันทึกไว้ว่า', 'จดบันทึกว่า', 'ช่วยจด', 'จดให้หน่อย', 'จดไว้หน่อย', 'please note that').
+
+CRITICAL RULES:
+1. If the user input is ambiguous, incomplete, or does NOT contain actual information/content to record (for example, the user is only requesting to take a note such as 'ช่วยจดโน้ตหน่อย', 'จดบันทึกให้หน่อย', 'ช่วยจดหน่อย', 'อยากจดโน้ต', 'บันทึกให้ที', 'มีเรื่องจะให้จด', 'take a note', or unclear speech), you MUST return JSON null:
+null
+
+2. If substantive content is present, return ONLY valid JSON matching this schema:
+{
+  "content": "the extracted substantive note content"
+}
+
+Do not return conversational text or markdown code fences. Return ONLY the JSON object or null.`;
+
+  let interaction;
+  try {
+    interaction = await client.interactions.create({
+      model,
+      input: trimmed,
+      system_instruction: systemInstruction,
+      generation_config: {
+        temperature: 0.0,
+        max_output_tokens: 256,
+      },
+      store: false,
+    });
+  } catch (apiError) {
+    logError('ai_parameter_extractor', apiError, { model, userText });
+    throw apiError;
+  }
+
+  try {
+    const rawOutput = interaction.output_text?.trim() ?? '';
+    const cleaned = rawOutput.replace(/```json\n?|\n?```/g, '').trim();
+
+    if (!cleaned || cleaned === 'null') {
+      return null;
+    }
+
+    const parsed = JSON.parse(cleaned) as Partial<NoteParams>;
+
+    if (!parsed || typeof parsed !== 'object' || !parsed.content || !parsed.content.trim()) {
+      return null;
+    }
+
+    const extractedContent = parsed.content.trim();
+    if (isPureNoteCommand(extractedContent) || isClarificationResponse(extractedContent)) {
+      return null;
+    }
+
+    return {
+      content: extractedContent,
+    };
   } catch {
     return null;
   }

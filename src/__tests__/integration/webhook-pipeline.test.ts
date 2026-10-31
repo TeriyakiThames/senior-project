@@ -114,6 +114,7 @@ vi.mock('@/lib/ai/jev', () => ({
 vi.mock('@/lib/ai/parameter-extractor', () => ({
   extractAlarmParams: vi.fn(),
   extractReminderParams: vi.fn(),
+  extractNoteParams: vi.fn(async (text: string) => ({ content: text })),
 }));
 
 // 4. Mock Firestore collections with real in-memory state persistence

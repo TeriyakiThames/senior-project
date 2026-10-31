@@ -733,6 +733,43 @@ describe('LINE Webhook Dispatcher', () => {
       });
     });
 
+    it('replies with a normal text clarification message and NO flexMessage or suggestions when note request is unclear', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'save_note',
+        confidence: 0.95,
+        isAmbiguous: true,
+      });
+
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: false,
+        message:
+          'หนูยังไม่ค่อยแน่ใจเนื้อหาที่ต้องการให้จดเลยค่ะ คุณตาคุณยายช่วยบอกเรื่องที่ต้องการให้จดอีกครั้งได้ไหมคะ เช่น "ช่วยจดว่าต้องไปหาหมอวันจันทร์" ค่ะ',
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-unclear-note',
+        source: { userId: 'user-123' },
+        message: {
+          id: 'msg-unclear-note',
+          type: 'text' as const,
+          text: 'ช่วยจดโน้ตหน่อย',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-unclear-note',
+        messages: [
+          {
+            type: 'text',
+            text: 'หนูยังไม่ค่อยแน่ใจเนื้อหาที่ต้องการให้จดเลยค่ะ คุณตาคุณยายช่วยบอกเรื่องที่ต้องการให้จดอีกครั้งได้ไหมคะ เช่น "ช่วยจดว่าต้องไปหาหมอวันจันทร์" ค่ะ',
+          },
+        ],
+      });
+    });
+
     it('attaches complementary suggestions underneath text reply when setting an alarm', async () => {
       vi.mocked(classifyIntent).mockResolvedValueOnce({
         intent: 'set_alarm',
