@@ -26,6 +26,7 @@ export interface HandleSetReminderOptions {
 
 export interface HandleConfirmReminderOptions {
   now?: Date;
+  pendingDoc?: PendingActionDoc | null;
 }
 
 export interface HandleUpdateReminderTimeOptions {
@@ -204,15 +205,26 @@ export async function handleConfirmReminder(
   const pendingRef = pendingActionsRef(user.lineUserId).doc('current');
 
   try {
-    const snap = await pendingRef.get();
-    if (!snap.exists) {
-      return {
-        success: false,
-        message: REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE,
-      };
+    let data: PendingActionDoc | null = null;
+    if (options?.pendingDoc !== undefined) {
+      data = options.pendingDoc;
+      if (!data) {
+        return {
+          success: false,
+          message: REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE,
+        };
+      }
+    } else {
+      const snap = await pendingRef.get();
+      if (!snap.exists) {
+        return {
+          success: false,
+          message: REMINDER_EXPIRED_OR_NOT_FOUND_MESSAGE,
+        };
+      }
+      data = snap.data() as PendingActionDoc;
     }
 
-    const data = snap.data() as PendingActionDoc;
     if (data.type !== 'confirm_reminder' || !data.data) {
       return {
         success: false,

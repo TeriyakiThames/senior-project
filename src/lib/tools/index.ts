@@ -88,18 +88,25 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
       });
 
     case 'confirm_action': {
+      let pendingDoc: PendingActionDoc | null = null;
+      let pendingType: string | null = null;
       try {
         const snap = await pendingActionsRef(user.lineUserId).doc('current').get();
-        const pendingType = snap.exists ? (snap.data() as PendingActionDoc)?.type : null;
-        if (pendingType === 'confirm_reminder') {
-          return handleConfirmReminder(user, {
-            now,
-            ...confirmReminderOptions,
-          });
+        if (snap.exists) {
+          pendingDoc = snap.data() as PendingActionDoc;
+          pendingType = pendingDoc?.type ?? null;
         }
       } catch {}
+      if (pendingType === 'confirm_reminder') {
+        return handleConfirmReminder(user, {
+          now,
+          pendingDoc,
+          ...confirmReminderOptions,
+        });
+      }
       return handleConfirmNote(user, {
         now,
+        pendingDoc,
         ...confirmNoteOptions,
       });
     }
