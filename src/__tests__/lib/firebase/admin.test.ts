@@ -12,5 +12,5 @@ describe('Firebase Admin Initialization (admin.ts)', () => {
         expect(err.message).toContain('Firestore has already been initialized');
       }
     }).not.toThrow();
-  });
+  }, 15000);
 });

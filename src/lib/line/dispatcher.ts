@@ -30,6 +30,31 @@ export const DEFAULT_DEDUP_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const processedEventCache = new Map<string, number>();
 
 /**
+ * In-memory cache for user display names (TTL: 1 hour) to eliminate redundant LINE getProfile calls.
+ */
+const displayNameCache = new Map<string, { displayName: string; expiresAt: number }>();
+
+export function getCachedDisplayName(userId: string): string | null {
+  const cached = displayNameCache.get(userId);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.displayName;
+  }
+  return null;
+}
+
+export function setCachedDisplayName(
+  userId: string,
+  displayName: string,
+  ttlMs = 60 * 60 * 1000,
+): void {
+  displayNameCache.set(userId, { displayName, expiresAt: Date.now() + ttlMs });
+}
+
+export function clearDisplayNameCache(): void {
+  displayNameCache.clear();
+}
+
+/**
  * Extracts a unique string identifier from a LINE webhook event.
  */
 export function getEventIdentifier(event: webhook.Event): string | null {
@@ -94,6 +119,7 @@ export function markEventProcessed(event: webhook.Event): void {
  */
 export function clearProcessedEventCache(): void {
   processedEventCache.clear();
+  clearDisplayNameCache();
 }
 
 /**
@@ -182,17 +208,26 @@ export async function handleTextMessage(
   // 1. Fetch display name & retrieve or create user
   let displayName = 'คุณตาคุณยาย';
   if (userId) {
-    try {
-      const profile = await lineClient.getProfile(userId);
-      if (profile?.displayName) {
-        displayName = profile.displayName;
+    const cachedName = getCachedDisplayName(userId);
+    if (cachedName) {
+      displayName = cachedName;
+    } else {
+      try {
+        const profile = await lineClient.getProfile(userId);
+        if (profile?.displayName) {
+          displayName = profile.displayName;
+          setCachedDisplayName(userId, profile.displayName);
+        }
+      } catch {
+        // Gracefully continue with default display name if profile fetch fails
       }
-    } catch {
-      // Gracefully continue with default display name if profile fetch fails
     }
   }
 
   const user = userId ? await getOrCreateUser(userId, displayName) : null;
+  if (user?.displayName && userId && !getCachedDisplayName(userId)) {
+    setCachedDisplayName(userId, user.displayName);
+  }
 
   // 2. Deterministic short-circuits: Snooze / Dismiss
   if (user && /^(snooze|dismiss)_(alarm|reminder):/.test(userText)) {
@@ -293,14 +328,14 @@ export async function handleTextMessage(
   // 4. Trigger LINE Loading Animation before initiating heavy AI & tool processing
   const isDirectUserChat = event.source?.type === 'user' && !!userId;
   if (isDirectUserChat && !options?.loadingAlreadyStarted) {
-    await startLoadingAnimation(userId, { loadingSeconds: 60 });
+    void startLoadingAnimation(userId, { loadingSeconds: 60 });
   }
 
   // 5. Load memory context
   let memoryContext;
   try {
     memoryContext = userId
-      ? await loadMemoryContext(userId)
+      ? await loadMemoryContext(userId, { user: user ?? undefined })
       : { recentMessages: [], userFacts: [] };
   } catch {
     memoryContext = { recentMessages: [], userFacts: [] };
@@ -309,23 +344,21 @@ export async function handleTextMessage(
   const recentMessages = memoryContext.recentMessages;
   const currentUser = memoryContext.user ?? user;
 
-  // 5. Parallel Gemini response generation and Jev intent classification
+  // 5. Concurrent Gemini response generation and Jev intent classification
   const lastAssistantMsg = [...recentMessages]
     .reverse()
     .find((m) => m.role === 'assistant')?.content;
 
-  let geminiResult: { responseText: string; interactionId?: string };
-  let intentResult;
+  const geminiPromise = currentUser
+    ? generateResponse(userText, currentUser, recentMessages)
+    : Promise.resolve({ responseText: 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' });
 
+  // Guard against unhandled promise rejections if geminiPromise fails while a tool handles the user request
+  geminiPromise.catch(() => {});
+
+  let intentResult;
   try {
-    const [geminiRes, jevRes] = await Promise.all([
-      currentUser
-        ? generateResponse(userText, currentUser, recentMessages)
-        : Promise.resolve({ responseText: 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' }),
-      classifyIntent(userText, lastAssistantMsg, { fallbackOnFailure: true }),
-    ]);
-    geminiResult = geminiRes;
-    intentResult = jevRes;
+    intentResult = await classifyIntent(userText, lastAssistantMsg, { fallbackOnFailure: true });
   } catch (error) {
     throw error instanceof AppError
       ? error
@@ -333,6 +366,24 @@ export async function handleTextMessage(
   }
 
   // 6. Execute matching tool
+  // For structured tool requests (set_alarm, set_reminder, save_note, confirm/cancel, snooze/dismiss),
+  // execute tool immediately without waiting for speculative conversational dialogue.
+  const requiresDialogue =
+    intentResult.intent === 'general_chat' ||
+    intentResult.intent === 'list_items' ||
+    intentResult.intent === 'delete_item';
+
+  let geminiResult: { responseText: string; interactionId?: string } = { responseText: '' };
+  if (requiresDialogue) {
+    try {
+      geminiResult = await geminiPromise;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'AI_PIPELINE_FAIL');
+    }
+  }
+
   let toolResult: ToolResult;
   try {
     if (currentUser) {
@@ -343,7 +394,13 @@ export async function handleTextMessage(
         user: currentUser,
       });
     } else {
-      toolResult = { success: true, message: geminiResult.responseText };
+      const fallbackDialogue =
+        geminiResult.responseText ||
+        (await geminiPromise.catch(() => ({ responseText: '' }))).responseText;
+      toolResult = {
+        success: true,
+        message: fallbackDialogue || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ',
+      };
     }
   } catch (error) {
     throw error instanceof AppError
@@ -366,7 +423,14 @@ export async function handleTextMessage(
     lineMessages = [{ type: 'text', text: toolResult.message }];
     savedAssistantText = toolResult.message;
   } else {
-    const fallbackText = geminiResult.responseText || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ';
+    let fallbackText = geminiResult.responseText;
+    if (!fallbackText) {
+      try {
+        const resolved = await geminiPromise;
+        fallbackText = resolved.responseText;
+      } catch {}
+    }
+    fallbackText = fallbackText || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ';
     lineMessages = [{ type: 'text', text: fallbackText }];
     savedAssistantText = fallbackText;
   }
@@ -433,19 +497,28 @@ export async function handlePostbackEvent(
   }
 
   let displayName = 'คุณตาคุณยาย';
-  try {
-    const profile = await lineClient.getProfile(userId);
-    if (profile?.displayName) {
-      displayName = profile.displayName;
-    }
-  } catch {}
+  const cachedName = getCachedDisplayName(userId);
+  if (cachedName) {
+    displayName = cachedName;
+  } else {
+    try {
+      const profile = await lineClient.getProfile(userId);
+      if (profile?.displayName) {
+        displayName = profile.displayName;
+        setCachedDisplayName(userId, profile.displayName);
+      }
+    } catch {}
+  }
 
   const user = await getOrCreateUser(userId, displayName);
+  if (user?.displayName && !getCachedDisplayName(userId)) {
+    setCachedDisplayName(userId, user.displayName);
+  }
   const data = event.postback.data ?? '';
 
   const isDirectUserChat = event.source?.type === 'user';
   if (isDirectUserChat) {
-    await startLoadingAnimation(userId, { loadingSeconds: 20 });
+    void startLoadingAnimation(userId, { loadingSeconds: 20 });
   }
 
   if (data === 'action=confirm_reminder' || data === 'action=confirm_note') {
@@ -532,7 +605,7 @@ export async function handleAudioMessage(
   const userId = event.source?.userId;
   const isDirectUserChat = event.source?.type === 'user' && !!userId;
   if (isDirectUserChat) {
-    await startLoadingAnimation(userId, { loadingSeconds: 60 });
+    void startLoadingAnimation(userId, { loadingSeconds: 60 });
   }
 
   await processAudioMessage(event, async (transcribedText) => {

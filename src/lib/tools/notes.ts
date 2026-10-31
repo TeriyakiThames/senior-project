@@ -35,6 +35,7 @@ export interface HandleSaveNoteOptions {
 
 export interface HandleConfirmNoteOptions {
   now?: Date;
+  pendingDoc?: PendingActionDoc | null;
 }
 
 export interface HandleCancelActionOptions {
@@ -167,15 +168,26 @@ export async function handleConfirmNote(
   const pendingRef = pendingActionsRef(user.lineUserId).doc('current');
 
   try {
-    const snap = await pendingRef.get();
-    if (!snap.exists) {
-      return {
-        success: false,
-        message: NOTE_EXPIRED_OR_NOT_FOUND_MESSAGE,
-      };
+    let data: PendingActionDoc | null = null;
+    if (options?.pendingDoc !== undefined) {
+      data = options.pendingDoc;
+      if (!data) {
+        return {
+          success: false,
+          message: NOTE_EXPIRED_OR_NOT_FOUND_MESSAGE,
+        };
+      }
+    } else {
+      const snap = await pendingRef.get();
+      if (!snap.exists) {
+        return {
+          success: false,
+          message: NOTE_EXPIRED_OR_NOT_FOUND_MESSAGE,
+        };
+      }
+      data = snap.data() as PendingActionDoc;
     }
 
-    const data = snap.data() as PendingActionDoc;
     if (data.type !== 'confirm_note' || !data.data) {
       return {
         success: false,

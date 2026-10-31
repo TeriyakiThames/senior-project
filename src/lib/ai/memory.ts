@@ -18,6 +18,7 @@ export interface LoadMemoryContextOptions {
   now?: Date;
   client?: GoogleGenAI;
   messagesLimit?: number;
+  user?: UserDoc;
 }
 
 export interface UpdateUserProfileOptions {
@@ -51,20 +52,34 @@ export async function loadMemoryContext(
   lineUserId: string,
   options?: LoadMemoryContextOptions,
 ): Promise<MemoryContext> {
-  const userSnap = await userRef(lineUserId).get();
-  if (!userSnap.exists) {
-    return {
-      recentMessages: [],
-      userFacts: [],
-    };
-  }
+  let user = options?.user;
 
-  const user = userSnap.data() as UserDoc;
-  const limit = options?.messagesLimit ?? 10;
-  const recentMessages = await getRecentMessages(lineUserId, limit);
+  if (!user) {
+    const userSnap = await userRef(lineUserId).get();
+    if (!userSnap.exists) {
+      return {
+        recentMessages: [],
+        userFacts: [],
+      };
+    }
+    user = userSnap.data() as UserDoc;
+  }
 
   const now = options?.now ?? new Date();
   const todayDateStr = getBangkokDateString(now);
+  const knownNeedsRollover = Boolean(
+    user.dailySummary?.date && user.dailySummary.date !== todayDateStr,
+  );
+
+  const limit = options?.messagesLimit ?? 10;
+
+  // Concurrently fetch recent messages and rollover snapshot if needed
+  const [recentMessages, preloadedYesterdaySnap] = await Promise.all([
+    getRecentMessages(lineUserId, limit),
+    knownNeedsRollover
+      ? messagesRef(lineUserId).orderBy('timestamp', 'desc').limit(50).get()
+      : Promise.resolve(null),
+  ]);
 
   let dailySummary = user.dailySummary
     ? { date: user.dailySummary.date, summary: user.dailySummary.summary }
@@ -72,10 +87,9 @@ export async function loadMemoryContext(
 
   // Tier 2: Check rollover for a new calendar day
   if (user.dailySummary?.date && user.dailySummary.date !== todayDateStr) {
-    const yesterdaySnap = await messagesRef(lineUserId)
-      .orderBy('timestamp', 'desc')
-      .limit(50)
-      .get();
+    const yesterdaySnap =
+      preloadedYesterdaySnap ??
+      (await messagesRef(lineUserId).orderBy('timestamp', 'desc').limit(50).get());
 
     if (!yesterdaySnap.empty) {
       const messagesToSummarize = yesterdaySnap.docs.map((d) => d.data() as MessageDoc).reverse();

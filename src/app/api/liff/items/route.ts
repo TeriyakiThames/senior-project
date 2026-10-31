@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   const result: Record<string, unknown[]> = {};
 
   try {
-    if (type === 'alarms' || type === 'all') {
+    const fetchAlarms = async () => {
       let alarmDocs: { id: string; [key: string]: unknown }[];
       try {
         const snaps = await alarmsRef(userId).where('enabled', '==', true).orderBy('time').get();
@@ -57,10 +57,10 @@ export async function GET(request: NextRequest) {
           throw err;
         }
       }
-      result.alarms = alarmDocs;
-    }
+      return alarmDocs;
+    };
 
-    if (type === 'reminders' || type === 'all') {
+    const fetchReminders = async () => {
       let reminderDocs: { id: string; [key: string]: unknown }[];
       try {
         const snaps = await remindersRef(userId)
@@ -98,12 +98,31 @@ export async function GET(request: NextRequest) {
           throw err;
         }
       }
-      result.reminders = reminderDocs;
-    }
+      return reminderDocs;
+    };
 
-    if (type === 'notes' || type === 'all') {
+    const fetchNotes = async () => {
       const snaps = await notesRef(userId).orderBy('createdAt', 'desc').limit(20).get();
-      result.notes = snaps.docs.map((d) => ({ id: d.id, ...d.data() }));
+      return snaps.docs.map((d) => ({ id: d.id, ...d.data() }));
+    };
+
+    if (type === 'all') {
+      const [alarms, reminders, notes] = await Promise.all([
+        fetchAlarms(),
+        fetchReminders(),
+        fetchNotes(),
+      ]);
+      result.alarms = alarms;
+      result.reminders = reminders;
+      result.notes = notes;
+    } else {
+      if (type === 'alarms') {
+        result.alarms = await fetchAlarms();
+      } else if (type === 'reminders') {
+        result.reminders = await fetchReminders();
+      } else if (type === 'notes') {
+        result.notes = await fetchNotes();
+      }
     }
 
     return NextResponse.json(result);
