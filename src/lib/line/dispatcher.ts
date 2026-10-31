@@ -293,7 +293,7 @@ export async function handleTextMessage(
   // 4. Trigger LINE Loading Animation before initiating heavy AI & tool processing
   const isDirectUserChat = event.source?.type === 'user' && !!userId;
   if (isDirectUserChat && !options?.loadingAlreadyStarted) {
-    await startLoadingAnimation(userId, { loadingSeconds: 60 });
+    void startLoadingAnimation(userId, { loadingSeconds: 60 });
   }
 
   // 5. Load memory context
@@ -445,7 +445,7 @@ export async function handlePostbackEvent(
 
   const isDirectUserChat = event.source?.type === 'user';
   if (isDirectUserChat) {
-    await startLoadingAnimation(userId, { loadingSeconds: 20 });
+    void startLoadingAnimation(userId, { loadingSeconds: 20 });
   }
 
   if (data === 'action=confirm_reminder' || data === 'action=confirm_note') {
@@ -532,7 +532,7 @@ export async function handleAudioMessage(
   const userId = event.source?.userId;
   const isDirectUserChat = event.source?.type === 'user' && !!userId;
   if (isDirectUserChat) {
-    await startLoadingAnimation(userId, { loadingSeconds: 60 });
+    void startLoadingAnimation(userId, { loadingSeconds: 60 });
   }
 
   await processAudioMessage(event, async (transcribedText) => {
