@@ -1,3 +1,10 @@
+## [1.32.3](https://github.com/TeriyakiThames/senior-project/compare/v1.32.2...v1.32.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* send normal clarification message for unclear note prompts without flex card ([#104](https://github.com/TeriyakiThames/senior-project/issues/104)) ([7c3ad92](https://github.com/TeriyakiThames/senior-project/commit/7c3ad92d84c620511ff26eb71d2c653d8988f053))
+
 ## [1.32.2](https://github.com/TeriyakiThames/senior-project/compare/v1.32.1...v1.32.2) (2026-10-31)
 
 
