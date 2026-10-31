@@ -65,11 +65,21 @@ export async function loadMemoryContext(
     user = userSnap.data() as UserDoc;
   }
 
-  const limit = options?.messagesLimit ?? 10;
-  const recentMessages = await getRecentMessages(lineUserId, limit);
-
   const now = options?.now ?? new Date();
   const todayDateStr = getBangkokDateString(now);
+  const knownNeedsRollover = Boolean(
+    user.dailySummary?.date && user.dailySummary.date !== todayDateStr,
+  );
+
+  const limit = options?.messagesLimit ?? 10;
+
+  // Concurrently fetch recent messages and rollover snapshot if needed
+  const [recentMessages, preloadedYesterdaySnap] = await Promise.all([
+    getRecentMessages(lineUserId, limit),
+    knownNeedsRollover
+      ? messagesRef(lineUserId).orderBy('timestamp', 'desc').limit(50).get()
+      : Promise.resolve(null),
+  ]);
 
   let dailySummary = user.dailySummary
     ? { date: user.dailySummary.date, summary: user.dailySummary.summary }
@@ -77,10 +87,9 @@ export async function loadMemoryContext(
 
   // Tier 2: Check rollover for a new calendar day
   if (user.dailySummary?.date && user.dailySummary.date !== todayDateStr) {
-    const yesterdaySnap = await messagesRef(lineUserId)
-      .orderBy('timestamp', 'desc')
-      .limit(50)
-      .get();
+    const yesterdaySnap =
+      preloadedYesterdaySnap ??
+      (await messagesRef(lineUserId).orderBy('timestamp', 'desc').limit(50).get());
 
     if (!yesterdaySnap.empty) {
       const messagesToSummarize = yesterdaySnap.docs.map((d) => d.data() as MessageDoc).reverse();
