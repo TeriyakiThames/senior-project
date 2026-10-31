@@ -340,23 +340,21 @@ export async function handleTextMessage(
   const recentMessages = memoryContext.recentMessages;
   const currentUser = memoryContext.user ?? user;
 
-  // 5. Parallel Gemini response generation and Jev intent classification
+  // 5. Concurrent Gemini response generation and Jev intent classification
   const lastAssistantMsg = [...recentMessages]
     .reverse()
     .find((m) => m.role === 'assistant')?.content;
 
-  let geminiResult: { responseText: string; interactionId?: string };
-  let intentResult;
+  const geminiPromise = currentUser
+    ? generateResponse(userText, currentUser, recentMessages)
+    : Promise.resolve({ responseText: 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' });
 
+  // Guard against unhandled promise rejections if geminiPromise fails while a tool handles the user request
+  geminiPromise.catch(() => {});
+
+  let intentResult;
   try {
-    const [geminiRes, jevRes] = await Promise.all([
-      currentUser
-        ? generateResponse(userText, currentUser, recentMessages)
-        : Promise.resolve({ responseText: 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' }),
-      classifyIntent(userText, lastAssistantMsg, { fallbackOnFailure: true }),
-    ]);
-    geminiResult = geminiRes;
-    intentResult = jevRes;
+    intentResult = await classifyIntent(userText, lastAssistantMsg, { fallbackOnFailure: true });
   } catch (error) {
     throw error instanceof AppError
       ? error
@@ -364,6 +362,24 @@ export async function handleTextMessage(
   }
 
   // 6. Execute matching tool
+  // For structured tool requests (set_alarm, set_reminder, save_note, confirm/cancel, snooze/dismiss),
+  // execute tool immediately without waiting for speculative conversational dialogue.
+  const requiresDialogue =
+    intentResult.intent === 'general_chat' ||
+    intentResult.intent === 'list_items' ||
+    intentResult.intent === 'delete_item';
+
+  let geminiResult: { responseText: string; interactionId?: string } = { responseText: '' };
+  if (requiresDialogue) {
+    try {
+      geminiResult = await geminiPromise;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'AI_PIPELINE_FAIL');
+    }
+  }
+
   let toolResult: ToolResult;
   try {
     if (currentUser) {
@@ -374,7 +390,9 @@ export async function handleTextMessage(
         user: currentUser,
       });
     } else {
-      toolResult = { success: true, message: geminiResult.responseText };
+      const fallbackDialogue =
+        geminiResult.responseText || (await geminiPromise.catch(() => ({ responseText: '' }))).responseText;
+      toolResult = { success: true, message: fallbackDialogue || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' };
     }
   } catch (error) {
     throw error instanceof AppError
@@ -397,7 +415,14 @@ export async function handleTextMessage(
     lineMessages = [{ type: 'text', text: toolResult.message }];
     savedAssistantText = toolResult.message;
   } else {
-    const fallbackText = geminiResult.responseText || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ';
+    let fallbackText = geminiResult.responseText;
+    if (!fallbackText) {
+      try {
+        const resolved = await geminiPromise;
+        fallbackText = resolved.responseText;
+      } catch {}
+    }
+    fallbackText = fallbackText || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ';
     lineMessages = [{ type: 'text', text: fallbackText }];
     savedAssistantText = fallbackText;
   }
