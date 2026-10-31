@@ -42,7 +42,11 @@ export function getCachedDisplayName(userId: string): string | null {
   return null;
 }
 
-export function setCachedDisplayName(userId: string, displayName: string, ttlMs = 60 * 60 * 1000): void {
+export function setCachedDisplayName(
+  userId: string,
+  displayName: string,
+  ttlMs = 60 * 60 * 1000,
+): void {
   displayNameCache.set(userId, { displayName, expiresAt: Date.now() + ttlMs });
 }
 
@@ -391,8 +395,12 @@ export async function handleTextMessage(
       });
     } else {
       const fallbackDialogue =
-        geminiResult.responseText || (await geminiPromise.catch(() => ({ responseText: '' }))).responseText;
-      toolResult = { success: true, message: fallbackDialogue || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ' };
+        geminiResult.responseText ||
+        (await geminiPromise.catch(() => ({ responseText: '' }))).responseText;
+      toolResult = {
+        success: true,
+        message: fallbackDialogue || 'สวัสดีค่ะ มีอะไรให้หนูช่วยไหมคะ',
+      };
     }
   } catch (error) {
     throw error instanceof AppError
