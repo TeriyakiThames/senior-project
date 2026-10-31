@@ -19,7 +19,11 @@ function getFirebaseAdmin(): { db: Firestore; auth: Auth } {
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (serviceAccountKey) {
     try {
-      const serviceAccount = JSON.parse(serviceAccountKey) as ServiceAccount;
+      const parsed = JSON.parse(serviceAccountKey) as Record<string, unknown>;
+      if (typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
+      const serviceAccount = parsed as unknown as ServiceAccount;
       const app = initializeApp({ credential: cert(serviceAccount) });
       return { db: configureFirestore(getFirestore(app)), auth: getAuth(app) };
     } catch {
