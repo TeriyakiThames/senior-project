@@ -219,14 +219,37 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#F2F7FA] text-[#21215C]">
       <div className="px-5 pt-4 pb-8 max-w-[440px] mx-auto">
-        {/* Date and "ของฉัน" (My Hub) Heading */}
-        <section className="mb-4">
-          <p className="text-sm font-medium text-[#4B4F72]">
-            {formatHeaderDate(new Date(), locale)}
-          </p>
-          <h2 className="text-3xl font-extrabold text-[#21215C] mt-1 tracking-tight">
-            {t('mine')}
-          </h2>
+        {/* Date, "ของฉัน" (My Hub) Heading & Settings Shortcut */}
+        <section className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-[#4B4F72]">
+              {formatHeaderDate(new Date(), locale)}
+            </p>
+            <h2 className="text-3xl font-extrabold text-[#21215C] mt-1 tracking-tight">
+              {t('mine')}
+            </h2>
+          </div>
+          <Link
+            href={`/${locale}/liff/settings`}
+            className="w-12 h-12 rounded-2xl bg-white shadow-[0_2px_6px_rgba(33,33,92,0.06),0_8px_24px_rgba(33,33,92,0.08)] flex items-center justify-center text-[#21215C] hover:bg-[#F2F7FA] active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-[#21215C]"
+            aria-label={t('settings')}
+            title={t('settings')}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+            </svg>
+          </Link>
         </section>
 
         {/* 2x2 Category Hub Grid */}
@@ -294,26 +317,34 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          {/* 4. Settings (ตั้งค่า) */}
+          {/* 4. Activities (กิจกรรมแนะนำ) */}
           <Link
-            href={`/${locale}/liff/settings`}
+            href={`/${locale}/liff/activities`}
             className="bg-[#FDE5F0] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#B4225A]"
           >
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                fill="#E8216F"
-                stroke="#B4225A"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <circle cx="12" cy="12" r="3" fill="#FDE5F0" stroke="#B4225A" strokeWidth="2" />
+            <svg
+              width="36"
+              height="36"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#B4225A"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+              <circle cx="8.5" cy="14.5" r="1" fill="#B4225A" />
+              <circle cx="12" cy="14.5" r="1" fill="#B4225A" />
+              <circle cx="15.5" cy="14.5" r="1" fill="#B4225A" />
             </svg>
             <div>
-              <p className="text-[#B4225A] font-bold text-lg leading-tight">{t('settings')}</p>
+              <p className="text-[#B4225A] font-bold text-lg leading-tight">{t('activities')}</p>
               <p className="text-[#B4225A]/80 text-sm font-medium mt-0.5">
-                {t('settingsSubtitle')}
+                {t('activitiesSubtitle')}
               </p>
             </div>
           </Link>
