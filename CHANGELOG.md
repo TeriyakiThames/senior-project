@@ -1,3 +1,10 @@
+## [1.32.7](https://github.com/TeriyakiThames/senior-project/compare/v1.32.6...v1.32.7) (2026-11-02)
+
+
+### Bug Fixes
+
+* align flex card colors with dashboard palette and add note source tagging ([db1eb55](https://github.com/TeriyakiThames/senior-project/commit/db1eb55ea227e90ad4f53fae645acaaf370c40d5))
+
 ## [1.32.6](https://github.com/TeriyakiThames/senior-project/compare/v1.32.5...v1.32.6) (2026-11-02)
 
 
