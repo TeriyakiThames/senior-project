@@ -1,3 +1,10 @@
+## [1.32.5](https://github.com/TeriyakiThames/senior-project/compare/v1.32.4...v1.32.5) (2026-11-02)
+
+
+### Bug Fixes
+
+* resolve note taking parameter extraction and summarization clarification errors ([#115](https://github.com/TeriyakiThames/senior-project/issues/115)) ([3a8300d](https://github.com/TeriyakiThames/senior-project/commit/3a8300d6a59127c9c52629ff2693dd5842b66eb1))
+
 ## [1.32.4](https://github.com/TeriyakiThames/senior-project/compare/v1.32.3...v1.32.4) (2026-10-31)
 
 
