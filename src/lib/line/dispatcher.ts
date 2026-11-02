@@ -387,11 +387,15 @@ export async function handleTextMessage(
   let toolResult: ToolResult;
   try {
     if (currentUser) {
+      const messageSource: 'voice' | 'text' = transcribedText ? 'voice' : 'text';
       toolResult = await executeTool({
         intent: intentResult,
         userText,
         geminiResponse: geminiResult.responseText,
         user: currentUser,
+        noteOptions: {
+          source: messageSource,
+        },
       });
     } else {
       const fallbackDialogue =

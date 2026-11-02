@@ -154,7 +154,7 @@ export async function handleSaveNote(
     const pendingRef = pendingActionsRef(user.lineUserId).doc('current');
     await pendingRef.set(pendingData);
 
-    const flexMessage = buildNoteConfirmation(cleanSummary);
+    const flexMessage = buildNoteConfirmation(cleanSummary, source);
 
     return {
       success: true,

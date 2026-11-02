@@ -9,7 +9,7 @@ import type { messagingApi } from '@line/bot-sdk';
 
 describe('Flex Message Builders (LINE-04, LINE-07)', () => {
   describe('buildNoteConfirmation', () => {
-    it('generates a valid Note Confirmation Flex message with accessible layout', () => {
+    it('generates a valid Note Confirmation Flex message with voice tagging by default', () => {
       const summary = 'ไปพบแพทย์ที่โรงพยาบาลศิริราช เวลา 10:00 น.';
       const flex = buildNoteConfirmation(summary);
 
@@ -20,26 +20,38 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(bubble.type).toBe('bubble');
       expect(bubble.size).toBe('kilo');
 
-      // Header check
+      // Header check (horizontal layout with note icon and title)
       const headerBox = bubble.header as messagingApi.FlexBox;
-      expect(headerBox.layout).toBe('vertical');
-      const headerText = headerBox.contents[0] as messagingApi.FlexText;
-      expect(headerText.text).toBe('📝 สรุปบันทึก');
+      expect(headerBox.layout).toBe('horizontal');
+      expect(headerBox.backgroundColor).toBe('#EEE1FA');
+      const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerIcon.text).toBe('📝');
+      const headerText = headerBox.contents[1] as messagingApi.FlexText;
+      expect(headerText.text).toBe('บันทึกโน้ตนี้ไหมคะ');
       expect(headerText.size).toBe('xl');
-      expect(headerText.color).toBe('#6A1B9A');
+      expect(headerText.color).toBe('#21215C');
 
-      // Body check
+      // Body check (tag pill, summary text, subtext)
       const bodyBox = bubble.body as messagingApi.FlexBox;
       expect(bodyBox.layout).toBe('vertical');
-      const summaryText = bodyBox.contents[0] as messagingApi.FlexText;
-      expect(summaryText.text).toBe(summary);
-      expect(summaryText.size).toBe('lg');
-      expect(summaryText.color).toBe('#2D2D2D');
+      expect(bodyBox.contents).toHaveLength(3);
 
-      const promptText = bodyBox.contents[1] as messagingApi.FlexText;
-      expect(promptText.text).toBe('ต้องการบันทึกไหมคะ?');
+      const tagContainer = bodyBox.contents[0] as messagingApi.FlexBox;
+      const tagPill = tagContainer.contents[0] as messagingApi.FlexBox;
+      expect(tagPill.backgroundColor).toBe('#EAF0F6');
+      const tagText = tagPill.contents[0] as messagingApi.FlexText;
+      expect(tagText.text).toBe('🎤 เสียง');
+      expect(tagText.color).toBe('#21215C');
+
+      const summaryText = bodyBox.contents[1] as messagingApi.FlexText;
+      expect(summaryText.text).toBe(summary);
+      expect(summaryText.size).toBe('xl');
+      expect(summaryText.color).toBe('#21215C');
+
+      const promptText = bodyBox.contents[2] as messagingApi.FlexText;
+      expect(promptText.text).toBe('ถ้าไม่กดภายใน 5 นาที\nจะยังไม่บันทึกนะคะ');
       expect(promptText.size).toBe('md');
-      expect(promptText.color).toBe('#4A4A4A');
+      expect(promptText.color).toBe('#7D84A3');
 
       // Footer check (vertical layout with >= 48px buttons)
       const footerBox = bubble.footer as messagingApi.FlexBox;
@@ -62,6 +74,20 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect((cancelButton.action as messagingApi.MessageAction).label).toBe('✕ ยกเลิก');
       expect((cancelButton.action as messagingApi.MessageAction).text).toBe('ยกเลิก');
     });
+
+    it('generates a valid Note Confirmation Flex message with typing tag when source is text', () => {
+      const summary = 'ซื้อขนมเปี๊ยว';
+      const flex = buildNoteConfirmation(summary, 'text');
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const tagContainer = bodyBox.contents[0] as messagingApi.FlexBox;
+      const tagPill = tagContainer.contents[0] as messagingApi.FlexBox;
+      expect(tagPill.backgroundColor).toBe('#EAF0F6');
+      const tagText = tagPill.contents[0] as messagingApi.FlexText;
+      expect(tagText.text).toBe('⌨️ พิมพ์');
+      expect(tagText.color).toBe('#21215C');
+    });
   });
 
   describe('buildReminderConfirmation (LINE-07)', () => {
@@ -80,12 +106,24 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
 
       // Header check
       const headerBox = bubble.header as messagingApi.FlexBox;
+      expect(headerBox.backgroundColor).toBe('#E1E8F8');
       const headerText = headerBox.contents[0] as messagingApi.FlexText;
       expect(headerText.text).toBe('⏰ ยืนยันการแจ้งเตือน');
+      expect(headerText.color).toBe('#385289');
 
       // Body check
       const bodyBox = bubble.body as messagingApi.FlexBox;
       expect(bodyBox.contents).toHaveLength(3);
+      const itemBox = bodyBox.contents[0] as messagingApi.FlexBox;
+      const msgText = itemBox.contents[1] as messagingApi.FlexText;
+      expect(msgText.color).toBe('#21215C');
+
+      const timeBox = bodyBox.contents[1] as messagingApi.FlexBox;
+      const timeText = timeBox.contents[1] as messagingApi.FlexText;
+      expect(timeText.color).toBe('#385289');
+
+      const promptText = bodyBox.contents[2] as messagingApi.FlexText;
+      expect(promptText.color).toBe('#4B4F72');
 
       // Footer check (Confirm button, Datetimepicker button, Cancel button)
       const footerBox = bubble.footer as messagingApi.FlexBox;
@@ -131,6 +169,7 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
 
       // Header check
       const headerBox = bubble.header as messagingApi.FlexBox;
+      expect(headerBox.backgroundColor).toBe('#FBEFD8');
       const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
       expect(headerIcon.text).toBe('⏰');
 
@@ -140,7 +179,7 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(labelText.text).toBe(alarmLabel);
       expect(labelText.size).toBe('xl');
       expect(labelText.weight).toBe('bold');
-      expect(labelText.color).toBe('#2D2D2D');
+      expect(labelText.color).toBe('#21215C');
 
       // Footer check
       const footerBox = bubble.footer as messagingApi.FlexBox;
@@ -190,6 +229,7 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
 
       // Header check
       const headerBox = bubble.header as messagingApi.FlexBox;
+      expect(headerBox.backgroundColor).toBe('#E1E8F8');
       const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
       expect(headerIcon.text).toBe('📋');
 
@@ -199,7 +239,7 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(msgText.text).toBe(reminderMsg);
       expect(msgText.size).toBe('xl');
       expect(msgText.weight).toBe('bold');
-      expect(msgText.color).toBe('#2D2D2D');
+      expect(msgText.color).toBe('#21215C');
 
       // Footer check
       const footerBox = bubble.footer as messagingApi.FlexBox;
