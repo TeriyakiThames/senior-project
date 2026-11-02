@@ -14,11 +14,15 @@ Any AI assistant or agent operating in this repository must strictly adhere to t
 2. **Review Before Commit:**
    - After code changes and local checks pass, the AI pauses and presents the diff to the human developer.
    - The human developer performs all commits, pushes, and PR creations.
-3. **Granular Feature Branches:**
-   - Each individual ticket must belong to its own dedicated branch targeting `main` (e.g. `feat/line-client-signature`, `feat/firestore-models`, `fix/webhook-route`).
-4. **Manual External Setup:**
+3. **Branch Creation per Chat:**
+   - Each chat session or task must start on a new branch created from `main` (e.g. `git checkout main && git pull origin main && git checkout -b <branch-name> --no-track`) unless the developer explicitly specifies to continue on the current branch.
+   - Branch names must be short and descriptive, and do not need a ticket ID (e.g. `feat/alarm`, `fix/flex-card`, `chore/rules`).
+4. **Safe Remote & Upstream Tracking:**
+   - When creating a branch, always set its upstream to its own remote branch (e.g. `git push -u origin <branch-name>`).
+   - **NEVER** set `main` or `origin/main` as the remote/upstream tracking branch for a working branch. This ensures `git push` or `git push --force` can never accidentally overwrite or push into `main`.
+5. **Manual External Setup:**
    - Whenever external console configurations are required (LINE Developers, Firebase Console, Google Cloud Console, Vercel), the AI must outline clear, step-by-step instructions and wait for the developer to perform them.
-5. **Package Manager:**
+6. **Package Manager:**
    - Use **`pnpm`** exclusively across all environments and scripts. Never use `npm` or `yarn`.
 
 ---
@@ -176,9 +180,9 @@ Every PR must pass:
      - `feat`: Minor bump.
      - `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`, `ci`, `build`: Patch bump.
 7. **Pull Request Naming Convention (`.github/workflows/lint-pr.yml`):**
-   - PR titles must strictly follow Conventional Commits format with the ticket ID in the scope:
-     - Format: `<type>(<TICKET-ID>): <description>`
-     - Example: `feat(LINE-01): set up LINE client singleton and signature verification`
+   - PR titles follow Conventional Commits format (`requireScope: false` in CI):
+     - Format: `<type>: <description>` or `<type>(<scope>): <description>`
+     - Example: `feat: set up LINE client singleton`
 
 ### Unit Testing Rule
 
@@ -186,30 +190,30 @@ Every PR must pass:
 
 ---
 
-## 5. Ticket Completion Summary Protocol
+## 5. Task Completion Summary Protocol
 
-After completing work and verifying each individual ticket, the AI assistant must summarize everything done in short, concise bullet points without numbering or blank line breaks between items. Section headers must not have bullets in front; instead, each section's contents are listed in bullets, strictly following these sections:
+After completing work and verifying each task, the AI assistant must summarize everything done in short, concise bullet points without numbering or blank line breaks between items. Section headers must not have bullets in front; instead, each section's contents are listed in bullets, strictly following these sections:
 
-**Ticket:**
+**Task:**
 
-- [<TICKET-ID>] - <Ticket Title> (e.g. `[LINE-01] - Set up LINE client singleton and signature verification`)
+- [<TASK-NAME>] - <Short Title> (e.g. `[Rules Update] - Streamline branching and summary protocol` or ticket ID if provided)
 
 **Problem that we are fixing:**
 
-- Brief explanation of the issue, requirement, or ticket objective addressed.
+- Brief explanation of the issue, requirement, or objective addressed.
+
+**Solution overview:**
+
+- High-level overview of the fix and architecture, kept short and concise.
 
 **File by file changes:**
 
 - List each modified/created file with its change described in exactly 1 sentence only.
 
-**Recommended PR title:**
-
-- The recommended PR title following the ticket standard (e.g. `feat(LINE-01): set up LINE client singleton and signature verification`).
-
 **Recommended commit message:**
 
-- Normal semantic commit message for changes inside the branch/PR (e.g. `feat: implement line client singleton and signature validation`).
+- Conventional semantic commit message for changes inside the branch, strictly under 50 characters (e.g. `feat: add alarm card`).
 
 **Leftover/handoff tasks if any:**
 
-- Actionable manual steps for the developer (console setups, env vars, PR reviews, moving ticket to Done on GitHub Projects board).
+- Actionable manual steps for the developer (console setups, env vars, PR reviews, etc.).
