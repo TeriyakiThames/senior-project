@@ -667,6 +667,193 @@ describe('LINE Webhook Dispatcher', () => {
       );
     });
 
+    it('handles snooze_reminder postback action with clean user facing text', async () => {
+      vi.mocked(handleSnooze).mockResolvedValueOnce({
+        success: true,
+        message: 'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-snooze-rem',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=snooze_reminder&id=rem-456',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleSnooze).toHaveBeenCalledWith('snooze_reminder:rem-456', expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-snooze-rem',
+        messages: [{ type: 'text', text: 'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'เลื่อน 15 นาที',
+        'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋',
+      );
+    });
+
+    it('handles dismiss_reminder postback action with clean user facing text', async () => {
+      vi.mocked(handleDismiss).mockResolvedValueOnce({
+        success: true,
+        message: 'ปิดการเตือนแล้วค่ะ ✓',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-dismiss-rem',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=dismiss_reminder&id=rem-456',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleDismiss).toHaveBeenCalledWith('dismiss_reminder:rem-456', expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-dismiss-rem',
+        messages: [{ type: 'text', text: 'ปิดการเตือนแล้วค่ะ ✓' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith('user-123', 'เรียบร้อย', 'ปิดการเตือนแล้วค่ะ ✓');
+    });
+
+    it('handles snooze_alarm postback action with clean user facing text', async () => {
+      vi.mocked(handleSnooze).mockResolvedValueOnce({
+        success: true,
+        message: 'เลื่อนปลุกไปอีก 5 นาทีค่ะ ⏰',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-snooze-alm',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=snooze_alarm&id=alm-789',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleSnooze).toHaveBeenCalledWith('snooze_alarm:alm-789', expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-snooze-alm',
+        messages: [{ type: 'text', text: 'เลื่อนปลุกไปอีก 5 นาทีค่ะ ⏰' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'เลื่อน 5 นาที',
+        'เลื่อนปลุกไปอีก 5 นาทีค่ะ ⏰',
+      );
+    });
+
+    it('handles dismiss_alarm postback action with clean user facing text', async () => {
+      vi.mocked(handleDismiss).mockResolvedValueOnce({
+        success: true,
+        message: 'ปิดเสียงปลุกแล้วค่ะ ✓',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-dismiss-alm',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=dismiss_alarm&id=alm-789',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleDismiss).toHaveBeenCalledWith('dismiss_alarm:alm-789', expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-dismiss-alm',
+        messages: [{ type: 'text', text: 'ปิดเสียงปลุกแล้วค่ะ ✓' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith('user-123', 'ปิดการปลุก', 'ปิดเสียงปลุกแล้วค่ะ ✓');
+    });
+
+    it('handles legacy colon format snooze/dismiss in postback data', async () => {
+      vi.mocked(handleSnooze).mockResolvedValueOnce({
+        success: true,
+        message: 'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-legacy-snooze',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'snooze_reminder:legacy-123',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleSnooze).toHaveBeenCalledWith('snooze_reminder:legacy-123', expect.any(Object));
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'เลื่อน 15 นาที',
+        'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋',
+      );
+    });
+
+    it('handles postback action with nid parameter and forwards notificationId option', async () => {
+      vi.mocked(handleSnooze).mockResolvedValueOnce({
+        success: true,
+        message: 'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-nid',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=snooze_reminder&id=rem-456&nid=notif-xyz',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleSnooze).toHaveBeenCalledWith('snooze_reminder:rem-456', expect.any(Object), {
+        notificationId: 'notif-xyz',
+      });
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-nid',
+        messages: [{ type: 'text', text: 'เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋' }],
+      });
+    });
+
+    it('replies with already handled message when postback button is pressed again', async () => {
+      vi.mocked(handleDismiss).mockResolvedValueOnce({
+        success: false,
+        message: 'รายการนี้จัดการไปเรียบร้อยแล้วค่ะ ปุ่มนี้จึงไม่มีผลอะไรแล้วนะคะ คุณตาคุณยาย',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-repeat',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=dismiss_reminder&id=rem-456&nid=notif-xyz',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-repeat',
+        messages: [
+          {
+            type: 'text',
+            text: 'รายการนี้จัดการไปเรียบร้อยแล้วค่ะ ปุ่มนี้จึงไม่มีผลอะไรแล้วนะคะ คุณตาคุณยาย',
+          },
+        ],
+      });
+    });
+
     it('does not process if replyToken or userId is missing', async () => {
       const noTokenEvent = {
         type: 'postback' as const,

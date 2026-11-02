@@ -521,6 +521,76 @@ export async function handlePostbackEvent(
     void startLoadingAnimation(userId, { loadingSeconds: 20 });
   }
 
+  // Snooze / Dismiss postback handling
+  const searchParams = new URLSearchParams(data);
+  const actionParam = searchParams.get('action');
+  const idParam = searchParams.get('id');
+  const nidParam = searchParams.get('nid');
+
+  type SnoozeDismissType =
+    'snooze_alarm' | 'snooze_reminder' | 'dismiss_alarm' | 'dismiss_reminder';
+  let snoozeDismissAction: SnoozeDismissType | null = null;
+  let targetId: string | null = null;
+
+  if (
+    actionParam === 'snooze_reminder' ||
+    actionParam === 'dismiss_reminder' ||
+    actionParam === 'snooze_alarm' ||
+    actionParam === 'dismiss_alarm'
+  ) {
+    snoozeDismissAction = actionParam;
+    targetId = idParam;
+  } else {
+    const match = data.match(/^(snooze|dismiss)_(alarm|reminder):(.+)$/);
+    if (match) {
+      snoozeDismissAction = `${match[1]}_${match[2]}` as SnoozeDismissType;
+      targetId = match[3];
+    }
+  }
+
+  if (snoozeDismissAction && targetId) {
+    try {
+      let toolRes: ToolResult;
+      let displayUserText: string;
+
+      const actionOpts = nidParam ? { notificationId: nidParam } : undefined;
+
+      if (snoozeDismissAction === 'snooze_alarm') {
+        toolRes = actionOpts
+          ? await handleSnooze(`snooze_alarm:${targetId}`, user, actionOpts)
+          : await handleSnooze(`snooze_alarm:${targetId}`, user);
+        displayUserText = 'เลื่อน 5 นาที';
+      } else if (snoozeDismissAction === 'snooze_reminder') {
+        toolRes = actionOpts
+          ? await handleSnooze(`snooze_reminder:${targetId}`, user, actionOpts)
+          : await handleSnooze(`snooze_reminder:${targetId}`, user);
+        displayUserText = 'เลื่อน 15 นาที';
+      } else if (snoozeDismissAction === 'dismiss_alarm') {
+        toolRes = actionOpts
+          ? await handleDismiss(`dismiss_alarm:${targetId}`, user, actionOpts)
+          : await handleDismiss(`dismiss_alarm:${targetId}`, user);
+        displayUserText = 'ปิดการปลุก';
+      } else {
+        toolRes = actionOpts
+          ? await handleDismiss(`dismiss_reminder:${targetId}`, user, actionOpts)
+          : await handleDismiss(`dismiss_reminder:${targetId}`, user);
+        displayUserText = 'เรียบร้อย';
+      }
+
+      const replyText = toolRes.message || 'ดำเนินการเรียบร้อยแล้วค่ะ';
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+      await saveMessages(userId, displayUserText, replyText);
+      return;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'TOOL_ACTION_FAIL');
+    }
+  }
+
   if (data === 'action=confirm_reminder' || data === 'action=confirm_note') {
     const isReminder = data === 'action=confirm_reminder';
     const toolRes = isReminder ? await handleConfirmReminder(user) : await handleConfirmNote(user);

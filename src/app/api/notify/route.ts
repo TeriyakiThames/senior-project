@@ -110,7 +110,13 @@ async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?:
   // Push LINE notification card
   await lineClient.pushMessage({
     to: userId,
-    messages: [buildAlarmNotification(alarm.label || '⏰ ถึงเวลาแล้วค่ะ!', alarmId)],
+    messages: [
+      buildAlarmNotification(
+        alarm.label || '⏰ ถึงเวลาแล้วค่ะ!',
+        alarmId,
+        idempotencyKey || undefined,
+      ),
+    ],
   });
 
   // For one-off, deactivate and record notification key
@@ -193,7 +199,9 @@ async function handleReminderFire(
   // Push LINE notification card
   await lineClient.pushMessage({
     to: userId,
-    messages: [buildReminderNotification(reminder.message, reminderId)],
+    messages: [
+      buildReminderNotification(reminder.message, reminderId, idempotencyKey || undefined),
+    ],
   });
 
   // For one-off, deactivate and record notification key

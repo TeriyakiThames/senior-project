@@ -152,9 +152,13 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(snoozeButton.type).toBe('button');
       expect(snoozeButton.style).toBe('secondary');
       expect(snoozeButton.height).toBe('md');
-      expect((snoozeButton.action as messagingApi.MessageAction).label).toBe('⏸ เลื่อน 5 นาที');
-      expect((snoozeButton.action as messagingApi.MessageAction).text).toBe(
-        `snooze_alarm:${alarmId}`,
+      expect((snoozeButton.action as messagingApi.PostbackAction).type).toBe('postback');
+      expect((snoozeButton.action as messagingApi.PostbackAction).label).toBe('⏸ เลื่อน 5 นาที');
+      expect((snoozeButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=snooze_alarm&id=${alarmId}`,
+      );
+      expect((snoozeButton.action as messagingApi.PostbackAction).displayText).toBe(
+        'เลื่อน 5 นาที',
       );
 
       const dismissButton = footerBox.contents[1] as messagingApi.FlexButton;
@@ -162,10 +166,12 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(dismissButton.style).toBe('primary');
       expect(dismissButton.color).toBe('#06C755');
       expect(dismissButton.height).toBe('md');
-      expect((dismissButton.action as messagingApi.MessageAction).label).toBe('✓ ปิดการปลุก');
-      expect((dismissButton.action as messagingApi.MessageAction).text).toBe(
-        `dismiss_alarm:${alarmId}`,
+      expect((dismissButton.action as messagingApi.PostbackAction).type).toBe('postback');
+      expect((dismissButton.action as messagingApi.PostbackAction).label).toBe('✓ ปิดการปลุก');
+      expect((dismissButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=dismiss_alarm&id=${alarmId}`,
       );
+      expect((dismissButton.action as messagingApi.PostbackAction).displayText).toBe('ปิดการปลุก');
     });
   });
 
@@ -205,9 +211,13 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(snoozeButton.type).toBe('button');
       expect(snoozeButton.style).toBe('secondary');
       expect(snoozeButton.height).toBe('md');
-      expect((snoozeButton.action as messagingApi.MessageAction).label).toBe('⏸ เลื่อน 15 นาที');
-      expect((snoozeButton.action as messagingApi.MessageAction).text).toBe(
-        `snooze_reminder:${reminderId}`,
+      expect((snoozeButton.action as messagingApi.PostbackAction).type).toBe('postback');
+      expect((snoozeButton.action as messagingApi.PostbackAction).label).toBe('⏸ เลื่อน 15 นาที');
+      expect((snoozeButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=snooze_reminder&id=${reminderId}`,
+      );
+      expect((snoozeButton.action as messagingApi.PostbackAction).displayText).toBe(
+        'เลื่อน 15 นาที',
       );
 
       const dismissButton = footerBox.contents[1] as messagingApi.FlexButton;
@@ -215,9 +225,27 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect(dismissButton.style).toBe('primary');
       expect(dismissButton.color).toBe('#06C755');
       expect(dismissButton.height).toBe('md');
-      expect((dismissButton.action as messagingApi.MessageAction).label).toBe('✓ เรียบร้อย');
-      expect((dismissButton.action as messagingApi.MessageAction).text).toBe(
-        `dismiss_reminder:${reminderId}`,
+      expect((dismissButton.action as messagingApi.PostbackAction).type).toBe('postback');
+      expect((dismissButton.action as messagingApi.PostbackAction).label).toBe('✓ เรียบร้อย');
+      expect((dismissButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=dismiss_reminder&id=${reminderId}`,
+      );
+      expect((dismissButton.action as messagingApi.PostbackAction).displayText).toBe('เรียบร้อย');
+    });
+
+    it('embeds notificationId into action postback data when provided', () => {
+      const flex = buildReminderNotification('กินยา', 'rem-123', 'notif-456');
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const footer = bubble.footer as messagingApi.FlexBox;
+
+      const snoozeBtn = footer.contents[0] as messagingApi.FlexButton;
+      expect((snoozeBtn.action as messagingApi.PostbackAction).data).toBe(
+        'action=snooze_reminder&id=rem-123&nid=notif-456',
+      );
+
+      const dismissBtn = footer.contents[1] as messagingApi.FlexButton;
+      expect((dismissBtn.action as messagingApi.PostbackAction).data).toBe(
+        'action=dismiss_reminder&id=rem-123&nid=notif-456',
       );
     });
   });

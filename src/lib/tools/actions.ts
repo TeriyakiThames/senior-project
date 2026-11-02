@@ -14,11 +14,14 @@ export const SNOOZE_CLARIFY_MESSAGE =
 export const DISMISS_NOT_FOUND_MESSAGE = 'ไม่พบการแจ้งเตือนที่จะปิดค่ะ คุณตาคุณยาย';
 export const DISMISS_CLARIFY_MESSAGE =
   'พบการแจ้งเตือนหลายรายการที่เพิ่งแจ้งเตือนค่ะ คุณตาคุณยายต้องการปิดรายการไหนคะ?';
+export const ACTION_ALREADY_HANDLED_MESSAGE =
+  'รายการนี้จัดการไปเรียบร้อยแล้วค่ะ ปุ่มนี้จึงไม่มีผลอะไรแล้วนะคะ คุณตาคุณยาย';
 
 export interface HandleActionOptions {
   now?: Date;
   scheduleNotificationFn?: typeof scheduleNotification;
   cancelScheduledTaskFn?: typeof cancelScheduledTask;
+  notificationId?: string | null;
 }
 
 interface ActionCandidate {
@@ -125,6 +128,22 @@ export async function handleSnooze(
     }
 
     const alarm = snap.data() as AlarmDoc;
+    const isAlreadyHandled = Boolean(
+      (options?.notificationId &&
+        (alarm.lastHandledNotificationId === options.notificationId ||
+          (alarm.lastHandledAction !== undefined && alarm.lastHandledAction !== null) ||
+          (alarm.lastNotificationId && options.notificationId !== alarm.lastNotificationId))) ||
+      (!alarm.enabled && !alarm.cloudTaskName && alarm.recurrence === 'once'),
+    );
+
+    if (isAlreadyHandled) {
+      return {
+        success: false,
+        message: ACTION_ALREADY_HANDLED_MESSAGE,
+        data: { id: alarmId, itemType: 'alarm', alreadyHandled: true },
+      };
+    }
+
     if (alarm.cloudTaskName) {
       try {
         await cancelTask(alarm.cloudTaskName);
@@ -141,11 +160,17 @@ export async function handleSnooze(
       fireAt: snoozeAt,
     });
 
-    await docRef.update({
+    const updateData: Record<string, unknown> = {
       cloudTaskName: taskName,
       nextFireAt: Timestamp.fromDate(snoozeAt),
       enabled: true,
-    });
+    };
+    if (options?.notificationId) {
+      updateData.lastHandledNotificationId = options.notificationId;
+      updateData.lastHandledAction = 'snooze';
+    }
+
+    await docRef.update(updateData);
 
     return {
       success: true,
@@ -164,6 +189,24 @@ export async function handleSnooze(
     }
 
     const reminder = snap.data() as ReminderDoc;
+    const isAlreadyHandled = Boolean(
+      (options?.notificationId &&
+        (reminder.lastHandledNotificationId === options.notificationId ||
+          (reminder.lastHandledAction !== undefined && reminder.lastHandledAction !== null) ||
+          (reminder.lastNotificationId &&
+            options.notificationId !== reminder.lastNotificationId))) ||
+      reminder.status === 'done' ||
+      (options?.notificationId && reminder.status === 'snoozed'),
+    );
+
+    if (isAlreadyHandled) {
+      return {
+        success: false,
+        message: ACTION_ALREADY_HANDLED_MESSAGE,
+        data: { id: reminderId, itemType: 'reminder', alreadyHandled: true },
+      };
+    }
+
     if (reminder.cloudTaskName) {
       try {
         await cancelTask(reminder.cloudTaskName);
@@ -180,12 +223,18 @@ export async function handleSnooze(
       fireAt: snoozeAt,
     });
 
-    await docRef.update({
+    const updateData: Record<string, unknown> = {
       cloudTaskName: taskName,
       nextFireAt: Timestamp.fromDate(snoozeAt),
       status: 'snoozed',
       enabled: true,
-    });
+    };
+    if (options?.notificationId) {
+      updateData.lastHandledNotificationId = options.notificationId;
+      updateData.lastHandledAction = 'snooze';
+    }
+
+    await docRef.update(updateData);
 
     return {
       success: true,
@@ -247,6 +296,22 @@ export async function handleDismiss(
     }
 
     const alarm = snap.data() as AlarmDoc;
+    const isAlreadyHandled = Boolean(
+      (options?.notificationId &&
+        (alarm.lastHandledNotificationId === options.notificationId ||
+          (alarm.lastHandledAction !== undefined && alarm.lastHandledAction !== null) ||
+          (alarm.lastNotificationId && options.notificationId !== alarm.lastNotificationId))) ||
+      (!alarm.enabled && !alarm.cloudTaskName && alarm.recurrence === 'once'),
+    );
+
+    if (isAlreadyHandled) {
+      return {
+        success: false,
+        message: ACTION_ALREADY_HANDLED_MESSAGE,
+        data: { id: alarmId, itemType: 'alarm', alreadyHandled: true },
+      };
+    }
+
     if (alarm.cloudTaskName) {
       try {
         await cancelTask(alarm.cloudTaskName);
@@ -255,17 +320,18 @@ export async function handleDismiss(
       }
     }
 
+    const updateData: Record<string, unknown> = {
+      cloudTaskName: null,
+    };
     if (alarm.recurrence === 'once') {
-      await docRef.update({
-        enabled: false,
-        cloudTaskName: null,
-      });
-    } else {
-      // Keep enabled: true for future occurrences, clear active snooze task
-      await docRef.update({
-        cloudTaskName: null,
-      });
+      updateData.enabled = false;
     }
+    if (options?.notificationId) {
+      updateData.lastHandledNotificationId = options.notificationId;
+      updateData.lastHandledAction = 'dismiss';
+    }
+
+    await docRef.update(updateData);
 
     return {
       success: true,
@@ -284,6 +350,24 @@ export async function handleDismiss(
     }
 
     const reminder = snap.data() as ReminderDoc;
+    const isAlreadyHandled = Boolean(
+      (options?.notificationId &&
+        (reminder.lastHandledNotificationId === options.notificationId ||
+          (reminder.lastHandledAction !== undefined && reminder.lastHandledAction !== null) ||
+          (reminder.lastNotificationId &&
+            options.notificationId !== reminder.lastNotificationId))) ||
+      reminder.status === 'done' ||
+      (options?.notificationId && reminder.status === 'snoozed'),
+    );
+
+    if (isAlreadyHandled) {
+      return {
+        success: false,
+        message: ACTION_ALREADY_HANDLED_MESSAGE,
+        data: { id: reminderId, itemType: 'reminder', alreadyHandled: true },
+      };
+    }
+
     if (reminder.cloudTaskName) {
       try {
         await cancelTask(reminder.cloudTaskName);
@@ -292,11 +376,17 @@ export async function handleDismiss(
       }
     }
 
-    await docRef.update({
+    const updateData: Record<string, unknown> = {
       status: 'done',
       enabled: false,
       cloudTaskName: null,
-    });
+    };
+    if (options?.notificationId) {
+      updateData.lastHandledNotificationId = options.notificationId;
+      updateData.lastHandledAction = 'dismiss';
+    }
+
+    await docRef.update(updateData);
 
     return {
       success: true,
