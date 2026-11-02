@@ -135,6 +135,39 @@ describe('List and Delete Tool Handlers (SCHED-06)', () => {
       expect(result.message).toContain('1. นัดคุณหมอวันจันทร์');
     });
 
+    it('includes actively repeating reminders (status: fired) when listing reminders', async () => {
+      vi.mocked(extractor.classifyItemType).mockResolvedValue({
+        itemType: 'reminder',
+        confidence: 0.95,
+      });
+
+      const reminderDocs = [
+        {
+          id: 'rem-repeating',
+          data: () => ({
+            message: 'กินยาลดความดัน',
+            scheduledAt: Timestamp.fromDate(new Date('2026-10-18T08:00:00+07:00')),
+            nextFireAt: Timestamp.fromDate(new Date('2026-10-18T08:05:00+07:00')),
+            status: 'fired',
+          }),
+        },
+      ];
+
+      const whereMock = vi.fn().mockReturnThis();
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        where: whereMock,
+        limit: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ empty: false, docs: reminderDocs }),
+      } as any);
+
+      const result = await handleListItems('ดูการเตือน', '', mockUser);
+
+      expect(whereMock).toHaveBeenCalledWith('status', 'in', ['pending', 'snoozed', 'fired']);
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('📋 การเตือน:');
+      expect(result.message).toContain('1. กินยาลดความดัน');
+    });
+
     it('returns category-specific empty message when a single category is requested and empty', async () => {
       vi.mocked(extractor.classifyItemType).mockResolvedValue({
         itemType: 'alarm',
@@ -217,6 +250,42 @@ describe('List and Delete Tool Handlers (SCHED-06)', () => {
 
       expect(tasks.cancelScheduledTask).toHaveBeenCalledWith(
         'projects/p/locations/l/queues/q/tasks/rem-task-1',
+      );
+      expect(updateMock).toHaveBeenCalledWith({ status: 'done', enabled: false });
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('ลบการเตือน "กินยาวันนี้"');
+    });
+
+    it('soft-deletes actively repeating reminder (status: fired) and cancels repeat Cloud Task', async () => {
+      vi.mocked(extractor.classifyItemType).mockResolvedValue({
+        itemType: 'reminder',
+        confidence: 0.97,
+      });
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      const mockReminderDoc = {
+        id: 'reminder-repeat-789',
+        ref: { update: updateMock },
+        data: () => ({
+          message: 'กินยาวันนี้',
+          cloudTaskName: 'projects/p/locations/l/queues/q/tasks/rem-repeat-task',
+          status: 'fired',
+          enabled: true,
+        }),
+      };
+
+      const whereMock = vi.fn().mockReturnThis();
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        where: whereMock,
+        orderBy: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ empty: false, docs: [mockReminderDoc] }),
+      } as any);
+
+      const result = await handleDeleteItem('ลบเตือนกินยา', '', mockUser);
+
+      expect(whereMock).toHaveBeenCalledWith('status', 'in', ['pending', 'snoozed', 'fired']);
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith(
+        'projects/p/locations/l/queues/q/tasks/rem-repeat-task',
       );
       expect(updateMock).toHaveBeenCalledWith({ status: 'done', enabled: false });
       expect(result.success).toBe(true);

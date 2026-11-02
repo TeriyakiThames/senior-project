@@ -9,7 +9,7 @@ export interface MockAlarm {
 export interface MockReminder {
   id: string;
   message: string;
-  status: 'pending' | 'snoozed' | 'done';
+  status: 'pending' | 'snoozed' | 'fired' | 'done';
   nextFireAt: string;
   scheduledAt?: string;
   recurrence?: string;
@@ -154,7 +154,7 @@ export function getMockItems(type: string = 'all'): Record<string, unknown[]> {
   }
   if (type === 'reminders' || type === 'all') {
     result.reminders = mockStore.reminders.filter(
-      (r) => r.status === 'pending' || r.status === 'snoozed',
+      (r) => r.status === 'pending' || r.status === 'snoozed' || r.status === 'fired',
     );
   }
   if (type === 'notes' || type === 'all') {

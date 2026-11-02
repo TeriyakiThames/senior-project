@@ -119,7 +119,7 @@ export async function handleDeleteItem(
     let snapDocs: FirebaseFirestore.QueryDocumentSnapshot[];
     try {
       const snap = await remindersRef(uid)
-        .where('status', 'in', ['pending', 'snoozed'])
+        .where('status', 'in', ['pending', 'snoozed', 'fired'])
         .orderBy('createdAt', 'desc')
         .get();
       snapDocs = snap.docs;
@@ -133,7 +133,9 @@ export async function handleDeleteItem(
         console.warn(
           '[DeleteItem] Missing composite index for reminders; falling back to in-memory sort',
         );
-        const snap = await remindersRef(uid).where('status', 'in', ['pending', 'snoozed']).get();
+        const snap = await remindersRef(uid)
+          .where('status', 'in', ['pending', 'snoozed', 'fired'])
+          .get();
         snapDocs = [...snap.docs].sort((a, b) => {
           const tA = (a.data() as ReminderDoc).createdAt?.toMillis?.() ?? 0;
           const tB = (b.data() as ReminderDoc).createdAt?.toMillis?.() ?? 0;

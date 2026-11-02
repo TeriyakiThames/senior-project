@@ -6,6 +6,7 @@ import type { ToolResult } from './index';
 
 export const SNOOZE_ALARM_MS = 5 * 60 * 1000; // 5 minutes
 export const SNOOZE_REMINDER_MS = 15 * 60 * 1000; // 15 minutes
+export const REMINDER_REPEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 export const RECENT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 
 export const SNOOZE_NOT_FOUND_MESSAGE = 'ไม่พบการแจ้งเตือนที่จะเลื่อนค่ะ คุณตาคุณยาย';
@@ -131,8 +132,7 @@ export async function handleSnooze(
     const isAlreadyHandled = Boolean(
       (options?.notificationId &&
         (alarm.lastHandledNotificationId === options.notificationId ||
-          (alarm.lastHandledAction !== undefined && alarm.lastHandledAction !== null) ||
-          (alarm.lastNotificationId && options.notificationId !== alarm.lastNotificationId))) ||
+          (alarm.lastHandledAction !== undefined && alarm.lastHandledAction !== null))) ||
       (!alarm.enabled && !alarm.cloudTaskName && alarm.recurrence === 'once'),
     );
 
@@ -190,13 +190,9 @@ export async function handleSnooze(
 
     const reminder = snap.data() as ReminderDoc;
     const isAlreadyHandled = Boolean(
-      (options?.notificationId &&
-        (reminder.lastHandledNotificationId === options.notificationId ||
-          (reminder.lastHandledAction !== undefined && reminder.lastHandledAction !== null) ||
-          (reminder.lastNotificationId &&
-            options.notificationId !== reminder.lastNotificationId))) ||
       reminder.status === 'done' ||
-      (options?.notificationId && reminder.status === 'snoozed'),
+      (options?.notificationId && reminder.status === 'snoozed') ||
+      (options?.notificationId && reminder.lastHandledNotificationId === options.notificationId),
     );
 
     if (isAlreadyHandled) {
@@ -299,8 +295,7 @@ export async function handleDismiss(
     const isAlreadyHandled = Boolean(
       (options?.notificationId &&
         (alarm.lastHandledNotificationId === options.notificationId ||
-          (alarm.lastHandledAction !== undefined && alarm.lastHandledAction !== null) ||
-          (alarm.lastNotificationId && options.notificationId !== alarm.lastNotificationId))) ||
+          (alarm.lastHandledAction !== undefined && alarm.lastHandledAction !== null))) ||
       (!alarm.enabled && !alarm.cloudTaskName && alarm.recurrence === 'once'),
     );
 
@@ -351,13 +346,9 @@ export async function handleDismiss(
 
     const reminder = snap.data() as ReminderDoc;
     const isAlreadyHandled = Boolean(
-      (options?.notificationId &&
-        (reminder.lastHandledNotificationId === options.notificationId ||
-          (reminder.lastHandledAction !== undefined && reminder.lastHandledAction !== null) ||
-          (reminder.lastNotificationId &&
-            options.notificationId !== reminder.lastNotificationId))) ||
       reminder.status === 'done' ||
-      (options?.notificationId && reminder.status === 'snoozed'),
+      (options?.notificationId && reminder.status === 'snoozed') ||
+      (options?.notificationId && reminder.lastHandledNotificationId === options.notificationId),
     );
 
     if (isAlreadyHandled) {

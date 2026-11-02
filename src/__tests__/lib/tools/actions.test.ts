@@ -389,6 +389,180 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
       expect(result.message).toBe(ACTION_ALREADY_HANDLED_MESSAGE);
       expect(updateMock).not.toHaveBeenCalled();
     });
+
+    it('allows snoozing an actively repeating reminder (status: fired) and cancels repeat task', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-1',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-1',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue('new-snooze-task');
+
+      const result = await handleSnooze('snooze_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-1');
+      expect(tasks.scheduleNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser.lineUserId,
+          itemId: 'rem-repeat-1',
+          itemType: 'reminder',
+          fireAt: new Date(fixedNow.getTime() + 15 * 60 * 1000),
+        }),
+      );
+      expect(updateMock).toHaveBeenCalledWith({
+        cloudTaskName: 'new-snooze-task',
+        nextFireAt: expect.any(Object),
+        status: 'snoozed',
+        enabled: true,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'snooze',
+      });
+    });
+
+    it('allows dismissing an actively repeating reminder (status: fired) and cancels repeat task', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-1',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-1',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+
+      const result = await handleDismiss('dismiss_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('ปิดการเตือนแล้วค่ะ ✓');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-1');
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'dismiss',
+      });
+    });
+
+    it('allows dismissing from an earlier notification card when a reminder has auto-repeated', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-2',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-2',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+
+      // User clicks Dismiss on the 10:00 card (nid-repeat-1) even though nid-repeat-2 was sent at 10:05
+      const result = await handleDismiss('dismiss_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('ปิดการเตือนแล้วค่ะ ✓');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-2');
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'dismiss',
+      });
+    });
+
+    it('allows snoozing from an earlier notification card when a reminder has auto-repeated', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-2',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-2',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue('snooze-task-after-card1');
+
+      // User clicks Snooze on the 10:00 card (nid-repeat-1) even though nid-repeat-2 was sent at 10:05
+      const result = await handleSnooze('snooze_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-2');
+      expect(updateMock).toHaveBeenCalledWith({
+        cloudTaskName: 'snooze-task-after-card1',
+        nextFireAt: expect.any(Object),
+        status: 'snoozed',
+        enabled: true,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'snooze',
+      });
+    });
   });
 
   describe('Voice / Text fallback within 30-minute window', () => {
