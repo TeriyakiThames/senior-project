@@ -100,8 +100,8 @@ export async function summarizeNote(
 
   const instruction =
     language === 'th'
-      ? 'สรุปเนื้อหาโน้ตนี้ให้กระชับ ไม่เกิน 2-3 ประโยค โดยเก็บใจความสำคัญ วันที่ เวลา และสิ่งที่ต้องทำ ไว้อย่างครบถ้วน ห้ามตอบเป็นบทสนทนาถามกลับหรือข้อความขอให้ส่งเนื้อหาเด็ดขาด หากไม่มีเนื้อหาโน้ตที่ชัดเจนให้ตอบว่า "UNCLEAR"'
-      : 'Summarize this note concisely in 2-3 sentences. Preserve all critical dates, times, and action items. Do not respond with conversational questions or requests for more information. If there is no clear note content, reply with "UNCLEAR".';
+      ? 'สรุปเนื้อหาโน้ตนี้ให้กระชับ ชัดเจน ไม่เกิน 2-3 ประโยค โดยเก็บใจความสำคัญ วันที่ เวลา สิ่งที่ต้องทำ หรือรายละเอียดสำคัญไว้อย่างครบถ้วน ห้ามตอบเป็นบทสนทนา ห้ามถามกลับ และห้ามใส่ข้อความขอข้อมูลเพิ่มเติม ให้สรุปเฉพาะเนื้อหาที่ได้รับเท่านั้น หากเนื้อหาสั้นอยู่แล้วให้คงข้อความเดิมไว้'
+      : 'Summarize this note concisely in at most 2-3 sentences. Preserve all critical dates, times, action items, and facts. Do not respond with conversational questions or requests for more information. If the content is already concise, keep it as is.';
 
   const interaction = await client.interactions.create({
     model,

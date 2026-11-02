@@ -138,7 +138,7 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
       }
     });
 
-    it('returns clarification message and NO flexMessage when request is ambiguous (isAmbiguous: true)', async () => {
+    it('returns clarification message and NO flexMessage when request is ambiguous without note directive (isAmbiguous: true)', async () => {
       const result = await handleSaveNote('มีเรื่องจะเล่าให้ฟัง', '', mockUser, {
         isAmbiguous: true,
       });
@@ -147,6 +147,49 @@ describe('Notes Tool Handlers (SCHED-05)', () => {
       expect(result.message).toBe(NOTE_CLARIFICATION_MESSAGE);
       expect(result.flexMessage).toBeUndefined();
       expect(collections.pendingActionsRef).not.toHaveBeenCalled();
+    });
+
+    it('proceeds and creates draft when isAmbiguous is true but input contains explicit note directive and valid content', async () => {
+      const mockSet = vi.fn().mockResolvedValue(undefined);
+      const mockDoc = vi.fn().mockReturnValue({ set: mockSet });
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: mockDoc,
+      } as unknown as ReturnType<typeof collections.pendingActionsRef>);
+
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue({
+        content: 'ต้องไปพบคุณหมอ',
+      });
+      vi.mocked(gemini.summarizeNote).mockResolvedValue('ต้องไปพบคุณหมอ');
+
+      const result = await handleSaveNote('จดว่าต้องไปพบคุณหมอ', '', mockUser, {
+        isAmbiguous: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.flexMessage).toBeDefined();
+      expect(result.data?.summary).toBe('ต้องไปพบคุณหมอ');
+      expect(mockSet).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to substantive noteContent when summarizeNote returns empty or clarification response', async () => {
+      const mockSet = vi.fn().mockResolvedValue(undefined);
+      const mockDoc = vi.fn().mockReturnValue({ set: mockSet });
+      vi.mocked(collections.pendingActionsRef).mockReturnValue({
+        doc: mockDoc,
+      } as unknown as ReturnType<typeof collections.pendingActionsRef>);
+
+      vi.mocked(extractor.extractNoteParams).mockResolvedValue({
+        content: 'ซื้อยาพารา 2 แผง',
+      });
+      // Gemini returned empty string or clarification
+      vi.mocked(gemini.summarizeNote).mockResolvedValue('');
+
+      const result = await handleSaveNote('จดว่าซื้อยาพารา 2 แผง', '', mockUser);
+
+      expect(result.success).toBe(true);
+      expect(result.flexMessage).toBeDefined();
+      expect(result.data?.summary).toBe('ซื้อยาพารา 2 แผง');
+      expect(mockSet).toHaveBeenCalledTimes(1);
     });
 
     it('returns clarification message and NO flexMessage when parameter extraction returns null', async () => {
