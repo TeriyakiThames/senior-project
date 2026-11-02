@@ -1,3 +1,10 @@
+## [1.32.6](https://github.com/TeriyakiThames/senior-project/compare/v1.32.5...v1.32.6) (2026-11-02)
+
+
+### Bug Fixes
+
+* make snooze and dismiss notification buttons idempotent ([#116](https://github.com/TeriyakiThames/senior-project/issues/116)) ([ecedd66](https://github.com/TeriyakiThames/senior-project/commit/ecedd6616921a6947a36d2ce5f0e6e8e6fc54a0a))
+
 ## [1.32.5](https://github.com/TeriyakiThames/senior-project/compare/v1.32.4...v1.32.5) (2026-11-02)
 
 
