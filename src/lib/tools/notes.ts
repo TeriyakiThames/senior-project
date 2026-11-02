@@ -61,8 +61,17 @@ export async function handleSaveNote(
     };
   }
 
-  // If the request was classified as ambiguous or is purely an imperative command without note content
-  if (options?.isAmbiguous || isPureNoteCommand(trimmedText)) {
+  // Pure imperative command without content (e.g. "ช่วยจดโน้ตหน่อย", "จดบันทึกให้หน่อย")
+  if (isPureNoteCommand(trimmedText)) {
+    return {
+      success: false,
+      message: NOTE_CLARIFICATION_MESSAGE,
+    };
+  }
+
+  // If the request was classified as ambiguous without an explicit note directive (e.g. "มีเรื่องจะเล่าให้ฟัง")
+  const hasExplicitNoteDirective = /(?:จด|บันทึก|โน้ต|note|memo)/i.test(trimmedText);
+  if (options?.isAmbiguous && !hasExplicitNoteDirective) {
     return {
       success: false,
       message: NOTE_CLARIFICATION_MESSAGE,
@@ -108,8 +117,18 @@ export async function handleSaveNote(
     }
   }
 
-  // If summary is empty or contains clarification responses, prompt is unclear
+  // If summary is empty or contains clarification responses, fall back to noteContent if valid
   if (!summary || !summary.trim() || isClarificationResponse(summary)) {
+    summary = noteContent;
+  }
+
+  // If even noteContent is empty, pure command, or a clarification response, prompt is unclear
+  if (
+    !summary ||
+    !summary.trim() ||
+    isPureNoteCommand(summary) ||
+    isClarificationResponse(summary)
+  ) {
     return {
       success: false,
       message: NOTE_CLARIFICATION_MESSAGE,
