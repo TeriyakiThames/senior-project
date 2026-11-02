@@ -5,6 +5,7 @@ import { buildAlarmNotification, buildReminderNotification } from '@/lib/line/fl
 import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
 import { isValidWebhookSecret } from '@/lib/scheduler/webhook-auth';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
+import { REMINDER_REPEAT_INTERVAL_MS } from '@/lib/tools/actions';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AlarmDoc, ReminderDoc } from '@/types/firestore';
 import { logError } from '@/lib/utils/errors';
@@ -110,7 +111,13 @@ async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?:
   // Push LINE notification card
   await lineClient.pushMessage({
     to: userId,
-    messages: [buildAlarmNotification(alarm.label || '⏰ ถึงเวลาแล้วค่ะ!', alarmId)],
+    messages: [
+      buildAlarmNotification(
+        alarm.label || '⏰ ถึงเวลาแล้วค่ะ!',
+        alarmId,
+        idempotencyKey || undefined,
+      ),
+    ],
   });
 
   // For one-off, deactivate and record notification key
@@ -193,15 +200,28 @@ async function handleReminderFire(
   // Push LINE notification card
   await lineClient.pushMessage({
     to: userId,
-    messages: [buildReminderNotification(reminder.message, reminderId)],
+    messages: [
+      buildReminderNotification(reminder.message, reminderId, idempotencyKey || undefined),
+    ],
   });
 
-  // For one-off, deactivate and record notification key
+  // For one-off, repeat message every 5 minutes until user snoozes or dismisses
   if (reminder.recurrence === 'once') {
+    const nextRepeatAt = new Date(Date.now() + REMINDER_REPEAT_INTERVAL_MS);
+    const taskName = await scheduleNotification({
+      userId,
+      itemId: reminderId,
+      itemType: 'reminder',
+      fireAt: nextRepeatAt,
+    });
+
     const updateData: Record<string, unknown> = {
       status: 'fired',
-      enabled: false,
-      cloudTaskName: null,
+      enabled: true,
+      cloudTaskName: taskName,
+      nextFireAt: Timestamp.fromDate(nextRepeatAt),
+      lastHandledNotificationId: null,
+      lastHandledAction: null,
     };
     if (idempotencyKey) {
       updateData.lastNotificationId = idempotencyKey;
@@ -210,6 +230,8 @@ async function handleReminderFire(
   } else if (idempotencyKey) {
     await ref.update({
       lastNotificationId: idempotencyKey,
+      lastHandledNotificationId: null,
+      lastHandledAction: null,
     });
   }
 

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       let reminderDocs: { id: string; [key: string]: unknown }[];
       try {
         const snaps = await remindersRef(userId)
-          .where('status', 'in', ['pending', 'snoozed'])
+          .where('status', 'in', ['pending', 'snoozed', 'fired'])
           .orderBy('nextFireAt')
           .get();
         reminderDocs = snaps.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
             '[LIFF items] Missing composite index for reminders; falling back to in-memory sort',
           );
           const snaps = await remindersRef(userId)
-            .where('status', 'in', ['pending', 'snoozed'])
+            .where('status', 'in', ['pending', 'snoozed', 'fired'])
             .get();
           reminderDocs = snaps.docs
             .map((d) => ({ id: d.id, ...d.data() }))

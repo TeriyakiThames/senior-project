@@ -37,6 +37,8 @@ export interface AlarmDoc {
   nextFireAt: Timestamp;
   cloudTaskName?: string | null;
   lastNotificationId?: string | null;
+  lastHandledNotificationId?: string | null;
+  lastHandledAction?: 'snooze' | 'dismiss' | null;
   createdAt: Timestamp;
 }
 
@@ -50,6 +52,8 @@ export interface ReminderDoc {
   nextFireAt: Timestamp;
   cloudTaskName?: string | null;
   lastNotificationId?: string | null;
+  lastHandledNotificationId?: string | null;
+  lastHandledAction?: 'snooze' | 'dismiss' | null;
   status: 'pending' | 'fired' | 'snoozed' | 'done';
   createdAt: Timestamp;
 }

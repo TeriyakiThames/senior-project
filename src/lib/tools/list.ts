@@ -85,7 +85,7 @@ export async function handleListItems(
 
   if (itemType === 'reminder' || itemType === 'all') {
     const snap = await remindersRef(uid)
-      .where('status', 'in', ['pending', 'snoozed'])
+      .where('status', 'in', ['pending', 'snoozed', 'fired'])
       .limit(5)
       .get();
     if (!snap.empty) {

@@ -220,7 +220,18 @@ export function buildReminderConfirmation(
 /**
  * Builds an interactive Flex Message bubble for alarm notification with snooze (+5m) and dismiss buttons.
  */
-export function buildAlarmNotification(label: string, alarmId: string): messagingApi.FlexMessage {
+export function buildAlarmNotification(
+  label: string,
+  alarmId: string,
+  notificationId?: string,
+): messagingApi.FlexMessage {
+  const snoozeData = notificationId
+    ? `action=snooze_alarm&id=${alarmId}&nid=${notificationId}`
+    : `action=snooze_alarm&id=${alarmId}`;
+  const dismissData = notificationId
+    ? `action=dismiss_alarm&id=${alarmId}&nid=${notificationId}`
+    : `action=dismiss_alarm&id=${alarmId}`;
+
   const bubble: messagingApi.FlexBubble = {
     type: 'bubble',
     size: 'kilo',
@@ -258,9 +269,10 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
           style: 'secondary',
           height: 'md',
           action: {
-            type: 'message',
+            type: 'postback',
             label: '⏸ เลื่อน 5 นาที',
-            text: `snooze_alarm:${alarmId}`,
+            data: snoozeData,
+            displayText: 'เลื่อน 5 นาที',
           },
         },
         {
@@ -269,9 +281,10 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
           color: '#06C755',
           height: 'md',
           action: {
-            type: 'message',
+            type: 'postback',
             label: '✓ ปิดการปลุก',
-            text: `dismiss_alarm:${alarmId}`,
+            data: dismissData,
+            displayText: 'ปิดการปลุก',
           },
         },
       ],
@@ -291,7 +304,15 @@ export function buildAlarmNotification(label: string, alarmId: string): messagin
 export function buildReminderNotification(
   message: string,
   reminderId: string,
+  notificationId?: string,
 ): messagingApi.FlexMessage {
+  const snoozeData = notificationId
+    ? `action=snooze_reminder&id=${reminderId}&nid=${notificationId}`
+    : `action=snooze_reminder&id=${reminderId}`;
+  const dismissData = notificationId
+    ? `action=dismiss_reminder&id=${reminderId}&nid=${notificationId}`
+    : `action=dismiss_reminder&id=${reminderId}`;
+
   const bubble: messagingApi.FlexBubble = {
     type: 'bubble',
     size: 'kilo',
@@ -329,9 +350,10 @@ export function buildReminderNotification(
           style: 'secondary',
           height: 'md',
           action: {
-            type: 'message',
+            type: 'postback',
             label: '⏸ เลื่อน 15 นาที',
-            text: `snooze_reminder:${reminderId}`,
+            data: snoozeData,
+            displayText: 'เลื่อน 15 นาที',
           },
         },
         {
@@ -340,9 +362,10 @@ export function buildReminderNotification(
           color: '#06C755',
           height: 'md',
           action: {
-            type: 'message',
+            type: 'postback',
             label: '✓ เรียบร้อย',
-            text: `dismiss_reminder:${reminderId}`,
+            data: dismissData,
+            displayText: 'เรียบร้อย',
           },
         },
       ],

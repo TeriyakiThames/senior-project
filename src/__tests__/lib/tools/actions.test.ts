@@ -6,6 +6,7 @@ import {
   SNOOZE_CLARIFY_MESSAGE,
   DISMISS_NOT_FOUND_MESSAGE,
   DISMISS_CLARIFY_MESSAGE,
+  ACTION_ALREADY_HANDLED_MESSAGE,
 } from '@/lib/tools/actions';
 import { executeTool } from '@/lib/tools/index';
 import { buildAlarmNotification, buildReminderNotification } from '@/lib/line/flex-messages';
@@ -261,6 +262,309 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
     });
   });
 
+  describe('Idempotent notification card button interactions', () => {
+    it('disables buttons after snoozing a reminder: repeated snooze tells user it does nothing', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'snoozed',
+        enabled: true,
+        lastHandledNotificationId: 'nid-test-123',
+        lastHandledAction: 'snooze',
+        cloudTaskName: 'active-task',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      const result = await handleSnooze('snooze_reminder:rem-123', mockUser, {
+        notificationId: 'nid-test-123',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(ACTION_ALREADY_HANDLED_MESSAGE);
+      expect(updateMock).not.toHaveBeenCalled();
+      expect(tasks.scheduleNotification).not.toHaveBeenCalled();
+    });
+
+    it('disables buttons after snoozing a reminder: pressing dismiss tells user it does nothing', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'snoozed',
+        enabled: true,
+        lastHandledNotificationId: 'nid-test-123',
+        lastHandledAction: 'snooze',
+        cloudTaskName: 'active-task',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      const result = await handleDismiss('dismiss_reminder:rem-123', mockUser, {
+        notificationId: 'nid-test-123',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(ACTION_ALREADY_HANDLED_MESSAGE);
+      expect(updateMock).not.toHaveBeenCalled();
+      expect(tasks.cancelScheduledTask).not.toHaveBeenCalled();
+    });
+
+    it('disables buttons after dismissing a reminder: repeated dismiss or snooze tells user it does nothing', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'done',
+        enabled: false,
+        lastHandledNotificationId: 'nid-test-123',
+        lastHandledAction: 'dismiss',
+        cloudTaskName: null,
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      const dismissRes = await handleDismiss('dismiss_reminder:rem-123', mockUser, {
+        notificationId: 'nid-test-123',
+      });
+      expect(dismissRes.success).toBe(false);
+      expect(dismissRes.message).toBe(ACTION_ALREADY_HANDLED_MESSAGE);
+
+      const snoozeRes = await handleSnooze('snooze_reminder:rem-123', mockUser, {
+        notificationId: 'nid-test-123',
+      });
+      expect(snoozeRes.success).toBe(false);
+      expect(snoozeRes.message).toBe(ACTION_ALREADY_HANDLED_MESSAGE);
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('disables buttons after snoozing or dismissing an alarm', async () => {
+      const mockAlarmDoc = {
+        label: 'ตื่นนอน',
+        enabled: true,
+        lastHandledNotificationId: 'nid-alarm-456',
+        lastHandledAction: 'snooze',
+        cloudTaskName: 'alarm-active-task',
+        recurrence: 'once',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockAlarmDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      const result = await handleSnooze('snooze_alarm:alm-456', mockUser, {
+        notificationId: 'nid-alarm-456',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(ACTION_ALREADY_HANDLED_MESSAGE);
+      expect(updateMock).not.toHaveBeenCalled();
+    });
+
+    it('allows snoozing an actively repeating reminder (status: fired) and cancels repeat task', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-1',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-1',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue('new-snooze-task');
+
+      const result = await handleSnooze('snooze_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-1');
+      expect(tasks.scheduleNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: mockUser.lineUserId,
+          itemId: 'rem-repeat-1',
+          itemType: 'reminder',
+          fireAt: new Date(fixedNow.getTime() + 15 * 60 * 1000),
+        }),
+      );
+      expect(updateMock).toHaveBeenCalledWith({
+        cloudTaskName: 'new-snooze-task',
+        nextFireAt: expect.any(Object),
+        status: 'snoozed',
+        enabled: true,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'snooze',
+      });
+    });
+
+    it('allows dismissing an actively repeating reminder (status: fired) and cancels repeat task', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-1',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-1',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+
+      const result = await handleDismiss('dismiss_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('ปิดการเตือนแล้วค่ะ ✓');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-1');
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'dismiss',
+      });
+    });
+
+    it('allows dismissing from an earlier notification card when a reminder has auto-repeated', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-2',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-2',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+
+      // User clicks Dismiss on the 10:00 card (nid-repeat-1) even though nid-repeat-2 was sent at 10:05
+      const result = await handleDismiss('dismiss_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('ปิดการเตือนแล้วค่ะ ✓');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-2');
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'dismiss',
+      });
+    });
+
+    it('allows snoozing from an earlier notification card when a reminder has auto-repeated', async () => {
+      const mockReminderDoc = {
+        message: 'กินยาลดความดัน',
+        status: 'fired',
+        enabled: true,
+        cloudTaskName: 'repeat-task-2',
+        recurrence: 'once',
+        lastNotificationId: 'nid-repeat-2',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            data: () => mockReminderDoc,
+          }),
+          update: updateMock,
+        }),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue('snooze-task-after-card1');
+
+      // User clicks Snooze on the 10:00 card (nid-repeat-1) even though nid-repeat-2 was sent at 10:05
+      const result = await handleSnooze('snooze_reminder:rem-repeat-1', mockUser, {
+        now: fixedNow,
+        notificationId: 'nid-repeat-1',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('เลื่อนการเตือนไปอีก 15 นาทีค่ะ 📋');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('repeat-task-2');
+      expect(updateMock).toHaveBeenCalledWith({
+        cloudTaskName: 'snooze-task-after-card1',
+        nextFireAt: expect.any(Object),
+        status: 'snoozed',
+        enabled: true,
+        lastHandledNotificationId: 'nid-repeat-1',
+        lastHandledAction: 'snooze',
+      });
+    });
+  });
+
   describe('Voice / Text fallback within 30-minute window', () => {
     it('resolves single recently fired alarm when user says "เลื่อน"', async () => {
       const recentFireTime = new Date(fixedNow.getTime() - 10 * 60 * 1000); // 10 minutes ago
@@ -467,8 +771,12 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
 
       const bubble = flex.contents as any;
       expect(bubble.footer.contents).toHaveLength(2);
-      expect(bubble.footer.contents[0].action.text).toBe('snooze_alarm:alarm-test-id');
-      expect(bubble.footer.contents[1].action.text).toBe('dismiss_alarm:alarm-test-id');
+      expect(bubble.footer.contents[0].action.type).toBe('postback');
+      expect(bubble.footer.contents[0].action.data).toBe('action=snooze_alarm&id=alarm-test-id');
+      expect(bubble.footer.contents[0].action.displayText).toBe('เลื่อน 5 นาที');
+      expect(bubble.footer.contents[1].action.type).toBe('postback');
+      expect(bubble.footer.contents[1].action.data).toBe('action=dismiss_alarm&id=alarm-test-id');
+      expect(bubble.footer.contents[1].action.displayText).toBe('ปิดการปลุก');
     });
 
     it('builds reminder notification Flex message with snooze and dismiss actions', () => {
@@ -479,8 +787,12 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
 
       const bubble = flex.contents as any;
       expect(bubble.footer.contents).toHaveLength(2);
-      expect(bubble.footer.contents[0].action.text).toBe('snooze_reminder:rem-test-id');
-      expect(bubble.footer.contents[1].action.text).toBe('dismiss_reminder:rem-test-id');
+      expect(bubble.footer.contents[0].action.type).toBe('postback');
+      expect(bubble.footer.contents[0].action.data).toBe('action=snooze_reminder&id=rem-test-id');
+      expect(bubble.footer.contents[0].action.displayText).toBe('เลื่อน 15 นาที');
+      expect(bubble.footer.contents[1].action.type).toBe('postback');
+      expect(bubble.footer.contents[1].action.data).toBe('action=dismiss_reminder&id=rem-test-id');
+      expect(bubble.footer.contents[1].action.displayText).toBe('เรียบร้อย');
     });
   });
 });
