@@ -3,6 +3,7 @@ import {
   buildNoteConfirmation,
   buildReminderConfirmation,
   buildAlarmNotification,
+  buildTimerNotification,
   buildReminderNotification,
 } from '@/lib/line/flex-messages';
 import type { messagingApi } from '@line/bot-sdk';
@@ -211,6 +212,47 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
         `action=dismiss_alarm&id=${alarmId}`,
       );
       expect((dismissButton.action as messagingApi.PostbackAction).displayText).toBe('ปิดการปลุก');
+    });
+  });
+
+  describe('buildTimerNotification', () => {
+    it('generates a valid Timer notification Flex message with 15m snooze and dismiss buttons', () => {
+      const timerLabel = 'ต้มไข่';
+      const timerId = 'timer-test-123';
+      const flex = buildTimerNotification(timerLabel, timerId, 'nid-1');
+
+      expect(flex.type).toBe('flex');
+      expect(flex.altText).toBe(`⏱️ ตัวจับเวลา: ${timerLabel}`);
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      expect(bubble.type).toBe('bubble');
+      expect(bubble.size).toBe('kilo');
+
+      // Header check
+      const headerBox = bubble.header as messagingApi.FlexBox;
+      expect(headerBox.backgroundColor).toBe('#FBEFD8');
+      const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerIcon.text).toBe('⏱️');
+
+      // Body check
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const labelText = bodyBox.contents[0] as messagingApi.FlexText;
+      expect(labelText.text).toBe(timerLabel);
+      expect(labelText.size).toBe('xl');
+
+      // Footer check
+      const footerBox = bubble.footer as messagingApi.FlexBox;
+      const snoozeButton = footerBox.contents[0] as messagingApi.FlexButton;
+      expect((snoozeButton.action as messagingApi.PostbackAction).label).toBe('⏸ เลื่อน 15 นาที');
+      expect((snoozeButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=snooze_timer&id=${timerId}&nid=nid-1`,
+      );
+
+      const dismissButton = footerBox.contents[1] as messagingApi.FlexButton;
+      expect((dismissButton.action as messagingApi.PostbackAction).label).toBe('✓ ปิดตัวจับเวลา');
+      expect((dismissButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=dismiss_timer&id=${timerId}&nid=nid-1`,
+      );
     });
   });
 

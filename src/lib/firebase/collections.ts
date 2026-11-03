@@ -9,6 +9,7 @@ export const userRef = (lineUserId: string) => usersRef().doc(lineUserId);
 // Subcollections
 export const messagesRef = (uid: string) => userRef(uid).collection('messages');
 export const alarmsRef = (uid: string) => userRef(uid).collection('alarms');
+export const timersRef = (uid: string) => alarmsRef(uid);
 export const remindersRef = (uid: string) => userRef(uid).collection('reminders');
 export const notesRef = (uid: string) => userRef(uid).collection('notes');
 export const pendingActionsRef = (uid: string) => userRef(uid).collection('pendingActions');

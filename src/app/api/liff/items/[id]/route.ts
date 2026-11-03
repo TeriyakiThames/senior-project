@@ -4,7 +4,7 @@ import { cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
 import { deleteMockItem } from '@/lib/liff/mock-items';
 
-const VALID_TYPES = ['alarm', 'reminder', 'note'] as const;
+const VALID_TYPES = ['alarm', 'timer', 'reminder', 'note'] as const;
 type ItemType = (typeof VALID_TYPES)[number];
 
 export async function DELETE(
@@ -29,7 +29,7 @@ export async function DELETE(
 
   if (!type || !VALID_TYPES.includes(type)) {
     return NextResponse.json(
-      { error: 'Invalid or missing type parameter. Expected alarm, reminder, or note.' },
+      { error: 'Invalid or missing type parameter. Expected alarm, timer, reminder, or note.' },
       { status: 400 },
     );
   }
@@ -39,7 +39,7 @@ export async function DELETE(
     process.env.NODE_ENV !== 'production' &&
     (userId === 'mock-user-123' || userId.startsWith('mock-'))
   ) {
-    const deleted = deleteMockItem(id, type);
+    const deleted = deleteMockItem(id, type === 'timer' ? 'alarm' : type);
     if (!deleted) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
@@ -48,7 +48,7 @@ export async function DELETE(
 
   try {
     const collectionRef =
-      type === 'alarm'
+      type === 'alarm' || type === 'timer'
         ? alarmsRef(userId)
         : type === 'reminder'
           ? remindersRef(userId)

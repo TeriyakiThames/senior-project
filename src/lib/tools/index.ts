@@ -1,6 +1,7 @@
 import type { IntentClassification } from '@/types/jev';
 import type { UserDoc, PendingActionDoc } from '@/types/firestore';
 import { pendingActionsRef } from '@/lib/firebase/collections';
+import { handleSetTimer, type HandleSetTimerOptions } from './timer';
 import { handleSetAlarm, type HandleSetAlarmOptions } from './alarm';
 import {
   handleSetReminder,
@@ -33,6 +34,7 @@ export interface ExecuteToolOptions {
   geminiResponse?: string;
   user: UserDoc;
   now?: Date;
+  timerOptions?: HandleSetTimerOptions;
   alarmOptions?: HandleSetAlarmOptions;
   reminderOptions?: HandleSetReminderOptions;
   noteOptions?: HandleSaveNoteOptions;
@@ -65,9 +67,16 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
     deleteOptions,
     snoozeOptions,
     dismissOptions,
+    timerOptions,
   } = options;
 
   switch (intent.intent) {
+    case 'set_timer':
+      return handleSetTimer(userText, geminiResponse, user, {
+        now,
+        ...timerOptions,
+      });
+
     case 'set_alarm':
       return handleSetAlarm(userText, geminiResponse, user, {
         now,
@@ -151,6 +160,7 @@ export async function executeTool(options: ExecuteToolOptions): Promise<ToolResu
   }
 }
 
+export * from './timer';
 export * from './alarm';
 export * from './reminder';
 export * from './notes';

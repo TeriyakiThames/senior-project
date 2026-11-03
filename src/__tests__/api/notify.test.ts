@@ -236,6 +236,67 @@ describe('POST /api/notify (SCHED-08)', () => {
       });
     });
 
+    it('pushes timer notification card and sets repeating 5-minute task until dismissed', async () => {
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            durationMinutes: 15,
+            label: 'ต้มไข่',
+          }),
+        }),
+        update: mockUpdate,
+      };
+      vi.mocked(alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof alarmsRef>);
+      vi.mocked(scheduleNotification).mockResolvedValue('tasks/queue/task-timer-repeat');
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'timer-1', itemType: 'timer' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({ status: 'ok' });
+
+      expect(lineClient.pushMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'user-1',
+          messages: [
+            expect.objectContaining({
+              type: 'flex',
+              altText: expect.stringContaining('ต้มไข่'),
+            }),
+          ],
+        }),
+      );
+
+      expect(scheduleNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          itemId: 'timer-1',
+          itemType: 'timer',
+        }),
+      );
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'fired',
+          enabled: true,
+          cloudTaskName: 'tasks/queue/task-timer-repeat',
+        }),
+      );
+    });
+
     it('pushes notification card and reschedules recurring alarm', async () => {
       const mockUpdate = vi.fn().mockResolvedValue(undefined);
       const mockDoc = {

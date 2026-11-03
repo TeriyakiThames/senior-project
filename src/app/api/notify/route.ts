@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { lineClient } from '@/lib/line/client';
 import { alarmsRef, remindersRef } from '@/lib/firebase/collections';
-import { buildAlarmNotification, buildReminderNotification } from '@/lib/line/flex-messages';
+import {
+  buildAlarmNotification,
+  buildTimerNotification,
+  buildReminderNotification,
+} from '@/lib/line/flex-messages';
 import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
 import { isValidWebhookSecret } from '@/lib/scheduler/webhook-auth';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
-import { REMINDER_REPEAT_INTERVAL_MS } from '@/lib/tools/actions';
+import { REMINDER_REPEAT_INTERVAL_MS, TIMER_REPEAT_INTERVAL_MS } from '@/lib/tools/actions';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AlarmDoc, ReminderDoc } from '@/types/firestore';
 import { logError } from '@/lib/utils/errors';
@@ -36,7 +40,11 @@ export async function POST(request: NextRequest) {
 
   const { userId, itemId, itemType } = body;
 
-  if (!userId || !itemId || (itemType !== 'alarm' && itemType !== 'reminder')) {
+  if (
+    !userId ||
+    !itemId ||
+    (itemType !== 'alarm' && itemType !== 'reminder' && itemType !== 'timer')
+  ) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
@@ -47,7 +55,10 @@ export async function POST(request: NextRequest) {
     null;
 
   try {
-    if (itemType === 'alarm') {
+    if (itemType === 'timer') {
+      const result = await handleTimerFire(userId, itemId, idempotencyKey);
+      return NextResponse.json(result, { status: 200 });
+    } else if (itemType === 'alarm') {
       const result = await handleAlarmFire(userId, itemId, idempotencyKey);
       return NextResponse.json(result, { status: 200 });
     } else {
@@ -60,6 +71,57 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function handleTimerFire(userId: string, timerId: string, idempotencyKey?: string | null) {
+  const ref = alarmsRef(userId).doc(timerId);
+  const snap = await ref.get();
+
+  if (!snap.exists) {
+    return { status: 'skipped', reason: 'not_found' };
+  }
+
+  const timer = snap.data() as AlarmDoc;
+  if (!timer.enabled || timer.status === 'done') {
+    return { status: 'skipped', reason: 'disabled' };
+  }
+
+  // Idempotency check: if this specific execution already pushed notification, skip sending duplicate push
+  if (idempotencyKey && timer.lastNotificationId === idempotencyKey) {
+    return { status: 'skipped', reason: 'already_notified' };
+  }
+
+  // Push LINE notification card
+  const label = timer.label ? `⏱️ ถึงเวลา "${timer.label}" แล้วค่ะ!` : '⏱️ ครบกำหนดเวลาแล้วค่ะ!';
+
+  await lineClient.pushMessage({
+    to: userId,
+    messages: [buildTimerNotification(label, timerId, idempotencyKey || undefined)],
+  });
+
+  // For timer, repeat message every 5 minutes until user snoozes or dismisses
+  const nextRepeatAt = new Date(Date.now() + TIMER_REPEAT_INTERVAL_MS);
+  const taskName = await scheduleNotification({
+    userId,
+    itemId: timerId,
+    itemType: 'timer',
+    fireAt: nextRepeatAt,
+  });
+
+  const updateData: Record<string, unknown> = {
+    status: 'fired',
+    enabled: true,
+    cloudTaskName: taskName,
+    nextFireAt: Timestamp.fromDate(nextRepeatAt),
+    lastHandledNotificationId: null,
+    lastHandledAction: null,
+  };
+  if (idempotencyKey) {
+    updateData.lastNotificationId = idempotencyKey;
+  }
+  await ref.update(updateData);
+
+  return { status: 'ok' };
+}
+
 async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?: string | null) {
   const ref = alarmsRef(userId).doc(alarmId);
   const snap = await ref.get();
@@ -69,6 +131,9 @@ async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?:
   }
 
   const alarm = snap.data() as AlarmDoc;
+  if (alarm.durationMinutes !== undefined) {
+    return handleTimerFire(userId, alarmId, idempotencyKey);
+  }
   if (!alarm.enabled) {
     return { status: 'skipped', reason: 'disabled' };
   }
@@ -79,7 +144,7 @@ async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?:
   }
 
   // Evaluate recurrence and save the next schedule BEFORE sending the push
-  if (alarm.recurrence !== 'once') {
+  if (alarm.recurrence && alarm.recurrence !== 'once') {
     const nextFire = calculateNextOccurrence({
       recurrence: alarm.recurrence,
       time: alarm.time,

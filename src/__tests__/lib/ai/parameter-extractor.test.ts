@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { TypeSafeClient } from '@typesafe-ai/sdk';
 import {
   extractAlarmParams,
+  extractTimerParams,
   extractReminderParams,
   extractNoteParams,
   classifyItemType,
@@ -84,6 +85,60 @@ describe('Structured Parameter Extractor (AI-04)', () => {
 
       await expect(extractAlarmParams('ปลุก 7 โมง', { client: mockClient })).rejects.toThrow(
         'Gemini API rate limit exceeded',
+      );
+    });
+  });
+
+  describe('extractTimerParams', () => {
+    it('parses duration in minutes and hours into structured TimerParams', async () => {
+      const mockCreate = vi.fn().mockResolvedValue({
+        output_text: JSON.stringify({
+          hours: 1,
+          minutes: 30,
+          totalMinutes: 90,
+          label: 'อบขนม',
+        }),
+      });
+      const mockClient = { interactions: { create: mockCreate } } as unknown as GoogleGenAI;
+
+      const result = await extractTimerParams('ตั้งเวลาอบขนม 1 ชั่วโมง 30 นาที', {
+        client: mockClient,
+      });
+
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        hours: 1,
+        minutes: 30,
+        totalMinutes: 90,
+        label: 'อบขนม',
+      });
+    });
+
+    it('returns null gracefully when duration is invalid or missing', async () => {
+      const mockCreate = vi.fn().mockResolvedValue({
+        output_text: 'null',
+      });
+      const mockClient = { interactions: { create: mockCreate } } as unknown as GoogleGenAI;
+
+      const result = await extractTimerParams('สวัสดีตอนเช้า', { client: mockClient });
+      expect(result).toBeNull();
+    });
+
+    it('returns null immediately for empty or whitespace text without API call', async () => {
+      const mockCreate = vi.fn();
+      const mockClient = { interactions: { create: mockCreate } } as unknown as GoogleGenAI;
+
+      expect(await extractTimerParams('', { client: mockClient })).toBeNull();
+      expect(await extractTimerParams('   ', { client: mockClient })).toBeNull();
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it('propagates error when Gemini API call throws', async () => {
+      const mockCreate = vi.fn().mockRejectedValue(new Error('Gemini API quota exceeded'));
+      const mockClient = { interactions: { create: mockCreate } } as unknown as GoogleGenAI;
+
+      await expect(extractTimerParams('จับเวลา 5 นาที', { client: mockClient })).rejects.toThrow(
+        'Gemini API quota exceeded',
       );
     });
   });

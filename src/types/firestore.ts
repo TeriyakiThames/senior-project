@@ -28,9 +28,12 @@ export interface MessageDoc {
 export type Recurrence = 'once' | 'daily' | 'weekly' | 'monthly';
 
 export interface AlarmDoc {
-  time: string; // "HH:mm" 24h format
+  time?: string; // "HH:mm" 24h format (optional for timers)
+  durationMinutes?: number; // total duration in minutes
+  hours?: number;
+  minutes?: number;
   label?: string;
-  recurrence: Recurrence;
+  recurrence?: Recurrence;
   daysOfWeek?: number[]; // 0=Sun, 1=Mon, ..., 6=Sat
   dayOfMonth?: number; // 1-31
   enabled: boolean;
@@ -39,8 +42,11 @@ export interface AlarmDoc {
   lastNotificationId?: string | null;
   lastHandledNotificationId?: string | null;
   lastHandledAction?: 'snooze' | 'dismiss' | null;
+  status?: 'pending' | 'fired' | 'snoozed' | 'done';
   createdAt: Timestamp;
 }
+
+export type TimerDoc = AlarmDoc;
 
 export interface ReminderDoc {
   message: string;

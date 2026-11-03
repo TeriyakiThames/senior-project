@@ -9,6 +9,7 @@ import type { AlarmDoc, ReminderDoc, NoteDoc, UserDoc } from '@/types/firestore'
 import type { ToolResult } from './index';
 
 export const DELETE_NOT_FOUND_ALARM_MESSAGE = 'ไม่พบนาฬิกาปลุกที่จะลบค่ะ คุณตาคุณยาย';
+export const DELETE_NOT_FOUND_TIMER_MESSAGE = 'ไม่พบตัวจับเวลาที่จะลบค่ะ คุณตาคุณยาย';
 export const DELETE_NOT_FOUND_REMINDER_MESSAGE = 'ไม่พบการเตือนที่จะลบค่ะ คุณตาคุณยาย';
 export const DELETE_NOT_FOUND_NOTE_MESSAGE = 'ไม่พบบันทึกที่จะลบค่ะ คุณตาคุณยาย';
 export const DELETE_AMBIGUOUS_FALLBACK_MESSAGE =
@@ -41,7 +42,7 @@ export async function handleDeleteItem(
   const cancelTask = options?.cancelTaskFn ?? cancelScheduledTask;
   const normalizedUserText = userText.toLowerCase().trim();
 
-  if (itemType === 'alarm') {
+  if (itemType === 'alarm' || itemType === 'timer') {
     let snapDocs: FirebaseFirestore.QueryDocumentSnapshot[];
     try {
       const snap = await alarmsRef(uid)
@@ -73,18 +74,22 @@ export async function handleDeleteItem(
     if (snapDocs.length === 0) {
       return {
         success: false,
-        message: DELETE_NOT_FOUND_ALARM_MESSAGE,
+        message:
+          itemType === 'timer' ? DELETE_NOT_FOUND_TIMER_MESSAGE : DELETE_NOT_FOUND_ALARM_MESSAGE,
       };
     }
 
-    // Try finding an alarm matching time or label mentioned in user text
+    // Try finding an alarm/timer matching time, duration, or label mentioned in user text
     let targetDoc = snapDocs[0];
     for (const doc of snapDocs) {
       const d = doc.data() as AlarmDoc;
-      const timeClean = d.time.replace(/^0/, ''); // "07:00" -> "7:00"
+      const timeClean = d.time ? d.time.replace(/^0/, '') : '';
+      const durationStr = d.durationMinutes ? `${d.durationMinutes}` : '';
       if (
-        normalizedUserText.includes(d.time) ||
-        normalizedUserText.includes(timeClean) ||
+        (d.time &&
+          (normalizedUserText.includes(d.time) ||
+            (timeClean && normalizedUserText.includes(timeClean)))) ||
+        (durationStr && normalizedUserText.includes(durationStr)) ||
         (d.label && normalizedUserText.includes(d.label.toLowerCase()))
       ) {
         targetDoc = doc;
@@ -97,20 +102,26 @@ export async function handleDeleteItem(
       try {
         await cancelTask(data.cloudTaskName);
       } catch (err) {
-        console.error('[DeleteItem] Error cancelling alarm cloud task:', err);
+        console.error('[DeleteItem] Error cancelling alarm/timer cloud task:', err);
       }
     }
 
     await targetDoc.ref.update({ enabled: false });
 
     const labelPart = data.label ? ` (${data.label})` : '';
+    const isTimer = itemType === 'timer' || data.durationMinutes !== undefined;
+    const prefix = isTimer ? 'ตัวจับเวลา' : 'นาฬิกาปลุก';
+    const emoji = isTimer ? '⏱️' : '⏰';
+    const itemLabel = data.durationMinutes ? `${data.durationMinutes} นาที` : (data.time ?? '');
+
     return {
       success: true,
-      message: `ลบนาฬิกาปลุก ${data.time}${labelPart} เรียบร้อยแล้วค่ะ ⏰`,
+      message: `ลบ${prefix} ${itemLabel}${labelPart} เรียบร้อยแล้วค่ะ ${emoji}`,
       data: {
         id: targetDoc.id,
-        itemType: 'alarm',
+        itemType: isTimer ? 'timer' : 'alarm',
         time: data.time,
+        durationMinutes: data.durationMinutes,
       },
     };
   }

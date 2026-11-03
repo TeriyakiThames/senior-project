@@ -3,7 +3,7 @@ import { CloudTasksClient } from '@google-cloud/tasks';
 export interface ScheduleNotificationOptions {
   userId: string;
   itemId: string;
-  itemType: 'alarm' | 'reminder';
+  itemType: 'alarm' | 'reminder' | 'timer';
   fireAt: Date;
   payload?: Record<string, unknown>;
   client?: CloudTasksClient;
@@ -21,7 +21,7 @@ export interface CancelScheduledTaskOptions {
 
 export interface ScheduleTaskConfig {
   userId: string;
-  itemType: 'alarm' | 'reminder';
+  itemType: 'alarm' | 'reminder' | 'timer';
   fireAt: Date;
   payload?: Record<string, unknown>;
 }
