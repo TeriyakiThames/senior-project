@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/TeriyakiThames/senior-project/compare/v1.32.8...v1.33.0) (2026-11-03)
+
+
+### Features
+
+* change alarm to timer ([#118](https://github.com/TeriyakiThames/senior-project/issues/118)) ([fb106d3](https://github.com/TeriyakiThames/senior-project/commit/fb106d3183cc959b17308fd556309511ffc65dc3))
+
 ## [1.32.8](https://github.com/TeriyakiThames/senior-project/compare/v1.32.7...v1.32.8) (2026-11-02)
 
 ## [1.32.7](https://github.com/TeriyakiThames/senior-project/compare/v1.32.6...v1.32.7) (2026-11-02)
