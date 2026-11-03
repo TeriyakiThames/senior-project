@@ -96,6 +96,7 @@ export const COMPLEMENTARY_FEATURE_MAP: Partial<Record<IntentType, BotFeatureId[
   save_note: ['set_reminder', 'set_alarm'],
   set_reminder: ['save_note', 'set_alarm'],
   set_alarm: ['set_reminder', 'save_note'],
+  set_timer: ['set_reminder', 'save_note'],
   list_items: ['delete_item', 'set_reminder'],
   delete_item: ['list_items', 'set_reminder'],
 };

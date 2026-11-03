@@ -14,6 +14,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export const INTENT_CRITERIA: Record<IntentType, string> = {
+  set_timer:
+    'User wants to set or start a timer, countdown, or duration-based alarm (e.g. จับเวลา 15 นาที, ตั้งเวลา 1 ชั่วโมง, ปลุกอีก 30 นาที).',
   set_alarm:
     'User wants to set or create a new alarm or wake-up call (e.g. ตั้งปลุก, ปลุกตอนเช้า).',
   set_reminder:

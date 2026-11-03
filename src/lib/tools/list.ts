@@ -9,6 +9,7 @@ import type { ToolResult } from './index';
 
 export const LIST_EMPTY_ALL_MESSAGE = 'ตอนนี้ยังไม่มีรายการใดๆ เลยค่ะ คุณตาคุณยาย';
 export const LIST_EMPTY_ALARMS_MESSAGE = 'ตอนนี้ยังไม่มีนาฬิกาปลุกที่ตั้งไว้ค่ะ คุณตาคุณยาย';
+export const LIST_EMPTY_TIMERS_MESSAGE = 'ตอนนี้ยังไม่มีตัวจับเวลาที่ตั้งไว้ค่ะ คุณตาคุณยาย';
 export const LIST_EMPTY_REMINDERS_MESSAGE = 'ตอนนี้ยังไม่มีการเตือนที่ตั้งไว้ค่ะ คุณตาคุณยาย';
 export const LIST_EMPTY_NOTES_MESSAGE = 'ตอนนี้ยังไม่มีบันทึกข้อความค่ะ คุณตาคุณยาย';
 
@@ -63,18 +64,25 @@ export async function handleListItems(
   let hasReminderItems = false;
   let hasNoteItems = false;
 
-  if (itemType === 'alarm' || itemType === 'all') {
+  if (itemType === 'alarm' || itemType === 'timer' || itemType === 'all') {
     const snap = await alarmsRef(uid).where('enabled', '==', true).limit(5).get();
     if (!snap.empty) {
       hasAlarmItems = true;
-      const lines = ['⏰ นาฬิกาปลุก:'];
+      const title = itemType === 'timer' ? '⏱️ ตัวจับเวลา:' : '⏰ นาฬิกาปลุก:';
+      const lines = [title];
       snap.docs.forEach((doc, i) => {
         const d = doc.data() as AlarmDoc;
         const recLabel = formatRecurrence(d.recurrence);
         const labelPart = d.label ? ` — ${d.label}` : '';
-        lines.push(`  ${i + 1}. ${d.time}${labelPart}${recLabel}`);
+        const timeOrDuration = d.durationMinutes ? `${d.durationMinutes} นาที` : (d.time ?? '');
+        lines.push(`  ${i + 1}. ${timeOrDuration}${labelPart}${recLabel}`);
       });
       sections.push(lines.join('\n'));
+    } else if (itemType === 'timer') {
+      return {
+        success: true,
+        message: LIST_EMPTY_TIMERS_MESSAGE,
+      };
     } else if (itemType === 'alarm') {
       return {
         success: true,

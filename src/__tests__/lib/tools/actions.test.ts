@@ -142,6 +142,58 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
       });
     });
 
+    it('snoozes timer by +15 minutes, reschedules cloud task, and updates Firestore', async () => {
+      const mockTimerDoc = {
+        durationMinutes: 15,
+        enabled: true,
+        status: 'fired',
+        cloudTaskName: 'tasks/locations/asia-southeast1/queues/reminder-queue/tasks/old-timer-task',
+        nextFireAt: Timestamp.fromDate(new Date('2026-10-18T07:55:00.000Z')),
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      const docMock = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => mockTimerDoc,
+        }),
+        update: updateMock,
+      };
+
+      vi.mocked(collections.alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(docMock),
+      } as any);
+
+      vi.mocked(tasks.cancelScheduledTask).mockResolvedValue(undefined);
+      vi.mocked(tasks.scheduleNotification).mockResolvedValue(
+        'tasks/locations/asia-southeast1/queues/reminder-queue/tasks/new-snooze-timer-task',
+      );
+
+      const result = await handleSnooze('snooze_timer:timer-123', mockUser, {
+        now: fixedNow,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('เลื่อนเวลาไปอีก 15 นาทีค่ะ ⏱️');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith(mockTimerDoc.cloudTaskName);
+      expect(tasks.scheduleNotification).toHaveBeenCalledWith({
+        userId: mockUser.lineUserId,
+        itemId: 'timer-123',
+        itemType: 'timer',
+        fireAt: new Date(fixedNow.getTime() + 15 * 60 * 1000),
+      });
+
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cloudTaskName:
+            'tasks/locations/asia-southeast1/queues/reminder-queue/tasks/new-snooze-timer-task',
+          nextFireAt: Timestamp.fromDate(new Date(fixedNow.getTime() + 15 * 60 * 1000)),
+          status: 'snoozed',
+          enabled: true,
+        }),
+      );
+    });
+
     it('returns error when target doc does not exist', async () => {
       vi.mocked(collections.alarmsRef).mockReturnValue({
         doc: vi.fn().mockReturnValue({
@@ -223,6 +275,41 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
       expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('task-recurring-snooze');
       expect(updateMock).toHaveBeenCalledWith({
         cloudTaskName: null,
+      });
+    });
+
+    it('dismisses timer by disabling it, marking status done, and canceling task', async () => {
+      const mockTimer = {
+        durationMinutes: 15,
+        enabled: true,
+        status: 'fired',
+        cloudTaskName: 'task-timer-cancel',
+      };
+
+      const updateMock = vi.fn().mockResolvedValue(undefined);
+      const docMock = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => mockTimer,
+        }),
+        update: updateMock,
+      };
+
+      vi.mocked(collections.alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(docMock),
+      } as any);
+
+      const result = await handleDismiss('dismiss_timer:timer-1', mockUser, {
+        now: fixedNow,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('ปิดตัวจับเวลาแล้วค่ะ ✓');
+      expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('task-timer-cancel');
+      expect(updateMock).toHaveBeenCalledWith({
+        enabled: false,
+        cloudTaskName: null,
+        status: 'done',
       });
     });
 

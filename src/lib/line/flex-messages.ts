@@ -259,6 +259,87 @@ export function buildReminderConfirmation(
 }
 
 /**
+ * Builds an interactive Flex Message bubble for timer notification with snooze (+15m) and dismiss buttons.
+ */
+export function buildTimerNotification(
+  label: string,
+  timerId: string,
+  notificationId?: string,
+): messagingApi.FlexMessage {
+  const snoozeData = notificationId
+    ? `action=snooze_timer&id=${timerId}&nid=${notificationId}`
+    : `action=snooze_timer&id=${timerId}`;
+  const dismissData = notificationId
+    ? `action=dismiss_timer&id=${timerId}&nid=${notificationId}`
+    : `action=dismiss_timer&id=${timerId}`;
+
+  const bubble: messagingApi.FlexBubble = {
+    type: 'bubble',
+    size: 'kilo',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: 'lg',
+      backgroundColor: '#FBEFD8',
+      contents: [{ type: 'text', text: '⏱️', size: '3xl', align: 'center' }],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: 'lg',
+      contents: [
+        {
+          type: 'text',
+          text: label,
+          size: 'xl',
+          wrap: true,
+          align: 'center',
+          weight: 'bold',
+          color: '#21215C',
+        },
+      ],
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'md',
+      paddingAll: 'lg',
+      contents: [
+        {
+          type: 'button',
+          style: 'secondary',
+          height: 'md',
+          action: {
+            type: 'postback',
+            label: '⏸ เลื่อน 15 นาที',
+            data: snoozeData,
+            displayText: 'เลื่อน 15 นาที',
+          },
+        },
+        {
+          type: 'button',
+          style: 'primary',
+          color: '#06C755',
+          height: 'md',
+          action: {
+            type: 'postback',
+            label: '✓ ปิดตัวจับเวลา',
+            data: dismissData,
+            displayText: 'ปิดตัวจับเวลา',
+          },
+        },
+      ],
+    },
+  };
+
+  return {
+    type: 'flex',
+    altText: `⏱️ ตัวจับเวลา: ${label}`,
+    contents: bubble,
+  };
+}
+
+/**
  * Builds an interactive Flex Message bubble for alarm notification with snooze (+5m) and dismiss buttons.
  */
 export function buildAlarmNotification(

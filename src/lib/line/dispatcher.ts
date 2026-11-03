@@ -230,7 +230,7 @@ export async function handleTextMessage(
   }
 
   // 2. Deterministic short-circuits: Snooze / Dismiss
-  if (user && /^(snooze|dismiss)_(alarm|reminder):/.test(userText)) {
+  if (user && /^(snooze|dismiss)_(alarm|timer|reminder):/.test(userText)) {
     try {
       const toolRes = userText.startsWith('snooze_')
         ? await handleSnooze(userText, user)
@@ -532,20 +532,27 @@ export async function handlePostbackEvent(
   const nidParam = searchParams.get('nid');
 
   type SnoozeDismissType =
-    'snooze_alarm' | 'snooze_reminder' | 'dismiss_alarm' | 'dismiss_reminder';
+    | 'snooze_alarm'
+    | 'snooze_timer'
+    | 'snooze_reminder'
+    | 'dismiss_alarm'
+    | 'dismiss_timer'
+    | 'dismiss_reminder';
   let snoozeDismissAction: SnoozeDismissType | null = null;
   let targetId: string | null = null;
 
   if (
     actionParam === 'snooze_reminder' ||
     actionParam === 'dismiss_reminder' ||
+    actionParam === 'snooze_timer' ||
+    actionParam === 'dismiss_timer' ||
     actionParam === 'snooze_alarm' ||
     actionParam === 'dismiss_alarm'
   ) {
     snoozeDismissAction = actionParam;
     targetId = idParam;
   } else {
-    const match = data.match(/^(snooze|dismiss)_(alarm|reminder):(.+)$/);
+    const match = data.match(/^(snooze|dismiss)_(alarm|timer|reminder):(.+)$/);
     if (match) {
       snoozeDismissAction = `${match[1]}_${match[2]}` as SnoozeDismissType;
       targetId = match[3];
@@ -559,7 +566,12 @@ export async function handlePostbackEvent(
 
       const actionOpts = nidParam ? { notificationId: nidParam } : undefined;
 
-      if (snoozeDismissAction === 'snooze_alarm') {
+      if (snoozeDismissAction === 'snooze_timer') {
+        toolRes = actionOpts
+          ? await handleSnooze(`snooze_timer:${targetId}`, user, actionOpts)
+          : await handleSnooze(`snooze_timer:${targetId}`, user);
+        displayUserText = 'เลื่อน 15 นาที';
+      } else if (snoozeDismissAction === 'snooze_alarm') {
         toolRes = actionOpts
           ? await handleSnooze(`snooze_alarm:${targetId}`, user, actionOpts)
           : await handleSnooze(`snooze_alarm:${targetId}`, user);
@@ -569,6 +581,11 @@ export async function handlePostbackEvent(
           ? await handleSnooze(`snooze_reminder:${targetId}`, user, actionOpts)
           : await handleSnooze(`snooze_reminder:${targetId}`, user);
         displayUserText = 'เลื่อน 15 นาที';
+      } else if (snoozeDismissAction === 'dismiss_timer') {
+        toolRes = actionOpts
+          ? await handleDismiss(`dismiss_timer:${targetId}`, user, actionOpts)
+          : await handleDismiss(`dismiss_timer:${targetId}`, user);
+        displayUserText = 'ปิดตัวจับเวลา';
       } else if (snoozeDismissAction === 'dismiss_alarm') {
         toolRes = actionOpts
           ? await handleDismiss(`dismiss_alarm:${targetId}`, user, actionOpts)

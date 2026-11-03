@@ -1,4 +1,5 @@
 export type IntentType =
+  | 'set_timer'
   | 'set_alarm'
   | 'set_reminder'
   | 'save_note'
@@ -16,6 +17,13 @@ export interface IntentClassification {
   confidence: number;
   isAmbiguous: boolean;
   probabilities?: Record<string, number>;
+}
+
+export interface TimerParams {
+  hours?: number;
+  minutes?: number;
+  totalMinutes: number;
+  label?: string;
 }
 
 export interface AlarmParams {

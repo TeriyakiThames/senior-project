@@ -5,8 +5,10 @@ import type { AlarmDoc, ReminderDoc, UserDoc } from '@/types/firestore';
 import type { ToolResult } from './index';
 
 export const SNOOZE_ALARM_MS = 5 * 60 * 1000; // 5 minutes
+export const SNOOZE_TIMER_MS = 15 * 60 * 1000; // 15 minutes
 export const SNOOZE_REMINDER_MS = 15 * 60 * 1000; // 15 minutes
 export const REMINDER_REPEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+export const TIMER_REPEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 export const RECENT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 
 export const SNOOZE_NOT_FOUND_MESSAGE = 'ไม่พบการแจ้งเตือนที่จะเลื่อนค่ะ คุณตาคุณยาย';
@@ -27,7 +29,7 @@ export interface HandleActionOptions {
 
 interface ActionCandidate {
   id: string;
-  itemType: 'alarm' | 'reminder';
+  itemType: 'alarm' | 'reminder' | 'timer';
   fireTime: Date;
   data: AlarmDoc | ReminderDoc;
   docRef: FirebaseFirestore.DocumentReference;
@@ -45,9 +47,12 @@ async function findRecentCandidates(
   const candidates: ActionCandidate[] = [];
   const normalizedText = userText.toLowerCase();
 
-  const isAlarmExplicit =
+  const isAlarmOrTimerExplicit =
     (normalizedText.includes('ปลุก') ||
       normalizedText.includes('alarm') ||
+      normalizedText.includes('timer') ||
+      normalizedText.includes('จับเวลา') ||
+      normalizedText.includes('ตัวจับเวลา') ||
       normalizedText.includes('นาฬิกา')) &&
     !normalizedText.includes('เตือน');
   const isReminderExplicit =
@@ -55,17 +60,25 @@ async function findRecentCandidates(
     normalizedText.includes('กินยา') ||
     normalizedText.includes('reminder');
 
-  // Check Alarms
+  // Check Alarms & Timers
   if (!isReminderExplicit) {
     const alarmSnap = await alarmsRef(uid).where('enabled', '==', true).get();
     for (const doc of alarmSnap.docs) {
       const data = doc.data() as AlarmDoc;
       const fireTime = data.nextFireAt?.toDate();
-      if (fireTime && fireTime >= windowStart && fireTime <= currentTime) {
+      const isStatusFired = data.status === 'fired' || data.status === 'snoozed';
+      const isWithinWindow = fireTime && fireTime >= windowStart && fireTime <= currentTime;
+      if (isStatusFired || isWithinWindow) {
+        const itemType =
+          data.durationMinutes !== undefined ||
+          normalizedText.includes('จับเวลา') ||
+          normalizedText.includes('timer')
+            ? 'timer'
+            : 'alarm';
         candidates.push({
           id: doc.id,
-          itemType: 'alarm',
-          fireTime,
+          itemType,
+          fireTime: fireTime ?? currentTime,
           data,
           docRef: doc.ref,
         });
@@ -74,7 +87,7 @@ async function findRecentCandidates(
   }
 
   // Check Reminders
-  if (!isAlarmExplicit) {
+  if (!isAlarmOrTimerExplicit) {
     const reminderSnap = await remindersRef(uid)
       .where('status', 'in', ['fired', 'snoozed', 'pending'])
       .get();
@@ -116,10 +129,72 @@ export async function handleSnooze(
   const scheduleTask = options?.scheduleNotificationFn ?? scheduleNotification;
   const cancelTask = options?.cancelScheduledTaskFn ?? cancelScheduledTask;
 
+  const timerMatch = userText.trim().match(/^snooze_timer:(.+)$/);
   const alarmMatch = userText.trim().match(/^snooze_alarm:(.+)$/);
   const reminderMatch = userText.trim().match(/^snooze_reminder:(.+)$/);
 
-  // 1. Explicit Alarm Snooze
+  // 1. Explicit Timer Snooze (+15m)
+  if (timerMatch) {
+    const timerId = timerMatch[1].trim();
+    const docRef = alarmsRef(uid).doc(timerId);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      return { success: false, message: 'ไม่พบตัวจับเวลาที่จะเลื่อนค่ะ คุณตาคุณยาย' };
+    }
+
+    const timer = snap.data() as AlarmDoc;
+    const isAlreadyHandled = Boolean(
+      (options?.notificationId &&
+        (timer.lastHandledNotificationId === options.notificationId ||
+          (timer.lastHandledAction !== undefined && timer.lastHandledAction !== null))) ||
+      (!timer.enabled && !timer.cloudTaskName && timer.recurrence === 'once'),
+    );
+
+    if (isAlreadyHandled) {
+      return {
+        success: false,
+        message: ACTION_ALREADY_HANDLED_MESSAGE,
+        data: { id: timerId, itemType: 'timer', alreadyHandled: true },
+      };
+    }
+
+    if (timer.cloudTaskName) {
+      try {
+        await cancelTask(timer.cloudTaskName);
+      } catch (err) {
+        console.error('[handleSnooze] Error canceling timer task:', err);
+      }
+    }
+
+    const snoozeAt = new Date(currentTime.getTime() + SNOOZE_TIMER_MS);
+    const taskName = await scheduleTask({
+      userId: uid,
+      itemId: timerId,
+      itemType: 'timer',
+      fireAt: snoozeAt,
+    });
+
+    const updateData: Record<string, unknown> = {
+      cloudTaskName: taskName,
+      nextFireAt: Timestamp.fromDate(snoozeAt),
+      status: 'snoozed',
+      enabled: true,
+    };
+    if (options?.notificationId) {
+      updateData.lastHandledNotificationId = options.notificationId;
+      updateData.lastHandledAction = 'snooze';
+    }
+
+    await docRef.update(updateData);
+
+    return {
+      success: true,
+      message: 'เลื่อนเวลาไปอีก 15 นาทีค่ะ ⏱️',
+      data: { id: timerId, itemType: 'timer', snoozeAt: snoozeAt.toISOString() },
+    };
+  }
+
+  // 2. Explicit Alarm Snooze (+5m)
   if (alarmMatch) {
     const alarmId = alarmMatch[1].trim();
     const docRef = alarmsRef(uid).doc(alarmId);
@@ -258,7 +333,9 @@ export async function handleSnooze(
 
   // Single candidate found: delegate to explicit snooze logic
   const candidate = candidates[0];
-  if (candidate.itemType === 'alarm') {
+  if (candidate.itemType === 'timer') {
+    return handleSnooze(`snooze_timer:${candidate.id}`, user, options);
+  } else if (candidate.itemType === 'alarm') {
     return handleSnooze(`snooze_alarm:${candidate.id}`, user, options);
   } else {
     return handleSnooze(`snooze_reminder:${candidate.id}`, user, options);
@@ -279,10 +356,63 @@ export async function handleDismiss(
   const currentTime = options?.now ?? new Date();
   const cancelTask = options?.cancelScheduledTaskFn ?? cancelScheduledTask;
 
+  const timerMatch = userText.trim().match(/^dismiss_timer:(.+)$/);
   const alarmMatch = userText.trim().match(/^dismiss_alarm:(.+)$/);
   const reminderMatch = userText.trim().match(/^dismiss_reminder:(.+)$/);
 
-  // 1. Explicit Alarm Dismiss
+  // 1. Explicit Timer Dismiss
+  if (timerMatch) {
+    const timerId = timerMatch[1].trim();
+    const docRef = alarmsRef(uid).doc(timerId);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      return { success: false, message: 'ไม่พบตัวจับเวลาที่จะปิดค่ะ คุณตาคุณยาย' };
+    }
+
+    const timer = snap.data() as AlarmDoc;
+    const isAlreadyHandled = Boolean(
+      (options?.notificationId &&
+        (timer.lastHandledNotificationId === options.notificationId ||
+          (timer.lastHandledAction !== undefined && timer.lastHandledAction !== null))) ||
+      (!timer.enabled && !timer.cloudTaskName && timer.recurrence === 'once'),
+    );
+
+    if (isAlreadyHandled) {
+      return {
+        success: false,
+        message: ACTION_ALREADY_HANDLED_MESSAGE,
+        data: { id: timerId, itemType: 'timer', alreadyHandled: true },
+      };
+    }
+
+    if (timer.cloudTaskName) {
+      try {
+        await cancelTask(timer.cloudTaskName);
+      } catch (err) {
+        console.error('[handleDismiss] Error canceling timer task:', err);
+      }
+    }
+
+    const updateData: Record<string, unknown> = {
+      cloudTaskName: null,
+      enabled: false,
+      status: 'done',
+    };
+    if (options?.notificationId) {
+      updateData.lastHandledNotificationId = options.notificationId;
+      updateData.lastHandledAction = 'dismiss';
+    }
+
+    await docRef.update(updateData);
+
+    return {
+      success: true,
+      message: 'ปิดตัวจับเวลาแล้วค่ะ ✓',
+      data: { id: timerId, itemType: 'timer' },
+    };
+  }
+
+  // 2. Explicit Alarm Dismiss
   if (alarmMatch) {
     const alarmId = alarmMatch[1].trim();
     const docRef = alarmsRef(uid).doc(alarmId);
@@ -405,7 +535,9 @@ export async function handleDismiss(
 
   // Single candidate found: delegate to explicit dismiss logic
   const candidate = candidates[0];
-  if (candidate.itemType === 'alarm') {
+  if (candidate.itemType === 'timer') {
+    return handleDismiss(`dismiss_timer:${candidate.id}`, user, options);
+  } else if (candidate.itemType === 'alarm') {
     return handleDismiss(`dismiss_alarm:${candidate.id}`, user, options);
   } else {
     return handleDismiss(`dismiss_reminder:${candidate.id}`, user, options);

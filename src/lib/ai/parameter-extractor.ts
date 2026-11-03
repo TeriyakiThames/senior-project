@@ -2,13 +2,13 @@ import { GoogleGenAI } from '@google/genai';
 import { TypeSafeClient, choice } from '@typesafe-ai/sdk';
 import { geminiClient } from '@/lib/ai/gemini';
 import { jevClient } from '@/lib/ai/jev';
-import type { AlarmParams, ReminderParams } from '@/types/jev';
+import type { AlarmParams, ReminderParams, TimerParams } from '@/types/jev';
 import { logError } from '@/lib/utils/errors';
 import { isPureNoteCommand, isClarificationResponse } from '@/lib/utils/note-validation';
 
-export type { AlarmParams, ReminderParams };
+export type { AlarmParams, ReminderParams, TimerParams };
 
-export type ItemType = 'alarm' | 'reminder' | 'note' | 'all';
+export type ItemType = 'alarm' | 'timer' | 'reminder' | 'note' | 'all';
 
 export interface ClassifiedItemType {
   itemType: ItemType;
@@ -16,6 +16,12 @@ export interface ClassifiedItemType {
 }
 
 export interface ExtractAlarmParamsOptions {
+  client?: GoogleGenAI;
+  now?: Date;
+  model?: string;
+}
+
+export interface ExtractTimerParamsOptions {
   client?: GoogleGenAI;
   now?: Date;
   model?: string;
@@ -152,6 +158,103 @@ null`;
       parsed.dayOfMonth <= 31
     ) {
       result.dayOfMonth = parsed.dayOfMonth;
+    }
+
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extracts structured timer parameters (hours, minutes, totalMinutes, label)
+ * from Thai or English text using Gemini structured JSON generation.
+ * Throws on API/network errors rather than swallowing them, allowing callers
+ * to distinguish service outages from genuinely unclear user input.
+ */
+export async function extractTimerParams(
+  userText: string,
+  options?: ExtractTimerParamsOptions,
+): Promise<TimerParams | null> {
+  if (!userText || !userText.trim()) {
+    return null;
+  }
+
+  const client = options?.client ?? geminiClient;
+  const model = options?.model ?? defaultGeminiModel;
+
+  const systemInstruction = `You are a structured parameter extractor for timer requests.
+Extract the timer duration in hours and minutes, total duration in minutes, and an optional label from user input.
+
+Thai duration conventions:
+- "นาที" = minutes (e.g., "15 นาที" = 15 minutes, "5 นาที" = 5 minutes)
+- "ชั่วโมง" / "ชม." / "ช.ม." = hours (e.g., "1 ชั่วโมง" = 1 hour, "2 ชั่วโมง" = 2 hours)
+- Half hour: "ครึ่งชั่วโมง" = 30 minutes, "1 ชั่วโมงครึ่ง" = 1 hour and 30 minutes
+- Combined: "1 ชั่วโมง 30 นาที" = 1 hour, 30 minutes, totalMinutes: 90
+- Relative prefix: "อีก X นาที", "จับเวลา X นาที", "ตั้งเวลา X ชั่วโมง"
+- Label / purpose: optional activity if mentioned (e.g. "ต้มไข่ 7 นาที" -> label: "ต้มไข่", minutes: 7)
+
+Return ONLY valid JSON matching this schema:
+{
+  "hours": number,
+  "minutes": number,
+  "totalMinutes": number,
+  "label": "optional string or omitted"
+}
+
+If no clear duration in minutes or hours can be identified, or if totalMinutes is less than or equal to 0, return JSON null:
+null`;
+
+  let interaction;
+  try {
+    interaction = await client.interactions.create({
+      model,
+      input: userText.trim(),
+      system_instruction: systemInstruction,
+      generation_config: {
+        temperature: 0.0,
+        max_output_tokens: 256,
+      },
+      store: false,
+    });
+  } catch (apiError) {
+    logError('ai_parameter_extractor', apiError, { model, userText });
+    throw apiError;
+  }
+
+  try {
+    const rawOutput = interaction.output_text?.trim() ?? '';
+    const cleaned = rawOutput.replace(/```json\n?|\n?```/g, '').trim();
+
+    if (!cleaned || cleaned === 'null') {
+      return null;
+    }
+
+    const parsed = JSON.parse(cleaned) as Partial<TimerParams>;
+
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+
+    const hours = typeof parsed.hours === 'number' && parsed.hours >= 0 ? parsed.hours : 0;
+    const minutes = typeof parsed.minutes === 'number' && parsed.minutes >= 0 ? parsed.minutes : 0;
+    const totalMinutes =
+      typeof parsed.totalMinutes === 'number' && parsed.totalMinutes > 0
+        ? parsed.totalMinutes
+        : hours * 60 + minutes;
+
+    if (totalMinutes <= 0) {
+      return null;
+    }
+
+    const result: TimerParams = {
+      hours,
+      minutes,
+      totalMinutes,
+    };
+
+    if (parsed.label && typeof parsed.label === 'string' && parsed.label.trim()) {
+      result.label = parsed.label.trim();
     }
 
     return result;
@@ -361,6 +464,7 @@ Do not return conversational text or markdown code fences. Return ONLY the JSON 
 
 export const ITEM_TYPE_CRITERIA: Record<ItemType, string> = {
   alarm: 'An alarm (wake-up time, sound alert, e.g., นาฬิกาปลุก, ปลุกตอนเช้า, เวลาปลุก).',
+  timer: 'A timer or countdown (duration in minutes/hours, e.g., ตัวจับเวลา, จับเวลา, ตั้งเวลา).',
   reminder:
     'A reminder (scheduled notification with message or task, e.g., เตือนกินยา, แจ้งเตือนนัดหมอ, การแจ้งเตือน).',
   note: 'A note or memo (recorded thoughts, summaries, text memos, e.g., โน้ต, บันทึกข้อความ, ที่จดไว้).',
