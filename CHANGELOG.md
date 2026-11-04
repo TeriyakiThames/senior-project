@@ -1,3 +1,5 @@
+## [1.33.4](https://github.com/TeriyakiThames/senior-project/compare/v1.33.3...v1.33.4) (2026-11-04)
+
 ## [1.33.3](https://github.com/TeriyakiThames/senior-project/compare/v1.33.2...v1.33.3) (2026-11-04)
 
 
