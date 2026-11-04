@@ -21,6 +21,7 @@ import {
   executeTool,
   handleSnooze,
   handleDismiss,
+  handleDeleteTimer,
   handleConfirmNote,
   handleConfirmReminder,
   handleCancelAction,
@@ -108,6 +109,10 @@ vi.mock('@/lib/tools', () => ({
   handleDismiss: vi.fn().mockResolvedValue({
     success: true,
     message: 'ปิดเสียงปลุกแล้วค่ะ ✓',
+  }),
+  handleDeleteTimer: vi.fn().mockResolvedValue({
+    success: true,
+    message: 'ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️',
   }),
   handleConfirmNote: vi.fn().mockResolvedValue({
     success: true,
@@ -253,6 +258,35 @@ describe('LINE Webhook Dispatcher', () => {
           id: 'msg-alarm',
           type: 'text' as const,
           text: 'ตั้งปลุก 7 โมงเช้า',
+        },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(event);
+
+      expect(executeTool).toHaveBeenCalledTimes(1);
+      expect(updateUserProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it('updates user profile facts when set_timer tool execution succeeds with flexMessage', async () => {
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'set_timer',
+        confidence: 0.95,
+        isAmbiguous: false,
+      });
+      vi.mocked(executeTool).mockResolvedValueOnce({
+        success: true,
+        message: 'ตั้งตัวจับเวลา 15 นาที เรียบร้อยแล้วค่ะ ⏱️',
+        flexMessage: { type: 'flex', altText: '⏱️ เริ่มจับเวลา: 15 นาที' },
+      });
+
+      const event = {
+        type: 'message' as const,
+        replyToken: 'token-timer-123',
+        source: { type: 'user' as const, userId: 'user-123' },
+        message: {
+          id: 'msg-timer',
+          type: 'text' as const,
+          text: 'จับเวลา 15 นาที',
         },
       } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
 
@@ -852,6 +886,30 @@ describe('LINE Webhook Dispatcher', () => {
           },
         ],
       });
+    });
+
+    it('handles delete_timer postback action, calls handleDeleteTimer, and replies with confirmation', async () => {
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-del-timer',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=delete_timer&id=timer-doc-789',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleDeleteTimer).toHaveBeenCalledWith('timer-doc-789', expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-del-timer',
+        messages: [{ type: 'text', text: 'ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️' }],
+      });
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'ลบตัวจับเวลา',
+        'ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️',
+      );
     });
 
     it('does not process if replyToken or userId is missing', async () => {

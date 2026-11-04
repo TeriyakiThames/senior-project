@@ -1,4 +1,5 @@
 import type { messagingApi } from '@line/bot-sdk';
+import { getBangkokComponents } from '@/lib/utils/recurrence';
 
 /**
  * Builds an interactive Flex Message bubble asking the elderly user to confirm or cancel
@@ -254,6 +255,168 @@ export function buildReminderConfirmation(
   return {
     type: 'flex',
     altText: `⏰ ยืนยันเตือน: ${message} เวลา ${formattedTime}`,
+    contents: bubble,
+  };
+}
+
+/**
+ * Options for building a timer confirmation flex message.
+ */
+export interface BuildTimerConfirmationCardOptions {
+  durationText: string;
+  fireAt: Date;
+  timerId: string;
+  label?: string;
+}
+
+/**
+ * Builds an interactive Flex Message bubble notifying the user that a timer has started,
+ * displaying duration, target trigger time, and an optional deletion button.
+ */
+export function buildTimerConfirmationCard({
+  durationText,
+  fireAt,
+  timerId,
+  label,
+}: BuildTimerConfirmationCardOptions): messagingApi.FlexMessage {
+  const bkk = getBangkokComponents(fireAt);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const formattedTime = `${pad(bkk.hours)}:${pad(bkk.minutes)} น.`;
+
+  const bodyContents: messagingApi.FlexComponent[] = [
+    {
+      type: 'box',
+      layout: 'vertical',
+      contents: [
+        {
+          type: 'text',
+          text: 'ระยะเวลา:',
+          size: 'sm',
+          color: '#7D84A3',
+        },
+        {
+          type: 'text',
+          text: durationText,
+          size: 'xxl',
+          weight: 'bold',
+          color: '#21215C',
+        },
+      ],
+    },
+  ];
+
+  if (label && label.trim()) {
+    bodyContents.push({
+      type: 'box',
+      layout: 'vertical',
+      margin: 'md',
+      contents: [
+        {
+          type: 'text',
+          text: 'สิ่งที่จับเวลา:',
+          size: 'sm',
+          color: '#7D84A3',
+        },
+        {
+          type: 'text',
+          text: label.trim(),
+          size: 'lg',
+          weight: 'bold',
+          color: '#21215C',
+          wrap: true,
+        },
+      ],
+    });
+  }
+
+  bodyContents.push(
+    {
+      type: 'box',
+      layout: 'vertical',
+      margin: 'md',
+      contents: [
+        {
+          type: 'text',
+          text: 'จะเตือนเวลา:',
+          size: 'sm',
+          color: '#7D84A3',
+        },
+        {
+          type: 'text',
+          text: formattedTime,
+          size: 'lg',
+          weight: 'bold',
+          color: '#7A4E00',
+        },
+      ],
+    },
+    {
+      type: 'text',
+      text: 'เริ่มนับถอยหลังแล้วค่ะ หนูจะเตือนเมื่อครบเวลานะคะ ⏱️',
+      size: 'sm',
+      color: '#4B4F72',
+      margin: 'lg',
+      wrap: true,
+    },
+  );
+
+  const bubble: messagingApi.FlexBubble = {
+    type: 'bubble',
+    size: 'kilo',
+    header: {
+      type: 'box',
+      layout: 'horizontal',
+      paddingAll: 'lg',
+      backgroundColor: '#FBEFD8',
+      spacing: 'md',
+      contents: [
+        {
+          type: 'text',
+          text: '⏱️',
+          size: 'xl',
+          flex: 0,
+        },
+        {
+          type: 'text',
+          text: 'เริ่มจับเวลาแล้วค่ะ',
+          weight: 'bold',
+          size: 'xl',
+          color: '#7A4E00',
+          gravity: 'center',
+        },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: 'lg',
+      contents: bodyContents,
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: 'lg',
+      contents: [
+        {
+          type: 'button',
+          style: 'secondary',
+          height: 'md',
+          action: {
+            type: 'postback',
+            label: '🗑️ ลบตัวจับเวลา',
+            data: `action=delete_timer&id=${timerId}`,
+            displayText: 'ลบตัวจับเวลา',
+          },
+        },
+      ],
+    },
+  };
+
+  const labelSuffix = label?.trim() ? ` (${label.trim()})` : '';
+
+  return {
+    type: 'flex',
+    altText: `⏱️ เริ่มจับเวลา: ${durationText}${labelSuffix}`,
     contents: bubble,
   };
 }

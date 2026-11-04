@@ -1,7 +1,8 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { timersRef } from '@/lib/firebase/collections';
-import { saveAndScheduleTask } from '@/lib/scheduler/cloud-tasks';
+import { saveAndScheduleTask, cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { extractTimerParams } from '@/lib/ai/parameter-extractor';
+import { buildTimerConfirmationCard } from '@/lib/line/flex-messages';
 import type { TimerDoc, UserDoc } from '@/types/firestore';
 import type { TimerParams } from '@/types/jev';
 import type { ToolResult } from './index';
@@ -93,9 +94,17 @@ export async function handleSetTimer(
     const labelPrefix = params.label ? ` "${params.label}"` : '';
     const message = `ตั้งตัวจับเวลา${labelPrefix} ${durationText} เรียบร้อยแล้วค่ะ ⏱️`;
 
+    const flexMessage = buildTimerConfirmationCard({
+      durationText,
+      fireAt,
+      timerId: docRef.id,
+      label: params.label,
+    });
+
     return {
       success: true,
       message,
+      flexMessage: flexMessage as unknown as Record<string, unknown>,
       data: {
         timerId: docRef.id,
         cloudTaskName: taskName,
@@ -111,6 +120,73 @@ export async function handleSetTimer(
     return {
       success: false,
       message: 'เกิดข้อผิดพลาดในการตั้งเวลา กรุณาลองใหม่อีกครั้งค่ะ',
+    };
+  }
+}
+
+export interface HandleDeleteTimerOptions {
+  cancelTaskFn?: (taskName: string) => Promise<void>;
+}
+
+/**
+ * Handles deletion of a timer by ID: cancels scheduled Cloud Task and updates status in Firestore.
+ */
+export async function handleDeleteTimer(
+  timerId: string,
+  user: UserDoc,
+  options?: HandleDeleteTimerOptions,
+): Promise<ToolResult> {
+  const uid = user.lineUserId;
+  const cancelTask = options?.cancelTaskFn ?? cancelScheduledTask;
+
+  try {
+    const docRef = timersRef(uid).doc(timerId);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      return {
+        success: false,
+        message: 'ไม่พบตัวจับเวลาที่จะลบค่ะ คุณตาคุณยาย',
+      };
+    }
+
+    const timer = snap.data() as TimerDoc;
+
+    if (!timer.enabled && !timer.cloudTaskName) {
+      return {
+        success: false,
+        message: 'รายการนี้จัดการไปเรียบร้อยแล้วค่ะ ปุ่มนี้จึงไม่มีผลอะไรแล้วนะคะ คุณตาคุณยาย',
+        data: { id: timerId, itemType: 'timer', alreadyHandled: true },
+      };
+    }
+
+    if (timer.cloudTaskName) {
+      try {
+        await cancelTask(timer.cloudTaskName);
+      } catch (err) {
+        console.error('[handleDeleteTimer] Error canceling timer task:', err);
+      }
+    }
+
+    await docRef.update({
+      enabled: false,
+      status: 'done',
+      cloudTaskName: null,
+    });
+
+    return {
+      success: true,
+      message: 'ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️',
+      data: {
+        id: timerId,
+        itemType: 'timer',
+      },
+    };
+  } catch (error) {
+    console.error('[handleDeleteTimer] Unexpected error:', error);
+    return {
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการลบตัวจับเวลา กรุณาลองใหม่อีกครั้งค่ะ',
     };
   }
 }
