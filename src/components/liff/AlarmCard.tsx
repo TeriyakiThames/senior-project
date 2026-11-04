@@ -44,21 +44,24 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
   const nextFireText = nextFireDate ? formatAlarmNextFire(nextFireDate, locale, baseNow) : '-';
 
   const isThai = locale.toLowerCase().startsWith('th');
+  const isTimer = !alarm.time && Boolean(alarm.durationMinutes);
 
   const displayTime =
     typeof alarm.time === 'string' && alarm.time.trim()
       ? alarm.time.trim()
-      : nextFireDate
-        ? `${String(nextFireDate.getHours()).padStart(2, '0')}:${String(nextFireDate.getMinutes()).padStart(2, '0')}`
-        : alarm.durationMinutes
-          ? `${alarm.durationMinutes}`
+      : isTimer && alarm.durationMinutes
+        ? `${alarm.durationMinutes}`
+        : nextFireDate
+          ? `${String(nextFireDate.getHours()).padStart(2, '0')}:${String(nextFireDate.getMinutes()).padStart(2, '0')}`
           : '--:--';
 
   const showThaiHourSuffix =
     isThai &&
-    (Boolean(alarm.time) || Boolean(nextFireDate) || (!alarm.time && !alarm.durationMinutes));
+    (Boolean(alarm.time) ||
+      (!isTimer && Boolean(nextFireDate)) ||
+      (!alarm.time && !alarm.durationMinutes));
 
-  const showDurationUnit = !alarm.time && !nextFireDate && Boolean(alarm.durationMinutes);
+  const showDurationUnit = isTimer;
 
   return (
     <article className="bg-white rounded-3xl p-5 shadow-[0_2px_6px_rgba(33,33,92,0.06),0_8px_24px_rgba(33,33,92,0.08)] border border-[#F2F7FA]/80 transition-shadow">

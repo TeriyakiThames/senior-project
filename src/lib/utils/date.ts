@@ -260,7 +260,8 @@ export function formatAlarmRecurrence(
 }
 
 /**
- * Formats next alarm trigger time for alarm cards (e.g. "พรุ่งนี้ ศ. 23 ต.ค.", "อา. 1 พ.ย.").
+ * Formats next alarm trigger time for alarm cards (e.g. "18:00 น." for today, "พรุ่งนี้ 05:30 น.", "อา. 1 พ.ย. 06:00 น.").
+ * When firing today, displays the next time instead of the date.
  */
 export function formatAlarmNextFire(
   date: Date,
@@ -276,27 +277,29 @@ export function formatAlarmNextFire(
   const diffTime = startOfTarget.getTime() - startOfBase.getTime();
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const timeStr = isThai ? `${hours}:${minutes} น.` : `${hours}:${minutes}`;
+
+  if (diffDays === 0) {
+    return timeStr;
+  }
+
   const rawWeekday = isThai
     ? THAI_SHORT_WEEKDAYS[date.getDay()]
     : new Intl.DateTimeFormat(targetLocale, { weekday: 'short' }).format(date);
   const month = new Intl.DateTimeFormat(targetLocale, { month: 'short' }).format(date);
   const day = date.getDate();
 
-  if (diffDays === 0) {
-    return isThai ? `วันนี้ ${rawWeekday} ${day} ${month}` : `Today, ${rawWeekday} ${day} ${month}`;
-  }
-
   if (diffDays === 1) {
-    return isThai
-      ? `พรุ่งนี้ ${rawWeekday} ${day} ${month}`
-      : `Tomorrow, ${rawWeekday} ${day} ${month}`;
+    return isThai ? `พรุ่งนี้ ${timeStr}` : `Tomorrow, ${timeStr}`;
   }
 
   if (isThai) {
-    return `${rawWeekday} ${day} ${month}`;
+    return `${rawWeekday} ${day} ${month} ${timeStr}`;
   }
 
-  return `${rawWeekday}, ${day} ${month}`;
+  return `${rawWeekday}, ${day} ${month} ${timeStr}`;
 }
 
 /**
