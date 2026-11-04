@@ -23,14 +23,24 @@ export function formatDashboardDate(date: Date, locale: string): string {
  * Safely parses Firestore Timestamp-like objects, ISO strings, or Date instances into a Date object.
  */
 export function parseTimestamp(
-  val: { _seconds?: number } | string | Date | null | undefined,
+  val:
+    { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null | undefined,
 ): Date | null {
   if (!val) return null;
-  if (typeof val === 'object' && '_seconds' in val && typeof val._seconds === 'number') {
-    return new Date(val._seconds * 1000);
-  }
-  if (val instanceof Date) {
-    return isNaN(val.getTime()) ? null : val;
+  if (typeof val === 'object') {
+    if (val instanceof Date) {
+      return isNaN(val.getTime()) ? null : val;
+    }
+    if ('_seconds' in val && typeof val._seconds === 'number') {
+      return new Date(val._seconds * 1000);
+    }
+    if ('seconds' in val && typeof val.seconds === 'number') {
+      return new Date(val.seconds * 1000);
+    }
+    if ('toDate' in val && typeof val.toDate === 'function') {
+      const d = val.toDate();
+      return d instanceof Date && !isNaN(d.getTime()) ? d : null;
+    }
   }
   if (typeof val === 'string') {
     const d = new Date(val);
@@ -294,17 +304,22 @@ export function formatAlarmNextFire(
  */
 export function getAlarmNextFireDate(
   alarm: {
-    time: string;
+    time?: string;
     recurrence?: string;
     daysOfWeek?: number[];
     dayOfMonth?: number;
-    nextFireAt?: { _seconds?: number } | string | Date | null;
+    nextFireAt?:
+      { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null;
   },
   baseNow: Date = new Date(),
 ): Date | null {
   const parsed = parseTimestamp(alarm.nextFireAt);
   if (parsed && parsed.getTime() > baseNow.getTime()) {
     return parsed;
+  }
+
+  if (!alarm.time) {
+    return null;
   }
 
   const calc = new AlarmScheduleCalculator(

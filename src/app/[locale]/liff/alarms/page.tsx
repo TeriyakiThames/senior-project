@@ -154,8 +154,12 @@ export default function AlarmsPage() {
         contentPreview={
           deleteTarget
             ? deleteTarget.label
-              ? `${deleteTarget.time}${isThai ? ' น.' : ''} · ${deleteTarget.label}`
-              : `${deleteTarget.time}${isThai ? ' น.' : ''}`
+              ? `${deleteTarget.time ? `${deleteTarget.time}${isThai ? ' น.' : ''} · ` : ''}${deleteTarget.label}`
+              : deleteTarget.time
+                ? `${deleteTarget.time}${isThai ? ' น.' : ''}`
+                : deleteTarget.durationMinutes
+                  ? `${deleteTarget.durationMinutes} ${isThai ? 'นาที' : 'min'}`
+                  : t('alarm')
             : ''
         }
         warningText={t('confirmDeleteWarning')}

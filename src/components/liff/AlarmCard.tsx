@@ -6,14 +6,18 @@ import { formatAlarmRecurrence, formatAlarmNextFire, getAlarmNextFireDate } from
 
 export interface AlarmItem {
   id: string;
-  time: string;
+  time?: string;
+  durationMinutes?: number;
+  hours?: number;
+  minutes?: number;
   label?: string;
-  recurrence: string;
+  recurrence?: string;
   daysOfWeek?: number[];
   dayOfMonth?: number;
   enabled?: boolean;
-  nextFireAt?: { _seconds?: number } | string | Date | null;
-  createdAt?: { _seconds?: number } | string | Date | null;
+  status?: string;
+  nextFireAt?: { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null;
+  createdAt?: { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null;
 }
 
 export interface AlarmCardProps {
@@ -39,15 +43,37 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
   const nextFireDate = getAlarmNextFireDate(alarm, baseNow);
   const nextFireText = nextFireDate ? formatAlarmNextFire(nextFireDate, locale, baseNow) : '-';
 
+  const isThai = locale.toLowerCase().startsWith('th');
+
+  const displayTime =
+    typeof alarm.time === 'string' && alarm.time.trim()
+      ? alarm.time.trim()
+      : nextFireDate
+        ? `${String(nextFireDate.getHours()).padStart(2, '0')}:${String(nextFireDate.getMinutes()).padStart(2, '0')}`
+        : alarm.durationMinutes
+          ? `${alarm.durationMinutes}`
+          : '--:--';
+
+  const showThaiHourSuffix =
+    isThai &&
+    (Boolean(alarm.time) || Boolean(nextFireDate) || (!alarm.time && !alarm.durationMinutes));
+
+  const showDurationUnit = !alarm.time && !nextFireDate && Boolean(alarm.durationMinutes);
+
   return (
     <article className="bg-white rounded-3xl p-5 shadow-[0_2px_6px_rgba(33,33,92,0.06),0_8px_24px_rgba(33,33,92,0.08)] border border-[#F2F7FA]/80 transition-shadow">
       {/* Large 24h Time Display matching Figma Ground Truth */}
       <div className="flex items-baseline">
         <span className="text-4xl sm:text-5xl font-black text-[#21215C] tracking-tight tabular-nums">
-          {alarm.time}
+          {displayTime}
         </span>
-        {locale.toLowerCase().startsWith('th') && (
+        {showThaiHourSuffix && (
           <span className="text-xl sm:text-2xl font-bold text-[#21215C] ml-1">น.</span>
+        )}
+        {showDurationUnit && (
+          <span className="text-xl sm:text-2xl font-bold text-[#21215C] ml-1">
+            {isThai ? 'นาที' : 'min'}
+          </span>
         )}
       </div>
 
@@ -120,7 +146,7 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
         <button
           type="button"
           onClick={onDelete}
-          aria-label={`${t('delete')} ${alarm.label || alarm.time}`}
+          aria-label={`${t('delete')} ${alarm.label || alarm.time || displayTime}`}
           className="border-[1.5px] border-[#942626] bg-white text-[#942626] hover:bg-red-50 active:scale-[0.98] rounded-2xl px-4 py-2 flex items-center gap-1.5 font-bold text-base transition-all min-h-[48px] min-w-[76px] justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-[#942626]"
         >
           <Image
