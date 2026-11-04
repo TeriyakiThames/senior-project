@@ -1,3 +1,10 @@
+## [1.33.5](https://github.com/TeriyakiThames/senior-project/compare/v1.33.4...v1.33.5) (2026-11-04)
+
+
+### Bug Fixes
+
+* replace alarm with timer page and routes ([#124](https://github.com/TeriyakiThames/senior-project/issues/124)) ([dcec7e8](https://github.com/TeriyakiThames/senior-project/commit/dcec7e85fb59bfb5f6181f0102f62702e0cdcf76))
+
 ## [1.33.4](https://github.com/TeriyakiThames/senior-project/compare/v1.33.3...v1.33.4) (2026-11-04)
 
 ## [1.33.4](https://github.com/TeriyakiThames/senior-project/compare/v1.33.3...v1.33.4) (2026-11-04)
