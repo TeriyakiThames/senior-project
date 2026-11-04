@@ -1,3 +1,10 @@
+## [1.33.3](https://github.com/TeriyakiThames/senior-project/compare/v1.33.2...v1.33.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* timer UI issues ([#122](https://github.com/TeriyakiThames/senior-project/issues/122)) ([0bcc03c](https://github.com/TeriyakiThames/senior-project/commit/0bcc03cdbea893f9a58c3a7043cd7dba488668a5))
+
 ## [1.33.2](https://github.com/TeriyakiThames/senior-project/compare/v1.33.1...v1.33.2) (2026-11-04)
 
 ## [1.33.1](https://github.com/TeriyakiThames/senior-project/compare/v1.33.0...v1.33.1) (2026-11-04)
