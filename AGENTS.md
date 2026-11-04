@@ -8,18 +8,29 @@
 
 Any AI assistant or agent operating in this repository must strictly adhere to these rules:
 
-1. **Never Commit or Merge:**
+1. **Never Commit or Merge Code:**
    - The AI writes code, creates branches, and runs tests locally.
-   - The AI must **NEVER** run `git commit`, `git push`, or merge any branch or Merge Request (MR / PR).
+   - The AI must **NEVER** run `git commit`, `git merge`, or merge any branch or Merge / Pull Request (MR / PR).
+   - The AI must **NEVER** push code changes (`git push` after code edits/commits).
 2. **Review Before Commit:**
    - After code changes and local checks pass, the AI pauses and presents the diff to the human developer.
-   - The human developer performs all commits, pushes, and PR creations.
-3. **Branch Creation per Chat:**
-   - Each chat session or task must start on a new branch created from `main` (e.g. `git checkout main && git pull origin main && git checkout -b <branch-name> --no-track`) unless the developer explicitly specifies to continue on the current branch.
+   - The human developer performs all commits, code pushes (`git push`), and PR creations.
+3. **Branch Creation & Instant Remote Publishing per Chat:**
+   - Each chat session or task must start on a new branch created from `main`:
+     ```bash
+     git checkout main && git pull origin main && git checkout -b <branch-name> --no-track
+     ```
+     (or in PowerShell: `git checkout main; git pull origin main; git checkout -b <branch-name> --no-track`) unless the developer explicitly specifies to continue on the current branch.
    - Branch names must be short and descriptive, and do not need a ticket ID (e.g. `feat/alarm`, `fix/flex-card`, `chore/rules`).
+   - **Immediate Remote Publishing by Agent:** Right after creating the branch from `main` (before making any code changes), the AI must immediately publish the branch to the remote repository and establish upstream tracking:
+     ```bash
+     git push -u origin <branch-name>
+     ```
+     This automatically links the working branch to `origin/<branch-name>` so the developer never has to manually type `git push -u origin ...` and can simply run `git push` once their commit is ready.
 4. **Safe Remote & Upstream Tracking:**
-   - When creating a branch, always set its upstream to its own remote branch (e.g. `git push -u origin <branch-name>`).
+   - Every working branch must strictly track its own remote branch (`origin/<branch-name>`).
    - **NEVER** set `main` or `origin/main` as the remote/upstream tracking branch for a working branch. This ensures `git push` or `git push --force` can never accidentally overwrite or push into `main`.
+   - _Developer Tip:_ The developer can also optionally configure Git globally via `git config --global push.autoSetupRemote true` as an additional layer of convenience.
 5. **Manual External Setup:**
    - Whenever external console configurations are required (LINE Developers, Firebase Console, Google Cloud Console, Vercel), the AI must outline clear, step-by-step instructions and wait for the developer to perform them.
 6. **Package Manager:**
@@ -216,4 +227,4 @@ After completing work and verifying each task, the AI assistant must summarize e
 
 **Leftover/handoff tasks if any:**
 
-- Actionable manual steps for the developer (console setups, env vars, PR reviews, etc.).
+- Actionable manual steps for the developer (console setups, env vars, PR reviews, etc.). Since the remote branch was already published upon creation, the developer only needs to run `git push` after committing.
