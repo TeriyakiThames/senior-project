@@ -1,4 +1,8 @@
 import { beforeEach, afterEach, vi } from 'vitest';
+import React from 'react';
+
+// Provide global React for JSX rendering tests in node environment
+(globalThis as unknown as { React: typeof React }).React = React;
 
 // Configure test environment variables to prevent runtime warnings and missing key exceptions
 Object.assign(process.env, { NODE_ENV: 'test' });
