@@ -94,6 +94,32 @@ describe('i18n Message Catalogs & Config', () => {
     }
   });
 
+  it('should include all required timer-specific keys for Timer page', () => {
+    const requiredTimerKeys = [
+      'timer',
+      'timers',
+      'timersSubtitle',
+      'emptyTimersTitle',
+      'emptyTimersHintLine1',
+      'emptyTimersHintLine2',
+      'timerEnabled',
+      'timerDisabled',
+      'nextTimer',
+      'confirmDeleteTimerTitle',
+      'deleteTimer',
+      'timerDeletedToast',
+      'tipTimerTitle',
+      'tipTimerHint',
+    ];
+
+    for (const key of requiredTimerKeys) {
+      expect(thMessages.dashboard).toHaveProperty(key);
+      expect(enMessages.dashboard).toHaveProperty(key);
+      expect((thMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
+      expect((enMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
+    }
+  });
+
   it('should include all required keys for Reminders page', () => {
     const requiredReminderKeys = [
       'reminders',

@@ -116,7 +116,11 @@ export async function GET(request: NextRequest) {
       result.reminders = reminders;
       result.notes = notes;
     } else {
-      if (type === 'alarms' || type === 'timers') {
+      if (type === 'timers' || type === 'timer') {
+        const fetched = await fetchAlarms();
+        result.timers = fetched;
+        result.alarms = fetched;
+      } else if (type === 'alarms') {
         result.alarms = await fetchAlarms();
       } else if (type === 'reminders') {
         result.reminders = await fetchReminders();

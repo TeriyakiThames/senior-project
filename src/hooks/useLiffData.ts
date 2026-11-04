@@ -5,13 +5,14 @@ import { useLiff } from '@/components/liff/LiffProvider';
 import type { AlarmDoc, ReminderDoc, NoteDoc } from '@/types/firestore';
 
 export interface LiffItemsData {
+  timers?: (AlarmDoc & { id: string })[];
   alarms?: (AlarmDoc & { id: string })[];
   reminders?: (ReminderDoc & { id: string })[];
   notes?: (NoteDoc & { id: string })[];
 }
 
 export function useLiffData<T = LiffItemsData>(
-  type: 'alarms' | 'reminders' | 'notes' | 'all' = 'all',
+  type: 'timers' | 'timer' | 'reminders' | 'notes' | 'all' | 'alarms' = 'all',
 ) {
   const { userId, idToken, isReady } = useLiff();
   const [data, setData] = useState<T | null>(null);
@@ -50,6 +51,14 @@ export function useLiffData<T = LiffItemsData>(
         throw new Error(`Failed to fetch items: ${msg || res.status}`);
       }
       const json = await res.json();
+      if (json && typeof json === 'object') {
+        const record = json as Record<string, unknown>;
+        if (record.alarms && !record.timers) {
+          record.timers = record.alarms;
+        } else if (record.timers && !record.alarms) {
+          record.alarms = record.timers;
+        }
+      }
       setData(json as T);
     } catch (err: unknown) {
       const errorObj = err instanceof Error ? err : new Error(String(err));
@@ -67,7 +76,7 @@ export function useLiffData<T = LiffItemsData>(
   }, [isReady, refresh]);
 
   const deleteItem = useCallback(
-    async (id: string, itemType: 'alarm' | 'reminder' | 'note') => {
+    async (id: string, itemType: 'timer' | 'reminder' | 'note' | 'alarm') => {
       if (!userId) return;
       try {
         const res = await fetch(`/api/liff/items/${id}?type=${itemType}`, {

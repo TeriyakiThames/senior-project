@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import thMessages from '../../../../messages/th.json';
 import enMessages from '../../../../messages/en.json';
 
-import { AlarmCard, type AlarmItem } from '@/components/liff/AlarmCard';
+import { TimerCard, type TimerItem } from '@/components/liff/TimerCard';
 import { ReminderCard, type ReminderItem } from '@/components/liff/ReminderCard';
 import { NoteCard, type NoteItem } from '@/components/liff/NoteCard';
 import { DetailHeader } from '@/components/layout/DetailHeader';
@@ -40,10 +40,10 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  describe('AlarmCard (Regression for commit 2a51318 & Edge Cases)', () => {
-    it('renders a standard alarm with time and label without errors', () => {
-      const alarm: AlarmItem = {
-        id: 'alarm-1',
+  describe('TimerCard (Robustness & Edge Cases)', () => {
+    it('renders a standard timer with time and label without errors', () => {
+      const timer: TimerItem = {
+        id: 'timer-1',
         time: '07:30',
         label: 'ตื่นนอนตอนเช้า',
         recurrence: 'daily',
@@ -51,7 +51,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       };
 
       const html = renderWithIntl(
-        <AlarmCard alarm={alarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={timer} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(html).toContain('07:30');
@@ -63,7 +63,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
 
     it('renders a TimerDoc (time is undefined, durationMinutes is provided) without crashing', () => {
       const nextFireAt = new Date('2026-10-22T10:15:00.000Z');
-      const timerAlarm: AlarmItem = {
+      const timerItem: TimerItem = {
         id: 'timer-1',
         time: undefined,
         durationMinutes: 15,
@@ -77,7 +77,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
 
       // In Thai
       const thHtml = renderWithIntl(
-        <AlarmCard alarm={timerAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={timerItem} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(thHtml).toContain('15');
@@ -88,7 +88,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
 
       // In English
       const enHtml = renderWithIntl(
-        <AlarmCard alarm={timerAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={timerItem} onDelete={vi.fn()} baseNow={baseNow} />,
         'en',
       );
       expect(enHtml).toContain('15');
@@ -100,7 +100,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
     });
 
     it('renders a TimerDoc with custom label and without nextFireAt displaying raw durationMinutes with unit', () => {
-      const timerWithoutNextFire: AlarmItem = {
+      const timerWithoutNextFire: TimerItem = {
         id: 'timer-2',
         time: undefined,
         durationMinutes: 45,
@@ -110,7 +110,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       };
 
       const thHtml = renderWithIntl(
-        <AlarmCard alarm={timerWithoutNextFire} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={timerWithoutNextFire} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(thHtml).toContain('45');
@@ -119,7 +119,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       expect(thHtml).toContain('aria-label="ลบ ต้มไข่"');
 
       const enHtml = renderWithIntl(
-        <AlarmCard alarm={timerWithoutNextFire} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={timerWithoutNextFire} onDelete={vi.fn()} baseNow={baseNow} />,
         'en',
       );
       expect(enHtml).toContain('45');
@@ -130,7 +130,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
     });
 
     it('renders fallback --:-- when both time and durationMinutes are missing', () => {
-      const malformedAlarm: AlarmItem = {
+      const malformedTimer: TimerItem = {
         id: 'malformed-1',
         time: undefined,
         durationMinutes: undefined,
@@ -138,7 +138,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       };
 
       const html = renderWithIntl(
-        <AlarmCard alarm={malformedAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={malformedTimer} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(html).toContain('--:--');
@@ -159,15 +159,15 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       ];
 
       for (const tc of testCases) {
-        const alarm: AlarmItem = {
-          id: `alarm-${tc.desc}`,
+        const timer: TimerItem = {
+          id: `timer-${tc.desc}`,
           time: '08:00',
           nextFireAt: tc.nextFireAt,
           enabled: true,
         };
 
         expect(() => {
-          renderWithIntl(<AlarmCard alarm={alarm} onDelete={vi.fn()} baseNow={baseNow} />, 'th');
+          renderWithIntl(<TimerCard timer={timer} onDelete={vi.fn()} baseNow={baseNow} />, 'th');
         }).not.toThrow();
       }
 
@@ -175,7 +175,7 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
     });
 
     it('renders days of week recurrence and monthly recurrence correctly', () => {
-      const weeklyAlarm: AlarmItem = {
+      const weeklyTimer: TimerItem = {
         id: 'weekly-1',
         time: '06:00',
         recurrence: 'weekly',
@@ -184,12 +184,12 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       };
 
       const thHtml = renderWithIntl(
-        <AlarmCard alarm={weeklyAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={weeklyTimer} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(thHtml).toContain('จ.-ศ.');
 
-      const customDaysAlarm: AlarmItem = {
+      const customDaysTimer: TimerItem = {
         id: 'custom-1',
         time: '06:00',
         recurrence: 'weekly',
@@ -198,12 +198,12 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       };
 
       const customHtml = renderWithIntl(
-        <AlarmCard alarm={customDaysAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={customDaysTimer} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(customHtml).toContain('จ., พ., ศ.');
 
-      const monthlyAlarm: AlarmItem = {
+      const monthlyTimer: TimerItem = {
         id: 'monthly-1',
         time: '09:00',
         recurrence: 'monthly',
@@ -212,11 +212,53 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
       };
 
       const monthlyHtml = renderWithIntl(
-        <AlarmCard alarm={monthlyAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
+        <TimerCard timer={monthlyTimer} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(monthlyHtml).toContain('วันที่ 15');
 
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('TimerCard Robustness & Render Tests', () => {
+    it('renders a timer card with duration in minutes properly', () => {
+      const timer: TimerItem = {
+        id: 'timer-1',
+        durationMinutes: 15,
+        label: 'ต้มไข่',
+        enabled: true,
+      };
+
+      const html = renderWithIntl(
+        <TimerCard timer={timer} onDelete={vi.fn()} baseNow={baseNow} />,
+        'th',
+      );
+
+      expect(html).toContain('15');
+      expect(html).toContain('นาที');
+      expect(html).toContain('ต้มไข่');
+      expect(html).toContain(thMessages.dashboard.timerEnabled);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+
+    it('renders a timer card in English with min unit properly', () => {
+      const timer: TimerItem = {
+        id: 'timer-en',
+        durationMinutes: 20,
+        label: 'Boil pasta',
+        enabled: true,
+      };
+
+      const html = renderWithIntl(
+        <TimerCard timer={timer} onDelete={vi.fn()} baseNow={baseNow} />,
+        'en',
+      );
+
+      expect(html).toContain('20');
+      expect(html).toContain('min');
+      expect(html).toContain('Boil pasta');
+      expect(html).toContain(enMessages.dashboard.timerEnabled);
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });

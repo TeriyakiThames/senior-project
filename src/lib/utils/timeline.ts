@@ -1,20 +1,21 @@
-import { parseTimestamp, getAlarmNextFireDate } from '@/lib/utils/date';
-import type { AlarmItem } from '@/components/liff/AlarmCard';
+import { parseTimestamp, getAlarmNextFireDate, getTimerNextFireDate } from '@/lib/utils/date';
+import type { TimerItem } from '@/components/liff/TimerCard';
 import type { ReminderItem } from '@/components/liff/ReminderCard';
 
 export interface UpcomingTimelineItem {
   id: string;
-  type: 'alarm' | 'reminder';
+  type: 'timer' | 'reminder' | 'alarm';
   time: string;
   dayText: string;
   title: string;
   tag: string;
-  tagVariant: 'alarm' | 'reminder' | 'plan';
+  tagVariant: 'timer' | 'reminder' | 'plan' | 'alarm';
   sortTimestamp: number;
 }
 
 export interface BuildUpcomingItemsOptions {
-  alarms?: AlarmItem[];
+  timers?: TimerItem[];
+  alarms?: TimerItem[];
   reminders?: ReminderItem[];
   locale?: string;
   t?: (key: string) => string;
@@ -23,10 +24,10 @@ export interface BuildUpcomingItemsOptions {
 
 /**
  * Builds and sorts upcoming timeline items for the LIFF dashboard.
- * Gracefully handles alarms, timers (alarms with durationMinutes and no time string),
- * snoozed reminders, and recurring plans without runtime errors.
+ * Gracefully handles timers, snoozed reminders, and recurring plans without runtime errors.
  */
 export function buildUpcomingTimelineItems({
+  timers,
   alarms = [],
   reminders = [],
   locale = 'th',
@@ -34,6 +35,7 @@ export function buildUpcomingTimelineItems({
   now = new Date(),
 }: BuildUpcomingItemsOptions): UpcomingTimelineItem[] {
   const items: UpcomingTimelineItem[] = [];
+  const timerItems = timers ?? alarms;
 
   // 1. Process active reminders
   for (const rem of reminders) {
@@ -86,26 +88,26 @@ export function buildUpcomingTimelineItems({
     });
   }
 
-  // 2. Process enabled alarms & timers
-  for (const alarm of alarms) {
-    if (alarm.enabled === false || alarm.status === 'done') continue;
+  // 2. Process enabled timers
+  for (const timer of timerItems) {
+    if (timer.enabled === false || timer.status === 'done') continue;
 
-    let targetDate = getAlarmNextFireDate(alarm, now);
+    let targetDate = (getTimerNextFireDate || getAlarmNextFireDate)(timer, now);
 
-    // Fallback if getAlarmNextFireDate returned null, but alarm.time exists and is valid
-    if (!targetDate && typeof alarm.time === 'string' && alarm.time.includes(':')) {
-      const [hhStr, mmStr] = alarm.time.split(':');
+    // Fallback if getTimerNextFireDate returned null, but timer.time exists and is valid
+    if (!targetDate && typeof timer.time === 'string' && timer.time.includes(':')) {
+      const [hhStr, mmStr] = timer.time.split(':');
       const hh = parseInt(hhStr || '0', 10);
       const mm = parseInt(mmStr || '0', 10);
 
-      const alarmToday = new Date(now);
-      alarmToday.setHours(hh, mm, 0, 0);
+      const timerToday = new Date(now);
+      timerToday.setHours(hh, mm, 0, 0);
 
-      targetDate = alarmToday;
-      if (alarmToday.getTime() <= now.getTime()) {
-        const alarmTomorrow = new Date(alarmToday);
-        alarmTomorrow.setDate(alarmTomorrow.getDate() + 1);
-        targetDate = alarmTomorrow;
+      targetDate = timerToday;
+      if (timerToday.getTime() <= now.getTime()) {
+        const timerTomorrow = new Date(timerToday);
+        timerTomorrow.setDate(timerTomorrow.getDate() + 1);
+        targetDate = timerTomorrow;
       }
     }
 
@@ -131,26 +133,27 @@ export function buildUpcomingTimelineItems({
         : `${targetDate.getDate()} ${new Intl.DateTimeFormat(locale.startsWith('th') ? 'th-TH' : 'en-US', { month: 'short' }).format(targetDate)}`;
 
     const timeStr =
-      typeof alarm.time === 'string' && alarm.time.trim()
-        ? alarm.time.trim()
+      typeof timer.time === 'string' && timer.time.trim()
+        ? timer.time.trim()
         : `${String(targetDate.getHours()).padStart(2, '0')}:${String(targetDate.getMinutes()).padStart(2, '0')}`;
 
+    const defaultLabel = t('timer') || t('alarm');
     const title =
-      alarm.label ||
-      (alarm.durationMinutes
+      timer.label ||
+      (timer.durationMinutes
         ? locale.startsWith('th')
-          ? `จับเวลา ${alarm.durationMinutes} นาที`
-          : `Timer ${alarm.durationMinutes} min`
-        : t('alarm'));
+          ? `จับเวลา ${timer.durationMinutes} นาที`
+          : `Timer ${timer.durationMinutes} min`
+        : defaultLabel);
 
     items.push({
-      id: alarm.id,
-      type: 'alarm',
+      id: timer.id,
+      type: 'timer',
       time: timeStr,
       dayText,
       title,
-      tag: t('alarm'),
-      tagVariant: 'alarm',
+      tag: defaultLabel,
+      tagVariant: 'timer',
       sortTimestamp: targetDate.getTime(),
     });
   }

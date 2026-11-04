@@ -9,12 +9,13 @@ import { useLiffData } from '@/hooks/useLiffData';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { parseTimestamp } from '@/lib/utils/date';
 import { buildUpcomingTimelineItems, type UpcomingTimelineItem } from '@/lib/utils/timeline';
-import type { AlarmItem } from '@/components/liff/AlarmCard';
+import type { TimerItem } from '@/components/liff/TimerCard';
 import type { ReminderItem } from '@/components/liff/ReminderCard';
 import type { NoteItem } from '@/components/liff/NoteCard';
 
 interface DashboardData {
-  alarms?: AlarmItem[];
+  timers?: TimerItem[];
+  alarms?: TimerItem[];
   reminders?: ReminderItem[];
   notes?: NoteItem[];
 }
@@ -65,11 +66,11 @@ export default function DashboardPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
-    type: 'alarm' | 'reminder' | 'note';
+    type: 'timer' | 'reminder' | 'note' | 'alarm';
     title: string;
   } | null>(null);
 
-  const alarms = useMemo(() => data?.alarms ?? [], [data?.alarms]);
+  const timers = useMemo(() => data?.timers ?? data?.alarms ?? [], [data?.timers, data?.alarms]);
   const reminders = useMemo(() => data?.reminders ?? [], [data?.reminders]);
   const notes = useMemo(() => data?.notes ?? [], [data?.notes]);
 
@@ -81,16 +82,20 @@ export default function DashboardPage() {
 
   const upcomingItems = useMemo<UpcomingTimelineItem[]>(() => {
     return buildUpcomingTimelineItems({
-      alarms,
+      timers,
       reminders,
       locale,
       t,
     });
-  }, [reminders, alarms, locale, t]);
+  }, [reminders, timers, locale, t]);
 
   const recentNotes = useMemo(() => notes.slice(0, 3), [notes]);
 
-  const handleDeleteRequest = (id: string, type: 'alarm' | 'reminder' | 'note', title: string) => {
+  const handleDeleteRequest = (
+    id: string,
+    type: 'timer' | 'reminder' | 'note' | 'alarm',
+    title: string,
+  ) => {
     setDeleteTarget({ id, type, title });
   };
 
@@ -140,7 +145,7 @@ export default function DashboardPage() {
         <section className="grid grid-cols-2 gap-3 mb-7" aria-label={t('mine')}>
           {/* 1. Timers (ตัวจับเวลา) */}
           <Link
-            href={`/${locale}/liff/alarms`}
+            href={`/${locale}/liff/timer`}
             className="bg-[#FBEFD8] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#7A4E00]"
           >
             <Image
@@ -154,7 +159,7 @@ export default function DashboardPage() {
             <div>
               <p className="text-[#7A4E00] font-bold text-lg leading-tight">{t('timer')}</p>
               <p className="text-[#7A4E00]/80 text-sm font-medium mt-0.5">
-                {t('itemsCount', { count: alarms.length })}
+                {t('itemsCount', { count: timers.length })}
               </p>
             </div>
           </Link>
@@ -264,7 +269,7 @@ export default function DashboardPage() {
                     <div className="mt-1">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          item.tagVariant === 'alarm'
+                          item.tagVariant === 'timer' || item.tagVariant === 'alarm'
                             ? 'bg-[#FBEFD8] text-[#7A4E00]'
                             : item.tagVariant === 'plan'
                               ? 'bg-[#FDE5F0] text-[#B4225A]'
@@ -297,8 +302,8 @@ export default function DashboardPage() {
 
                     <Link
                       href={
-                        item.type === 'alarm'
-                          ? `/${locale}/liff/alarms`
+                        item.type === 'timer' || item.type === 'alarm'
+                          ? `/${locale}/liff/timer`
                           : `/${locale}/liff/reminders`
                       }
                       className="p-2 text-[#4B4F72] hover:text-[#21215C] transition-colors"
