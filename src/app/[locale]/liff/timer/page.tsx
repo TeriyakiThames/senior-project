@@ -5,45 +5,46 @@ import Image from 'next/image';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
-import { AlarmCard, type AlarmItem } from '@/components/liff/AlarmCard';
+import { TimerCard, type TimerItem } from '@/components/liff/TimerCard';
 import { DetailHeader } from '@/components/layout/DetailHeader';
 import { TipBanner } from '@/components/ui/TipBanner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Toast } from '@/components/ui/Toast';
-import { getAlarmNextFireDate } from '@/lib/utils/date';
+import { getTimerNextFireDate } from '@/lib/utils/date';
 
-interface AlarmsData {
-  alarms?: AlarmItem[];
+interface TimersData {
+  timers?: TimerItem[];
+  alarms?: TimerItem[];
 }
 
-export default function AlarmsPage() {
+export default function TimerPage() {
   const locale = useLocale();
   const t = useTranslations('dashboard');
   const { isReady } = useLiff();
-  const { data, loading, deleteItem } = useLiffData<AlarmsData>('alarms');
+  const { data, loading, deleteItem } = useLiffData<TimersData>('timers');
 
-  const [deleteTarget, setDeleteTarget] = useState<AlarmItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TimerItem | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const alarms = useMemo(() => data?.alarms ?? [], [data?.alarms]);
+  const timers = useMemo(() => data?.timers ?? data?.alarms ?? [], [data?.timers, data?.alarms]);
 
-  // Sort alarms chronologically by next trigger date ascending (soonest first)
-  const sortedAlarms = useMemo(() => {
-    const list = [...alarms];
+  // Sort timers chronologically by next trigger date ascending (soonest first)
+  const sortedTimers = useMemo(() => {
+    const list = [...timers];
     return list.sort((a, b) => {
-      const nextA = getAlarmNextFireDate(a)?.getTime() ?? 0;
-      const nextB = getAlarmNextFireDate(b)?.getTime() ?? 0;
+      const nextA = getTimerNextFireDate(a)?.getTime() ?? 0;
+      const nextB = getTimerNextFireDate(b)?.getTime() ?? 0;
       if (nextA && nextB && nextA !== nextB) {
         return nextA - nextB;
       }
       return (a.time || '').localeCompare(b.time || '');
     });
-  }, [alarms]);
+  }, [timers]);
 
-  const handleDeleteRequest = (alarm: AlarmItem) => {
-    setDeleteTarget(alarm);
+  const handleDeleteRequest = (timer: TimerItem) => {
+    setDeleteTarget(timer);
   };
 
   const handleConfirmDelete = async () => {
@@ -51,11 +52,11 @@ export default function AlarmsPage() {
     const { id } = deleteTarget;
     setIsDeleting(true);
     try {
-      await deleteItem(id, 'alarm');
+      await deleteItem(id, 'timer');
       setDeleteTarget(null);
       setShowToast(true);
     } catch (err) {
-      console.error('Failed to delete alarm:', err);
+      console.error('Failed to delete timer:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -82,12 +83,22 @@ export default function AlarmsPage() {
 
   const isThai = locale.toLowerCase().startsWith('th');
 
+  const pageTitle = t('timer');
+  const pageSubtitle =
+    timers.length > 0 ? t('timersSubtitle', { count: timers.length }) : undefined;
+  const emptyTitle = t('emptyTimersTitle');
+  const tipTitle = t('tipTimerTitle');
+  const tipHint = t('tipTimerHint');
+  const confirmDeleteTitle = t('confirmDeleteTimerTitle');
+  const deleteBtnLabel = t('deleteTimer');
+  const toastMessage = t('timerDeletedToast');
+
   return (
     <div className="min-h-screen bg-[#F2F7FA] text-[#21215C]">
       {/* Top LINE Service App Bar + Category Header matching Figma Ground Truth */}
       <DetailHeader
-        title={t('alarms')}
-        subtitle={alarms.length > 0 ? t('alarmsSubtitle', { count: alarms.length }) : undefined}
+        title={pageTitle}
+        subtitle={pageSubtitle}
         badgeBgColor="bg-[#FBEFD8]"
         badgeIcon={
           <Image
@@ -102,7 +113,7 @@ export default function AlarmsPage() {
       />
 
       <main className="px-5 pt-1 pb-16 max-w-[440px] mx-auto">
-        {sortedAlarms.length === 0 ? (
+        {sortedTimers.length === 0 ? (
           /* Empty State matching Figma Specification */
           <EmptyState
             badgeBgColor="bg-[#FBEFD8]"
@@ -116,32 +127,32 @@ export default function AlarmsPage() {
                 aria-hidden="true"
               />
             }
-            title={t('emptyAlarmsTitle')}
+            title={emptyTitle}
             description={
               <div className="space-y-1">
-                <p>{t('emptyAlarmsHintLine1')}</p>
-                <p>{t('emptyAlarmsHintLine2')}</p>
+                <p>{t('emptyTimersHintLine1')}</p>
+                <p>{t('emptyTimersHintLine2')}</p>
               </div>
             }
             actionLabel={t('goToChat')}
             actionButtonColor="bg-[#3E81F7]"
           />
         ) : (
-          /* Alarm Cards List + Bottom Speech Tip Banner matching Provided UI */
+          /* Timer Cards List + Bottom Speech Tip Banner matching Provided UI */
           <div>
             <div className="space-y-4">
-              {sortedAlarms.map((alarm) => (
-                <AlarmCard
-                  key={alarm.id}
-                  alarm={alarm}
-                  onDelete={() => handleDeleteRequest(alarm)}
+              {sortedTimers.map((timer) => (
+                <TimerCard
+                  key={timer.id}
+                  timer={timer}
+                  onDelete={() => handleDeleteRequest(timer)}
                 />
               ))}
             </div>
 
             {/* Bottom Natural Speech Guidance Tip Banner */}
             <div className="mt-6">
-              <TipBanner title={t('tipAlarmTitle')} description={t('tipAlarmHint')} />
+              <TipBanner title={tipTitle} description={tipHint} />
             </div>
           </div>
         )}
@@ -150,7 +161,7 @@ export default function AlarmsPage() {
       {/* Delete Confirmation Modal matching Figma & Note Page Standard */}
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        title={t('confirmDeleteAlarmTitle')}
+        title={confirmDeleteTitle}
         contentPreview={
           deleteTarget
             ? deleteTarget.label
@@ -159,11 +170,11 @@ export default function AlarmsPage() {
                 ? `${deleteTarget.time}${isThai ? ' น.' : ''}`
                 : deleteTarget.durationMinutes
                   ? `${deleteTarget.durationMinutes} ${isThai ? 'นาที' : 'min'}`
-                  : t('alarm')
+                  : pageTitle
             : ''
         }
         warningText={t('confirmDeleteWarning')}
-        confirmLabel={t('deleteAlarm')}
+        confirmLabel={deleteBtnLabel}
         cancelLabel={t('doNotDelete')}
         confirmVariant="danger"
         onConfirm={handleConfirmDelete}
@@ -173,7 +184,7 @@ export default function AlarmsPage() {
       {/* Floating Bottom Toast Feedback matching Figma Standard */}
       <Toast
         isOpen={showToast}
-        message={t('alarmDeletedToast')}
+        message={toastMessage}
         durationMs={3000}
         onClose={() => setShowToast(false)}
       />

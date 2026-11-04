@@ -149,8 +149,10 @@ let mockStore: MockStore = getDefaultMockStore();
 
 export function getMockItems(type: string = 'all'): Record<string, unknown[]> {
   const result: Record<string, unknown[]> = {};
-  if (type === 'alarms' || type === 'all') {
-    result.alarms = mockStore.alarms.filter((a) => a.enabled);
+  if (type === 'timers' || type === 'timer' || type === 'alarms' || type === 'all') {
+    const list = mockStore.alarms.filter((a) => a.enabled);
+    result.timers = list;
+    result.alarms = list;
   }
   if (type === 'reminders' || type === 'all') {
     result.reminders = mockStore.reminders.filter(
@@ -164,7 +166,7 @@ export function getMockItems(type: string = 'all'): Record<string, unknown[]> {
 }
 
 export function deleteMockItem(id: string, type: string): boolean {
-  if (type === 'alarm') {
+  if (type === 'alarm' || type === 'timer') {
     const item = mockStore.alarms.find((a) => a.id === id);
     if (!item) return false;
     item.enabled = false;

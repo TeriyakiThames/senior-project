@@ -89,7 +89,7 @@ Any AI assistant or agent operating in this repository must strictly adhere to t
 
 The top hub features a 2-column, 2-row grid of large, rounded pastel cards (`rounded-3xl` / `24px` radius):
 
-1. **Alarms (นาฬิกาปลุก):**
+1. **Timers (ตัวจับเวลา):**
    - Container Background: `#FBEFD8` (Warm soft cream)
    - Icon Accent: `#FCCE57` (Golden Amber circular badge)
    - Icon Lines & Typography: `#7A4E00` (Deep Amber Bronze)
@@ -110,7 +110,7 @@ The top hub features a 2-column, 2-row grid of large, rounded pastel cards (`rou
 
 - **Reminder Tag:** `#E1E8F8` background, `#385289` text (e.g. `การเตือน`, `การเตือน · เลื่อนเวลา`).
 - **Plan Tag:** `#FDE5F0` background, `#B4225A` text (e.g. `แผน`).
-- **Alarm Tag:** `#FBEFD8` background, `#7A4E00` text (e.g. `นาฬิกาปลุก`).
+- **Timer Tag:** `#FBEFD8` background, `#7A4E00` text (e.g. `ตัวจับเวลา`).
 - **Input Method Tag:** `#EAF0F6` background, `#21215C` text (e.g. `🎤 เสียง`, `⌨️ พิมพ์`).
 
 #### 2.5.4 Elevation & Container Architecture
@@ -123,11 +123,11 @@ The top hub features a 2-column, 2-row grid of large, rounded pastel cards (`rou
 
 #### 2.5.5 Detail Pages & Modular Component Specifications (Figma Ground Truth)
 
-Detail pages (such as Notes, Alarms, Reminders, and Plans) adhere to a shared, reusable component system configured per category:
+Detail pages (such as Notes, Timers, Reminders, and Plans) adhere to a shared, reusable component system configured per category:
 
 1. **Detail Page Header (`DetailHeader`):**
    - **LINE App Bar:** Fixed `54px` height with subtle bottom border, close `X` (`#111111`), service name `[ชื่อบริการ]`, and options `...` linking to settings.
-   - **Back Navigation & Title:** Large chevron `<` back button (`#21215C`), `48x48px` squircle category badge (`rounded-2xl`) using the category's pastel background (`#EEE1FA` for Notes, `#FBEFD8` for Alarms, `#E1E8F8` for Reminders, `#FDE5F0` for Plans), bold heading (`#21215C`, `text-3xl font-extrabold`), and count/sort order descriptor subtitle (`#7D84A3`, e.g. `12 โน้ต · ใหม่สุดอยู่บนสุด`).
+   - **Back Navigation & Title:** Large chevron `<` back button (`#21215C`), `48x48px` squircle category badge (`rounded-2xl`) using the category's pastel background (`#EEE1FA` for Notes, `#FBEFD8` for Timers, `#E1E8F8` for Reminders, `#FDE5F0` for Plans), bold heading (`#21215C`, `text-3xl font-extrabold`), and count/sort order descriptor subtitle (`#7D84A3`, e.g. `12 โน้ต · ใหม่สุดอยู่บนสุด`).
 
 2. **Date-Grouped Item Listing (`NoteCard` & `ItemCard`):**
    - **Date Section Headings:** Crisp bold slate/indigo text (`text-xl font-bold #21215C`) grouped chronologically (newest first). Header rules: `วันนี้` for today, `เมื่อวาน · 21 ต.ค.` for yesterday, and `{weekday} 20 ต.ค.` (with `วัน` prefix omitted in Thai, e.g. `อังคาร 20 ต.ค.`) for past dates.

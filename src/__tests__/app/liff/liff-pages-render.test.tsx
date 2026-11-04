@@ -34,7 +34,7 @@ vi.mock('next/navigation', () => ({
 
 // Import LIFF Pages
 import DashboardPage from '@/app/[locale]/liff/page';
-import AlarmsPage from '@/app/[locale]/liff/alarms/page';
+import TimerPage from '@/app/[locale]/liff/timer/page';
 import RemindersPage from '@/app/[locale]/liff/reminders/page';
 import NotesPage from '@/app/[locale]/liff/notes/page';
 import SettingsPage from '@/app/[locale]/liff/settings/page';
@@ -88,7 +88,7 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
 
       const pages = [
         <DashboardPage key="dashboard" />,
-        <AlarmsPage key="alarms" />,
+        <TimerPage key="timer" />,
         <RemindersPage key="reminders" />,
         <NotesPage key="notes" />,
       ];
@@ -131,7 +131,7 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
 
       const pages = [
         <DashboardPage key="dashboard" />,
-        <AlarmsPage key="alarms" />,
+        <TimerPage key="timer" />,
         <RemindersPage key="reminders" />,
         <NotesPage key="notes" />,
         <SettingsPage key="settings" />,
@@ -166,6 +166,8 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
       expect(thHtml).toContain(thMessages.dashboard.upcoming);
       expect(thHtml).toContain(thMessages.dashboard.recentNotes);
       expect(thHtml).toContain(thMessages.dashboard.emptyUpcomingTitle);
+      expect(thHtml).toContain('/th/liff/timer');
+      expect(thHtml).not.toContain('/th/liff/alarms');
 
       // English
       const enHtml = renderWithIntl(<DashboardPage />, 'en');
@@ -173,14 +175,16 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
       expect(enHtml).toContain(enMessages.dashboard.upcoming);
       expect(enHtml).toContain(enMessages.dashboard.recentNotes);
       expect(enHtml).toContain(enMessages.dashboard.emptyUpcomingTitle);
+      expect(enHtml).toContain('/en/liff/timer');
+      expect(enHtml).not.toContain('/en/liff/alarms');
 
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
-    it('renders Alarms empty state properly', () => {
-      const html = renderWithIntl(<AlarmsPage />, 'th');
-      expect(html).toContain(thMessages.dashboard.alarms);
-      expect(html).toContain(thMessages.dashboard.emptyAlarmsTitle);
+    it('renders Timer empty state properly', () => {
+      const html = renderWithIntl(<TimerPage />, 'th');
+      expect(html).toContain(thMessages.dashboard.timer);
+      expect(html).toContain(thMessages.dashboard.emptyTimersTitle);
       expect(html).toContain('ไปที่แชต');
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
@@ -285,11 +289,13 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
       expect(html).toContain('ไปหาหมอที่โรงพยาบาล');
       expect(html).toContain('ซื้อนมสดและกล้วยน้ำว้า');
       expect(html).toContain('นัดช่างมาซ่อมแอร์วันเสาร์');
+      expect(html).toContain('/th/liff/timer');
+      expect(html).not.toContain('/th/liff/alarms');
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
-    it('renders AlarmsPage with all alarms', () => {
-      const html = renderWithIntl(<AlarmsPage />, 'th');
+    it('renders TimerPage with all timers', () => {
+      const html = renderWithIntl(<TimerPage />, 'th');
       expect(html).toContain('07:00');
       expect(html).toContain('ตื่นนอน');
       expect(html).toContain('12:30');
@@ -364,10 +370,10 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
         expect(dashboardHtml).toContain('จับเวลา 15 นาที');
       }).not.toThrow();
 
-      // AlarmsPage should NOT throw and should render timer duration badge
+      // TimerPage should NOT throw and should render timer duration badge
       expect(() => {
-        const alarmsHtml = renderWithIntl(<AlarmsPage />, 'th');
-        expect(alarmsHtml).toContain('15');
+        const timerHtml = renderWithIntl(<TimerPage />, 'th');
+        expect(timerHtml).toContain('15');
       }).not.toThrow();
 
       expect(consoleErrorSpy).not.toHaveBeenCalled();
@@ -434,7 +440,7 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
 
       const pages = [
         <DashboardPage key="dashboard" />,
-        <AlarmsPage key="alarms" />,
+        <TimerPage key="timer" />,
         <RemindersPage key="reminders" />,
         <NotesPage key="notes" />,
       ];

@@ -16,6 +16,25 @@ const nextConfig: NextConfig = {
       './node_modules/.pnpm/google-gax*/**/google-gax/build/**/*.json',
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:locale(th|en)/liff/alarms',
+        destination: '/:locale/liff/timer',
+        permanent: true,
+      },
+      {
+        source: '/:locale(th|en)/liff/alarm',
+        destination: '/:locale/liff/timer',
+        permanent: true,
+      },
+      {
+        source: '/:locale(th|en)/liff/timers',
+        destination: '/:locale/liff/timer',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);

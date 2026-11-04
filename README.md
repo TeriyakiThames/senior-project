@@ -6,7 +6,7 @@
 
 ## 📖 System Vision & Overview
 
-The project provides an intuitive personal assistant for elderly Thai users to manage alarms, reminders, and voice notes with zero learning curve. By embedding directly inside LINE, it eliminates the barrier of downloading and navigating standalone applications.
+The project provides an intuitive personal assistant for elderly Thai users to manage timers, reminders, and voice notes with zero learning curve. By embedding directly inside LINE, it eliminates the barrier of downloading and navigating standalone applications.
 
 ### Key Pillars
 
@@ -31,14 +31,14 @@ The user interface is modeled directly from the master SVG design, discarding al
 
 ### 2. Four-Category Pastel Hub (2x2 Grid)
 
-- **⏰ Alarms (นาฬิกาปลุก):** Background `#FBEFD8`, Golden Amber Badge `#FCCE57`, Typography & Accents `#7A4E00`
+- **⏱️ Timers (ตัวจับเวลา):** Background `#FBEFD8`, Golden Amber Badge `#FCCE57`, Typography & Accents `#7A4E00`
 - **🔔 Reminders (การเตือน):** Background `#E1E8F8`, Azure Blue Badge `#3E81F7`, Typography & Accents `#385289`
 - **📝 Notes (โน้ต):** Background `#EEE1FA`, Vibrant Violet Badge `#9A59EF`, Typography & Accents `#544378`
 - **📅 My Plans (แผนของฉัน):** Background `#FDE5F0`, Rose Magenta Badge `#E8216F`, Typography & Accents `#B4225A`
 
 ### 3. Chronological Upcoming Stream ("ต่อไป") & Recent Notes ("โน้ตล่าสุด")
 
-- **Upcoming Items:** Single white panel displaying time (`22px` bold `#21215C`), relative day indicator, item title, status badge pill (`การเตือน`, `การเตือน · เลื่อนเวลา`, `แผน`, `นาฬิกาปลุก`), and chevron navigation.
+- **Upcoming Items:** Single white panel displaying time (`22px` bold `#21215C`), relative day indicator, item title, status badge pill (`การเตือน`, `การเตือน · เลื่อนเวลา`, `แผน`, `ตัวจับเวลา`), and chevron navigation.
 - **Recent Notes:** White panel featuring top notes with input origin tags (`🎤 เสียง` vs `⌨️ พิมพ์`), timestamp, and an outlined action button (`ดูโน้ตทั้งหมด >`).
 - **Voice/Text Assistance Banner:** Soft `#EAF0F6` card with mic icon and natural Thai conversational prompt.
 

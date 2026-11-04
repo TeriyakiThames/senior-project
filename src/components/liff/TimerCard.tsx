@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
-import { formatAlarmRecurrence, formatAlarmNextFire, getAlarmNextFireDate } from '@/lib/utils/date';
+import { formatTimerRecurrence, formatTimerNextFire, getTimerNextFireDate } from '@/lib/utils/date';
 
-export interface AlarmItem {
+export interface TimerItem {
   id: string;
   time?: string;
   durationMinutes?: number;
@@ -20,48 +20,53 @@ export interface AlarmItem {
   createdAt?: { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null;
 }
 
-export interface AlarmCardProps {
-  alarm: AlarmItem;
+export interface TimerCardProps {
+  timer: TimerItem;
   onDelete: () => void;
   baseNow?: Date;
 }
 
-export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
+export function TimerCard({ timer, onDelete, baseNow }: TimerCardProps) {
+  const item = timer;
   const t = useTranslations('dashboard');
   const locale = useLocale();
 
-  const isEnabled = alarm.enabled !== false;
-  const recurrenceLabel = formatAlarmRecurrence(
+  const isEnabled = item.enabled !== false;
+  const recurrenceLabel = formatTimerRecurrence(
     {
-      recurrence: alarm.recurrence,
-      daysOfWeek: alarm.daysOfWeek,
-      dayOfMonth: alarm.dayOfMonth,
+      recurrence: item.recurrence,
+      daysOfWeek: item.daysOfWeek,
+      dayOfMonth: item.dayOfMonth,
     },
     locale,
   );
 
-  const nextFireDate = getAlarmNextFireDate(alarm, baseNow);
-  const nextFireText = nextFireDate ? formatAlarmNextFire(nextFireDate, locale, baseNow) : '-';
+  const nextFireDate = getTimerNextFireDate(item, baseNow);
+  const nextFireText = nextFireDate ? formatTimerNextFire(nextFireDate, locale, baseNow) : '-';
 
   const isThai = locale.toLowerCase().startsWith('th');
-  const isTimer = !alarm.time && Boolean(alarm.durationMinutes);
+  const isDurationTimer = !item.time && Boolean(item.durationMinutes);
 
   const displayTime =
-    typeof alarm.time === 'string' && alarm.time.trim()
-      ? alarm.time.trim()
-      : isTimer && alarm.durationMinutes
-        ? `${alarm.durationMinutes}`
+    typeof item.time === 'string' && item.time.trim()
+      ? item.time.trim()
+      : isDurationTimer && item.durationMinutes
+        ? `${item.durationMinutes}`
         : nextFireDate
           ? `${String(nextFireDate.getHours()).padStart(2, '0')}:${String(nextFireDate.getMinutes()).padStart(2, '0')}`
           : '--:--';
 
   const showThaiHourSuffix =
     isThai &&
-    (Boolean(alarm.time) ||
-      (!isTimer && Boolean(nextFireDate)) ||
-      (!alarm.time && !alarm.durationMinutes));
+    (Boolean(item.time) ||
+      (!isDurationTimer && Boolean(nextFireDate)) ||
+      (!item.time && !item.durationMinutes));
 
-  const showDurationUnit = isTimer;
+  const showDurationUnit = isDurationTimer;
+
+  const enabledLabel = t('timerEnabled');
+  const disabledLabel = t('timerDisabled');
+  const nextTimerLabel = t('nextTimer');
 
   return (
     <article className="bg-white rounded-3xl p-5 shadow-[0_2px_6px_rgba(33,33,92,0.06),0_8px_24px_rgba(33,33,92,0.08)] border border-[#F2F7FA]/80 transition-shadow">
@@ -80,11 +85,9 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
         )}
       </div>
 
-      {/* Alarm Description / Label */}
-      {alarm.label && (
-        <h3 className="text-xl font-bold text-[#21215C] mt-1.5 mb-2.5 break-words">
-          {alarm.label}
-        </h3>
+      {/* Timer Description / Label */}
+      {item.label && (
+        <h3 className="text-xl font-bold text-[#21215C] mt-1.5 mb-2.5 break-words">{item.label}</h3>
       )}
 
       {/* Status Badges Row: Recurrence & Enabled Indicator */}
@@ -131,7 +134,7 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
               />
             </svg>
           )}
-          <span>{isEnabled ? t('alarmEnabled') : t('alarmDisabled')}</span>
+          <span>{isEnabled ? enabledLabel : disabledLabel}</span>
         </div>
       </div>
 
@@ -139,7 +142,7 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
       <div className="flex items-end justify-between gap-3 pt-1">
         {/* Next Trigger Info */}
         <div className="flex-1 min-w-0 pr-2">
-          <p className="text-sm font-medium text-[#7D84A3] mb-0.5">{t('nextAlarm')}</p>
+          <p className="text-sm font-medium text-[#7D84A3] mb-0.5">{nextTimerLabel}</p>
           <p className="text-base sm:text-lg font-bold text-[#21215C] leading-snug break-words">
             {nextFireText}
           </p>
@@ -149,7 +152,7 @@ export function AlarmCard({ alarm, onDelete, baseNow }: AlarmCardProps) {
         <button
           type="button"
           onClick={onDelete}
-          aria-label={`${t('delete')} ${alarm.label || alarm.time || displayTime}`}
+          aria-label={`${t('delete')} ${item.label || item.time || displayTime}`}
           className="border-[1.5px] border-[#942626] bg-white text-[#942626] hover:bg-red-50 active:scale-[0.98] rounded-2xl px-4 py-2 flex items-center gap-1.5 font-bold text-base transition-all min-h-[48px] min-w-[76px] justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-[#942626]"
         >
           <Image

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildUpcomingTimelineItems } from '@/lib/utils/timeline';
-import type { AlarmItem } from '@/components/liff/AlarmCard';
+import type { TimerItem } from '@/components/liff/TimerCard';
 import type { ReminderItem } from '@/components/liff/ReminderCard';
 
 describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', () => {
@@ -12,14 +12,15 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     reminder: 'การเตือน',
     snoozed: 'เลื่อนเวลา',
     plan: 'แผน',
-    alarm: 'นาฬิกาปลุก',
+    timer: 'ตัวจับเวลา',
+    alarm: 'ตัวจับเวลา',
   };
   const t = (k: string) => mockTranslations[k] ?? k;
 
-  it('gracefully handles alarm items where time is undefined (e.g. timers) without throwing split error', () => {
+  it('gracefully handles timer items where time is undefined without throwing split error', () => {
     // Regression test for production bug:
     // page-*.js: Uncaught TypeError: Cannot read properties of undefined (reading 'split')
-    const timerAlarm: AlarmItem = {
+    const timerItem: TimerItem = {
       id: 'timer-123',
       time: undefined as unknown as string,
       durationMinutes: 15,
@@ -29,7 +30,7 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
 
     expect(() => {
       const items = buildUpcomingTimelineItems({
-        alarms: [timerAlarm],
+        timers: [timerItem],
         reminders: [],
         locale: 'th',
         t,
@@ -37,15 +38,15 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
       });
       expect(items).toHaveLength(1);
       expect(items[0].id).toBe('timer-123');
-      expect(items[0].type).toBe('alarm');
+      expect(items[0].type).toBe('timer');
       expect(items[0].title).toBe('จับเวลา 15 นาที');
-      expect(items[0].tag).toBe('นาฬิกาปลุก');
-      expect(items[0].tagVariant).toBe('alarm');
+      expect(items[0].tag).toBe('ตัวจับเวลา');
+      expect(items[0].tagVariant).toBe('timer');
     }).not.toThrow();
   });
 
-  it('skips alarms when time is undefined and nextFireAt is missing or in the past', () => {
-    const pastAlarm: AlarmItem = {
+  it('skips timers when time is undefined and nextFireAt is missing or in the past', () => {
+    const pastTimer: TimerItem = {
       id: 'past-timer',
       time: undefined as unknown as string,
       durationMinutes: 10,
@@ -54,7 +55,7 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     };
 
     const items = buildUpcomingTimelineItems({
-      alarms: [pastAlarm],
+      timers: [pastTimer],
       reminders: [],
       locale: 'th',
       t,
@@ -64,9 +65,9 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     expect(items).toHaveLength(0);
   });
 
-  it('correctly processes standard alarms with time string', () => {
-    const alarm: AlarmItem = {
-      id: 'alarm-1',
+  it('correctly processes standard timers with time string', () => {
+    const timer: TimerItem = {
+      id: 'timer-1',
       time: '07:00',
       label: 'ตื่นนอน',
       recurrence: 'daily',
@@ -74,7 +75,7 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     };
 
     const items = buildUpcomingTimelineItems({
-      alarms: [alarm],
+      timers: [timer],
       reminders: [],
       locale: 'th',
       t,
@@ -82,11 +83,11 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     });
 
     expect(items).toHaveLength(1);
-    expect(items[0].id).toBe('alarm-1');
+    expect(items[0].id).toBe('timer-1');
     expect(items[0].time).toBe('07:00');
     expect(items[0].title).toBe('ตื่นนอน');
-    expect(items[0].tag).toBe('นาฬิกาปลุก');
-    expect(items[0].tagVariant).toBe('alarm');
+    expect(items[0].tag).toBe('ตัวจับเวลา');
+    expect(items[0].tagVariant).toBe('timer');
   });
 
   it('correctly processes active reminders including snoozed status and recurring plans', () => {
@@ -126,10 +127,10 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     expect(items[1].tagVariant).toBe('plan');
   });
 
-  it('skips disabled alarms and done reminders', () => {
-    const alarms: AlarmItem[] = [
-      { id: 'disabled-alarm', time: '08:00', enabled: false },
-      { id: 'done-alarm', time: '09:00', enabled: true, status: 'done' },
+  it('skips disabled timers and done reminders', () => {
+    const timers: TimerItem[] = [
+      { id: 'disabled-timer', time: '08:00', enabled: false },
+      { id: 'done-timer', time: '09:00', enabled: true, status: 'done' },
     ];
     const reminders: ReminderItem[] = [
       {
@@ -141,7 +142,7 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     ];
 
     const items = buildUpcomingTimelineItems({
-      alarms,
+      timers,
       reminders,
       locale: 'th',
       t,
@@ -151,10 +152,10 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     expect(items).toHaveLength(0);
   });
 
-  it('sorts mixed alarms, timers, and reminders chronologically ascending', () => {
-    const alarms: AlarmItem[] = [
+  it('sorts mixed timers and reminders chronologically ascending', () => {
+    const timers: TimerItem[] = [
       {
-        id: 'alarm-future',
+        id: 'timer-future',
         time: '20:00',
         label: 'สวดมนต์',
         enabled: true,
@@ -178,7 +179,7 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     ];
 
     const items = buildUpcomingTimelineItems({
-      alarms,
+      timers,
       reminders,
       locale: 'th',
       t,
@@ -188,6 +189,6 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     expect(items).toHaveLength(3);
     expect(items[0].id).toBe('timer-soon');
     expect(items[1].id).toBe('rem-noon');
-    expect(items[2].id).toBe('alarm-future');
+    expect(items[2].id).toBe('timer-future');
   });
 });

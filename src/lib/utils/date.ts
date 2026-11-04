@@ -338,6 +338,14 @@ export function getAlarmNextFireDate(
 }
 
 /**
+ * Aliases for timer scheduling & display formatting
+ */
+export const getTimerNextFireDate = getAlarmNextFireDate;
+export const formatTimerNextFire = formatAlarmNextFire;
+export const formatTimerRecurrence = formatAlarmRecurrence;
+export const formatRecurrence = formatAlarmRecurrence;
+
+/**
  * Formats time and relative date for reminder card headers matching Figma Ground Truth:
  * - Time: "14:30 น." (th) / "14:30" (en)
  * - Date: "วันนี้" (th) / "Today" (en) for today
