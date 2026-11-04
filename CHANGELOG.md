@@ -1,3 +1,10 @@
+## [1.33.1](https://github.com/TeriyakiThames/senior-project/compare/v1.33.0...v1.33.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* handle undefined alarm time in LIFF dashboard ([#119](https://github.com/TeriyakiThames/senior-project/issues/119)) ([2a51318](https://github.com/TeriyakiThames/senior-project/commit/2a513185e61177ad58df5db993570dad79a573f0))
+
 # [1.33.0](https://github.com/TeriyakiThames/senior-project/compare/v1.32.8...v1.33.0) (2026-11-03)
 
 
