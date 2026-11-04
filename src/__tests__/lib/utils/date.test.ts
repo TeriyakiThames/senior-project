@@ -46,11 +46,21 @@ describe('formatDashboardDate (FE-03)', () => {
 });
 
 describe('parseTimestamp (FE-04)', () => {
-  it('correctly parses Firestore timestamp objects with _seconds', () => {
-    const timestamp = { _seconds: 1729300000 };
-    const date = parseTimestamp(timestamp);
-    expect(date).toBeInstanceOf(Date);
-    expect(date?.getTime()).toBe(1729300000 * 1000);
+  it('correctly parses Firestore timestamp objects with _seconds or seconds', () => {
+    const timestampWithUnderscore = { _seconds: 1729300000 };
+    const date1 = parseTimestamp(timestampWithUnderscore);
+    expect(date1).toBeInstanceOf(Date);
+    expect(date1?.getTime()).toBe(1729300000 * 1000);
+
+    const timestampWithoutUnderscore = { seconds: 1729300000 };
+    const date2 = parseTimestamp(timestampWithoutUnderscore);
+    expect(date2).toBeInstanceOf(Date);
+    expect(date2?.getTime()).toBe(1729300000 * 1000);
+
+    const timestampWithToDate = { toDate: () => new Date(1729300000 * 1000) };
+    const date3 = parseTimestamp(timestampWithToDate);
+    expect(date3).toBeInstanceOf(Date);
+    expect(date3?.getTime()).toBe(1729300000 * 1000);
   });
 
   it('correctly parses Date instances and ISO strings', () => {
@@ -301,6 +311,34 @@ describe('getAlarmNextFireDate', () => {
     expect(bkk.hours).toBe(5);
     expect(bkk.minutes).toBe(30);
     expect(bkk.day).toBe(23);
+  });
+
+  it('uses nextFireAt when time is undefined (e.g. TimerDoc)', () => {
+    const futureDate = createBangkokDate(2026, 10, 22, 10, 15);
+    const timerAlarm = {
+      time: undefined,
+      durationMinutes: 15,
+      nextFireAt: futureDate,
+    };
+    const nextDate = getAlarmNextFireDate(timerAlarm, baseNow);
+    expect(nextDate?.getTime()).toBe(futureDate.getTime());
+  });
+
+  it('safely returns null when time is undefined and nextFireAt is missing or past', () => {
+    const pastDate = createBangkokDate(2026, 10, 22, 9, 0);
+    const timerAlarm = {
+      time: undefined,
+      durationMinutes: 10,
+      nextFireAt: pastDate,
+    };
+    const nextDate = getAlarmNextFireDate(timerAlarm, baseNow);
+    expect(nextDate).toBeNull();
+
+    const noDateAlarm = {
+      time: undefined,
+      durationMinutes: 10,
+    };
+    expect(getAlarmNextFireDate(noDateAlarm, baseNow)).toBeNull();
   });
 });
 

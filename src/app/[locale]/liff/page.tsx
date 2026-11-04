@@ -8,6 +8,7 @@ import { useLiff } from '@/components/liff/LiffProvider';
 import { useLiffData } from '@/hooks/useLiffData';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { parseTimestamp } from '@/lib/utils/date';
+import { buildUpcomingTimelineItems, type UpcomingTimelineItem } from '@/lib/utils/timeline';
 import type { AlarmItem } from '@/components/liff/AlarmCard';
 import type { ReminderItem } from '@/components/liff/ReminderCard';
 import type { NoteItem } from '@/components/liff/NoteCard';
@@ -16,17 +17,6 @@ interface DashboardData {
   alarms?: AlarmItem[];
   reminders?: ReminderItem[];
   notes?: NoteItem[];
-}
-
-interface UpcomingTimelineItem {
-  id: string;
-  type: 'alarm' | 'reminder';
-  time: string;
-  dayText: string;
-  title: string;
-  tag: string;
-  tagVariant: 'alarm' | 'reminder' | 'plan';
-  sortTimestamp: number;
 }
 
 function formatHeaderDate(date: Date, locale: string): string {
@@ -90,95 +80,12 @@ export default function DashboardPage() {
   }, [reminders]);
 
   const upcomingItems = useMemo<UpcomingTimelineItem[]>(() => {
-    const items: UpcomingTimelineItem[] = [];
-    const now = new Date();
-
-    // 1. Process active reminders
-    for (const rem of reminders) {
-      if (rem.status === 'done') continue;
-      const fireDate = parseTimestamp(rem.nextFireAt);
-      if (!fireDate) continue;
-
-      const hours = String(fireDate.getHours()).padStart(2, '0');
-      const minutes = String(fireDate.getMinutes()).padStart(2, '0');
-      const timeStr = `${hours}:${minutes}`;
-
-      const isToday =
-        fireDate.getDate() === now.getDate() &&
-        fireDate.getMonth() === now.getMonth() &&
-        fireDate.getFullYear() === now.getFullYear();
-
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      const isTomorrow =
-        fireDate.getDate() === tomorrow.getDate() &&
-        fireDate.getMonth() === tomorrow.getMonth() &&
-        fireDate.getFullYear() === tomorrow.getFullYear();
-
-      const dayText = isToday
-        ? t('today')
-        : isTomorrow
-          ? t('tomorrow')
-          : `${fireDate.getDate()} ${new Intl.DateTimeFormat(locale.startsWith('th') ? 'th-TH' : 'en-US', { month: 'short' }).format(fireDate)}`;
-
-      let tag = t('reminder');
-      let tagVariant: 'alarm' | 'reminder' | 'plan' = 'reminder';
-
-      if (rem.status === 'snoozed') {
-        tag = `${t('reminder')} · ${t('snoozed')}`;
-        tagVariant = 'reminder';
-      } else if (rem.recurrence && rem.recurrence !== 'once') {
-        tag = t('plan');
-        tagVariant = 'plan';
-      }
-
-      items.push({
-        id: rem.id,
-        type: 'reminder',
-        time: timeStr,
-        dayText,
-        title: rem.message,
-        tag,
-        tagVariant,
-        sortTimestamp: fireDate.getTime(),
-      });
-    }
-
-    // 2. Process enabled alarms
-    for (const alarm of alarms) {
-      if (alarm.enabled === false) continue;
-      const [hhStr, mmStr] = alarm.time.split(':');
-      const hh = parseInt(hhStr || '0', 10);
-      const mm = parseInt(mmStr || '0', 10);
-
-      const alarmToday = new Date(now);
-      alarmToday.setHours(hh, mm, 0, 0);
-
-      let targetDate = alarmToday;
-      let dayText = t('today');
-
-      if (alarmToday.getTime() <= now.getTime()) {
-        const alarmTomorrow = new Date(alarmToday);
-        alarmTomorrow.setDate(alarmTomorrow.getDate() + 1);
-        targetDate = alarmTomorrow;
-        dayText = t('tomorrow');
-      }
-
-      items.push({
-        id: alarm.id,
-        type: 'alarm',
-        time: alarm.time,
-        dayText,
-        title: alarm.label || t('alarm'),
-        tag: t('alarm'),
-        tagVariant: 'alarm',
-        sortTimestamp: targetDate.getTime(),
-      });
-    }
-
-    // Sort chronologically ascending
-    items.sort((a, b) => a.sortTimestamp - b.sortTimestamp);
-    return items;
+    return buildUpcomingTimelineItems({
+      alarms,
+      reminders,
+      locale,
+      t,
+    });
   }, [reminders, alarms, locale, t]);
 
   const recentNotes = useMemo(() => notes.slice(0, 3), [notes]);
