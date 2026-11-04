@@ -4,6 +4,7 @@ import {
   buildReminderConfirmation,
   buildAlarmNotification,
   buildTimerNotification,
+  buildTimerConfirmationCard,
   buildReminderNotification,
 } from '@/lib/line/flex-messages';
 import type { messagingApi } from '@line/bot-sdk';
@@ -253,6 +254,101 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect((dismissButton.action as messagingApi.PostbackAction).data).toBe(
         `action=dismiss_timer&id=${timerId}&nid=nid-1`,
       );
+    });
+  });
+
+  describe('buildTimerConfirmationCard', () => {
+    it('generates a valid Timer confirmation Flex message with duration, trigger time, and delete button', () => {
+      const durationText = '15 นาที';
+      const timerId = 'timer-conf-123';
+      const fireAt = new Date('2026-11-04T07:45:00.000Z'); // 14:45 Bangkok
+      const flex = buildTimerConfirmationCard({
+        durationText,
+        fireAt,
+        timerId,
+      });
+
+      expect(flex.type).toBe('flex');
+      expect(flex.altText).toBe(`⏱️ เริ่มจับเวลา: ${durationText}`);
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      expect(bubble.type).toBe('bubble');
+      expect(bubble.size).toBe('kilo');
+
+      // Header check
+      const headerBox = bubble.header as messagingApi.FlexBox;
+      expect(headerBox.backgroundColor).toBe('#FBEFD8');
+      const headerIcon = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerIcon.text).toBe('⏱️');
+      const headerTitle = headerBox.contents[1] as messagingApi.FlexText;
+      expect(headerTitle.text).toBe('เริ่มจับเวลาแล้วค่ะ');
+      expect(headerTitle.color).toBe('#7A4E00');
+
+      // Body check
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const durationBox = bodyBox.contents[0] as messagingApi.FlexBox;
+      const durationVal = durationBox.contents[1] as messagingApi.FlexText;
+      expect(durationVal.text).toBe('15 นาที');
+
+      const fireBox = bodyBox.contents[1] as messagingApi.FlexBox;
+      const fireVal = fireBox.contents[1] as messagingApi.FlexText;
+      expect(fireVal.text).toBe('14:45 น.');
+
+      const promptText = bodyBox.contents[2] as messagingApi.FlexText;
+      expect(promptText.text).toBe('เริ่มนับถอยหลังแล้วค่ะ หนูจะเตือนเมื่อครบเวลานะคะ ⏱️');
+
+      // Footer check
+      const footerBox = bubble.footer as messagingApi.FlexBox;
+      expect(footerBox.contents).toHaveLength(1);
+      const deleteButton = footerBox.contents[0] as messagingApi.FlexButton;
+      expect(deleteButton.type).toBe('button');
+      expect(deleteButton.style).toBe('secondary');
+      expect((deleteButton.action as messagingApi.PostbackAction).type).toBe('postback');
+      expect((deleteButton.action as messagingApi.PostbackAction).label).toBe('🗑️ ลบตัวจับเวลา');
+      expect((deleteButton.action as messagingApi.PostbackAction).data).toBe(
+        `action=delete_timer&id=${timerId}`,
+      );
+      expect((deleteButton.action as messagingApi.PostbackAction).displayText).toBe('ลบตัวจับเวลา');
+    });
+
+    it('includes label in body and altText when label is provided', () => {
+      const durationText = '7 นาที';
+      const timerId = 'timer-conf-456';
+      const fireAt = new Date('2026-11-04T07:37:00.000Z');
+      const flex = buildTimerConfirmationCard({
+        durationText,
+        fireAt,
+        timerId,
+        label: 'ต้มไข่',
+      });
+
+      expect(flex.altText).toBe('⏱️ เริ่มจับเวลา: 7 นาที (ต้มไข่)');
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      expect(bodyBox.contents).toHaveLength(4);
+
+      const labelBox = bodyBox.contents[1] as messagingApi.FlexBox;
+      const labelVal = labelBox.contents[1] as messagingApi.FlexText;
+      expect(labelVal.text).toBe('ต้มไข่');
+    });
+
+    it('handles duration with hours and minutes properly', () => {
+      const durationText = '1 ชั่วโมง 30 นาที';
+      const timerId = 'timer-conf-hours';
+      const fireAt = new Date('2026-11-04T09:00:00.000Z');
+      const flex = buildTimerConfirmationCard({
+        durationText,
+        fireAt,
+        timerId,
+      });
+
+      expect(flex.altText).toBe('⏱️ เริ่มจับเวลา: 1 ชั่วโมง 30 นาที');
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const durationBox = bodyBox.contents[0] as messagingApi.FlexBox;
+      const durationVal = durationBox.contents[1] as messagingApi.FlexText;
+      expect(durationVal.text).toBe('1 ชั่วโมง 30 นาที');
     });
   });
 

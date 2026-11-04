@@ -13,6 +13,7 @@ import {
   executeTool,
   handleSnooze,
   handleDismiss,
+  handleDeleteTimer,
   handleConfirmNote,
   handleConfirmReminder,
   handleCancelAction,
@@ -469,7 +470,9 @@ export async function handleTextMessage(
     // - General chat turns are always eligible for learning user facts / preferences.
     // - Tool calls are strictly gated: only learn if the tool executed successfully and is not a pending draft.
     const isToolIntent = intentResult.intent !== 'general_chat';
-    const isPendingDraft = Boolean(toolResult.flexMessage);
+    const isPendingDraft =
+      Boolean(toolResult.flexMessage) &&
+      (intentResult.intent === 'save_note' || intentResult.intent === 'set_reminder');
     const isToolSuccessful = toolResult.success && !isPendingDraft;
     const shouldUpdateKnowledgeBase = !isToolIntent || isToolSuccessful;
 
@@ -604,6 +607,28 @@ export async function handlePostbackEvent(
         messages: [{ type: 'text', text: replyText }],
       });
       await saveMessages(userId, displayUserText, replyText);
+      return;
+    } catch (error) {
+      throw error instanceof AppError
+        ? error
+        : new AppError((error as Error).message, 'TOOL_ACTION_FAIL');
+    }
+  }
+
+  // Delete timer postback handling
+  const deleteTimerMatch = data.match(/^delete_timer:(.+)$/);
+  const deleteTimerId =
+    actionParam === 'delete_timer' ? idParam : deleteTimerMatch ? deleteTimerMatch[1] : null;
+
+  if (deleteTimerId) {
+    try {
+      const toolRes = await handleDeleteTimer(deleteTimerId, user);
+      const replyText = toolRes.message || 'ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️';
+      await lineClient.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: replyText }],
+      });
+      await saveMessages(userId, 'ลบตัวจับเวลา', replyText);
       return;
     } catch (error) {
       throw error instanceof AppError

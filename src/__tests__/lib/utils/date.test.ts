@@ -253,35 +253,31 @@ describe('formatAlarmRecurrence', () => {
 describe('formatAlarmNextFire', () => {
   const baseNow = new Date(2026, 9, 22, 12, 0); // Thu Oct 22, 2026
 
-  it('formats today trigger with weekday, day, and month', () => {
+  it('formats today trigger with the next fire time instead of the date', () => {
     const today = new Date(2026, 9, 22, 18, 0);
     const resultTh = formatAlarmNextFire(today, 'th', baseNow);
-    expect(resultTh).toContain('วันนี้');
-    expect(resultTh).toContain('22');
-    expect(resultTh).toContain('ต.ค.');
+    expect(resultTh).toBe('18:00 น.');
 
     const resultEn = formatAlarmNextFire(today, 'en', baseNow);
-    expect(resultEn).toContain('Today');
-    expect(resultEn).toContain('22');
-    expect(resultEn).toContain('Oct');
+    expect(resultEn).toBe('18:00');
   });
 
-  it('formats tomorrow trigger matching Figma UI (พรุ่งนี้ ศ. 23 ต.ค.)', () => {
+  it('formats tomorrow trigger with tomorrow and time', () => {
     const tomorrow = new Date(2026, 9, 23, 5, 30);
     const resultTh = formatAlarmNextFire(tomorrow, 'th', baseNow);
-    expect(resultTh).toBe('พรุ่งนี้ ศ. 23 ต.ค.');
+    expect(resultTh).toBe('พรุ่งนี้ 05:30 น.');
 
     const resultEn = formatAlarmNextFire(tomorrow, 'en', baseNow);
-    expect(resultEn).toBe('Tomorrow, Fri 23 Oct');
+    expect(resultEn).toBe('Tomorrow, 05:30');
   });
 
-  it('formats future trigger matching Figma UI (อา. 1 พ.ย.)', () => {
+  it('formats future trigger with date and time', () => {
     const future = new Date(2026, 10, 1, 6, 0); // Sun Nov 1, 2026
     const resultTh = formatAlarmNextFire(future, 'th', baseNow);
-    expect(resultTh).toBe('อา. 1 พ.ย.');
+    expect(resultTh).toBe('อา. 1 พ.ย. 06:00 น.');
 
     const resultEn = formatAlarmNextFire(future, 'en', baseNow);
-    expect(resultEn).toBe('Sun, 1 Nov');
+    expect(resultEn).toBe('Sun, 1 Nov 06:00');
   });
 });
 

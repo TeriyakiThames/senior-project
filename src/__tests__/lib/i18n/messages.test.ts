@@ -64,9 +64,11 @@ describe('i18n Message Catalogs & Config', () => {
     }
   });
 
-  it('should include all required keys for Alarms page', () => {
+  it('should include all required keys for Alarms and Timers page', () => {
     const requiredAlarmKeys = [
       'alarms',
+      'timer',
+      'timers',
       'alarmsSubtitle',
       'emptyAlarmsTitle',
       'emptyAlarmsHintLine1',
@@ -113,5 +115,10 @@ describe('i18n Message Catalogs & Config', () => {
       expect((thMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
       expect((enMessages.dashboard as Record<string, string>)[key]).toBeTruthy();
     }
+  });
+
+  it('should translate timer correctly in Thai and English for dashboard and hub', () => {
+    expect(thMessages.dashboard.timer).toBe('ตัวจับเวลา');
+    expect(enMessages.dashboard.timer).toBe('Timer');
   });
 });

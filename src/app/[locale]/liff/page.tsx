@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
         {/* 2x2 Category Hub Grid */}
         <section className="grid grid-cols-2 gap-3 mb-7" aria-label={t('mine')}>
-          {/* 1. Alarms (นาฬิกาปลุก) */}
+          {/* 1. Timers (ตัวจับเวลา) */}
           <Link
             href={`/${locale}/liff/alarms`}
             className="bg-[#FBEFD8] rounded-3xl p-4 flex flex-col justify-between min-h-[120px] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-[#7A4E00]"
@@ -152,7 +152,7 @@ export default function DashboardPage() {
               aria-hidden="true"
             />
             <div>
-              <p className="text-[#7A4E00] font-bold text-lg leading-tight">{t('alarms')}</p>
+              <p className="text-[#7A4E00] font-bold text-lg leading-tight">{t('timer')}</p>
               <p className="text-[#7A4E00]/80 text-sm font-medium mt-0.5">
                 {t('itemsCount', { count: alarms.length })}
               </p>
