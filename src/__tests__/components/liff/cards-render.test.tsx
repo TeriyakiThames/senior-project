@@ -80,16 +80,21 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
         <AlarmCard alarm={timerAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
+      expect(thHtml).toContain('15');
+      expect(thHtml).toContain('นาที');
       expect(thHtml).toContain(expectedTime);
       expect(thHtml).toContain('น.');
-      expect(thHtml).toContain(`aria-label="ลบ ${expectedTime}"`);
+      expect(thHtml).toContain('aria-label="ลบ 15"');
 
       // In English
       const enHtml = renderWithIntl(
         <AlarmCard alarm={timerAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
         'en',
       );
+      expect(enHtml).toContain('15');
+      expect(enHtml).toContain('min');
       expect(enHtml).toContain(expectedTime);
+      expect(enHtml).toContain('aria-label="Delete 15"');
 
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
