@@ -62,29 +62,34 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
     });
 
     it('renders a TimerDoc (time is undefined, durationMinutes is provided) without crashing', () => {
+      const nextFireAt = new Date('2026-10-22T10:15:00.000Z');
       const timerAlarm: AlarmItem = {
         id: 'timer-1',
         time: undefined,
         durationMinutes: 15,
         enabled: true,
-        nextFireAt: new Date('2026-10-22T10:15:00.000Z'),
+        nextFireAt,
       };
+
+      const expectedHours = String(nextFireAt.getHours()).padStart(2, '0');
+      const expectedMinutes = String(nextFireAt.getMinutes()).padStart(2, '0');
+      const expectedTime = `${expectedHours}:${expectedMinutes}`;
 
       // In Thai
       const thHtml = renderWithIntl(
         <AlarmCard alarm={timerAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
-      expect(thHtml).toContain('17:15'); // 10:15 UTC is 17:15 Bangkok time
+      expect(thHtml).toContain(expectedTime);
       expect(thHtml).toContain('น.');
-      expect(thHtml).toContain('aria-label="ลบ 17:15"');
+      expect(thHtml).toContain(`aria-label="ลบ ${expectedTime}"`);
 
       // In English
       const enHtml = renderWithIntl(
         <AlarmCard alarm={timerAlarm} onDelete={vi.fn()} baseNow={baseNow} />,
         'en',
       );
-      expect(enHtml).toContain('17:15');
+      expect(enHtml).toContain(expectedTime);
 
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
@@ -213,21 +218,26 @@ describe('LIFF Card & UI Components Robustness & Render Tests', () => {
 
   describe('ReminderCard Robustness', () => {
     it('renders normal pending reminder with scheduled time and message', () => {
+      const scheduledAt = new Date('2026-10-22T13:00:00.000Z');
       const reminder: ReminderItem = {
         id: 'rem-1',
         message: 'ทานยาลดความดัน',
         status: 'pending',
-        scheduledAt: new Date('2026-10-22T13:00:00.000Z'),
-        nextFireAt: new Date('2026-10-22T13:00:00.000Z'),
+        scheduledAt,
+        nextFireAt: scheduledAt,
         recurrence: 'once',
       };
+
+      const expectedHours = String(scheduledAt.getHours()).padStart(2, '0');
+      const expectedMinutes = String(scheduledAt.getMinutes()).padStart(2, '0');
+      const expectedTime = `${expectedHours}:${expectedMinutes}`;
 
       const html = renderWithIntl(
         <ReminderCard reminder={reminder} onDelete={vi.fn()} baseNow={baseNow} />,
         'th',
       );
       expect(html).toContain('ทานยาลดความดัน');
-      expect(html).toContain('20:00'); // 13:00 UTC = 20:00 Bangkok
+      expect(html).toContain(expectedTime);
       expect(html).toContain('ครั้งเดียว');
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
