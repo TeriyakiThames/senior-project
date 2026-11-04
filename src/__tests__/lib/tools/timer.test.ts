@@ -152,6 +152,7 @@ describe('Timer Tool Handler (Timer Feature)', () => {
       expect(result.success).toBe(true);
       expect(result.message).toContain('ต้มไข่');
       expect(result.message).toContain('7 นาที');
+      expect((result.flexMessage as any).altText).toBe('⏱️ เริ่มจับเวลา: 7 นาที (ต้มไข่)');
     });
 
     it('handles unexpected errors gracefully', async () => {
@@ -196,6 +197,35 @@ describe('Timer Tool Handler (Timer Feature)', () => {
       expect(result.success).toBe(true);
       expect(result.message).toBe('ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️');
       expect(tasks.cancelScheduledTask).toHaveBeenCalledWith('tasks/timer-cancel-123');
+      expect(mockDoc.update).toHaveBeenCalledWith({
+        enabled: false,
+        status: 'done',
+        cloudTaskName: null,
+      });
+    });
+
+    it('deletes active timer without cloudTaskName smoothly', async () => {
+      const mockDoc = {
+        data: () => ({
+          enabled: true,
+          status: 'pending',
+          cloudTaskName: null,
+        }),
+        update: vi.fn().mockResolvedValue(undefined),
+      };
+      const mockDocRef = {
+        get: vi.fn().mockResolvedValue({ exists: true, data: mockDoc.data }),
+        update: mockDoc.update,
+      };
+      vi.mocked(collections.timersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDocRef),
+      } as any);
+
+      const result = await handleDeleteTimer('timer-no-task', mockUser);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️');
+      expect(tasks.cancelScheduledTask).not.toHaveBeenCalled();
       expect(mockDoc.update).toHaveBeenCalledWith({
         enabled: false,
         status: 'done',

@@ -332,6 +332,24 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       const labelVal = labelBox.contents[1] as messagingApi.FlexText;
       expect(labelVal.text).toBe('ต้มไข่');
     });
+
+    it('handles duration with hours and minutes properly', () => {
+      const durationText = '1 ชั่วโมง 30 นาที';
+      const timerId = 'timer-conf-hours';
+      const fireAt = new Date('2026-11-04T09:00:00.000Z');
+      const flex = buildTimerConfirmationCard({
+        durationText,
+        fireAt,
+        timerId,
+      });
+
+      expect(flex.altText).toBe('⏱️ เริ่มจับเวลา: 1 ชั่วโมง 30 นาที');
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const durationBox = bodyBox.contents[0] as messagingApi.FlexBox;
+      const durationVal = durationBox.contents[1] as messagingApi.FlexText;
+      expect(durationVal.text).toBe('1 ชั่วโมง 30 นาที');
+    });
   });
 
   describe('buildReminderNotification', () => {

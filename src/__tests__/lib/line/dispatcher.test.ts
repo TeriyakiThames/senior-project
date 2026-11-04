@@ -912,6 +912,53 @@ describe('LINE Webhook Dispatcher', () => {
       );
     });
 
+    it('handles colon-separated delete_timer format (delete_timer:ID)', async () => {
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-colon-timer',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'delete_timer:timer-colon-999',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(handleDeleteTimer).toHaveBeenCalledWith('timer-colon-999', expect.any(Object));
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-colon-timer',
+        messages: [{ type: 'text', text: 'ลบตัวจับเวลาเรียบร้อยแล้วค่ะ ⏱️' }],
+      });
+    });
+
+    it('handles delete_timer when timer is already handled or not found', async () => {
+      vi.mocked(handleDeleteTimer).mockResolvedValueOnce({
+        success: false,
+        message: 'รายการนี้จัดการไปเรียบร้อยแล้วค่ะ ปุ่มนี้จึงไม่มีผลอะไรแล้วนะคะ คุณตาคุณยาย',
+      });
+
+      const event = {
+        type: 'postback' as const,
+        replyToken: 'token-pb-already',
+        source: { userId: 'user-123' },
+        postback: {
+          data: 'action=delete_timer&id=timer-already',
+        },
+      } as unknown as webhook.PostbackEvent;
+
+      await handlePostbackEvent(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith({
+        replyToken: 'token-pb-already',
+        messages: [
+          {
+            type: 'text',
+            text: 'รายการนี้จัดการไปเรียบร้อยแล้วค่ะ ปุ่มนี้จึงไม่มีผลอะไรแล้วนะคะ คุณตาคุณยาย',
+          },
+        ],
+      });
+    });
+
     it('does not process if replyToken or userId is missing', async () => {
       const noTokenEvent = {
         type: 'postback' as const,
