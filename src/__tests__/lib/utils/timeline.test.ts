@@ -127,7 +127,7 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     expect(items[1].tagVariant).toBe('plan');
   });
 
-  it('skips disabled timers and done reminders', () => {
+  it('skips disabled timers and done or disabled reminders', () => {
     const timers: TimerItem[] = [
       { id: 'disabled-timer', time: '08:00', enabled: false },
       { id: 'done-timer', time: '09:00', enabled: true, status: 'done' },
@@ -138,6 +138,13 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
         message: 'ทำเสร็จแล้ว',
         status: 'done',
         nextFireAt: new Date('2026-10-22T12:00:00.000Z'),
+      },
+      {
+        id: 'disabled-rem',
+        message: 'ปิดใช้งานแล้ว',
+        status: 'pending',
+        enabled: false,
+        nextFireAt: new Date('2026-10-22T14:00:00.000Z'),
       },
     ];
 
@@ -150,6 +157,71 @@ describe('buildUpcomingTimelineItems (Timeline Builder & S1/FE-02 robustness)', 
     });
 
     expect(items).toHaveLength(0);
+  });
+
+  it('skips past one-off reminders and does not show them in upcoming timeline', () => {
+    const reminders: ReminderItem[] = [
+      {
+        id: 'past-rem-days-ago',
+        message: 'กินยาเมื่อ 7 วันก่อน',
+        status: 'fired',
+        enabled: true,
+        recurrence: 'once',
+        nextFireAt: new Date('2026-10-15T04:55:00.000Z'), // 7 days ago
+      },
+      {
+        id: 'past-rem-earlier-today',
+        message: 'กินยามื้อเช้าวันนี้',
+        status: 'fired',
+        enabled: true,
+        recurrence: 'once',
+        nextFireAt: new Date('2026-10-22T08:00:00.000Z'), // 2 hours ago today
+      },
+      {
+        id: 'future-rem',
+        message: 'กินยามื้อเที่ยง',
+        status: 'pending',
+        enabled: true,
+        recurrence: 'once',
+        nextFireAt: new Date('2026-10-22T12:00:00.000Z'), // in 2 hours
+      },
+    ];
+
+    const items = buildUpcomingTimelineItems({
+      reminders,
+      locale: 'th',
+      t,
+      now: baseNow,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('future-rem');
+    expect(items[0].title).toBe('กินยามื้อเที่ยง');
+  });
+
+  it('advances past recurring reminders to their next upcoming occurrence', () => {
+    const reminders: ReminderItem[] = [
+      {
+        id: 'recurring-daily-past',
+        message: 'ออกกำลังกาย',
+        status: 'pending',
+        enabled: true,
+        recurrence: 'daily',
+        scheduledAt: new Date('2026-10-20T07:00:00.000Z'),
+        nextFireAt: new Date('2026-10-22T07:00:00.000Z'), // 07:00 was earlier today
+      },
+    ];
+
+    const items = buildUpcomingTimelineItems({
+      reminders,
+      locale: 'th',
+      t,
+      now: baseNow,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('recurring-daily-past');
+    expect(items[0].sortTimestamp).toBeGreaterThan(baseNow.getTime());
   });
 
   it('sorts mixed timers and reminders chronologically ascending', () => {

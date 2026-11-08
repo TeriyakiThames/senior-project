@@ -1,5 +1,5 @@
 import type { Recurrence } from '@/types/firestore';
-import { AlarmScheduleCalculator } from '@/lib/utils/recurrence';
+import { AlarmScheduleCalculator, calculateNextOccurrence } from '@/lib/utils/recurrence';
 
 export const THAI_SHORT_WEEKDAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
 
@@ -338,6 +338,49 @@ export function getAlarmNextFireDate(
 }
 
 /**
+ * Resolves or computes the next fire Date for a reminder item.
+ * - If nextFireAt is in the future, returns it.
+ * - If nextFireAt is in the past:
+ *   - For recurring reminders (daily, weekly, monthly), calculates the next upcoming occurrence.
+ *   - For one-off reminders (recurrence 'once' or undefined), returns null since one-off past reminders do not fire again.
+ */
+export function getReminderNextFireDate(
+  reminder: {
+    scheduledAt?:
+      { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null;
+    nextFireAt?:
+      { _seconds?: number; seconds?: number; toDate?: () => Date } | string | Date | null;
+    recurrence?: string;
+    daysOfWeek?: number[];
+    dayOfMonth?: number;
+  },
+  baseNow: Date = new Date(),
+): Date | null {
+  const parsedNext = parseTimestamp(reminder.nextFireAt);
+  if (parsedNext && parsedNext.getTime() > baseNow.getTime()) {
+    return parsedNext;
+  }
+
+  // One-off reminders whose fire time has passed do not fire again
+  if (!reminder.recurrence || reminder.recurrence === 'once') {
+    return null;
+  }
+
+  const baseScheduled = parseTimestamp(reminder.scheduledAt) ?? parsedNext;
+  if (!baseScheduled) {
+    return null;
+  }
+
+  return calculateNextOccurrence({
+    recurrence: reminder.recurrence as Recurrence,
+    scheduledAt: baseScheduled,
+    daysOfWeek: reminder.daysOfWeek,
+    dayOfMonth: reminder.dayOfMonth,
+    fromDate: baseNow,
+  });
+}
+
+/**
  * Aliases for timer scheduling & display formatting
  */
 export const getTimerNextFireDate = getAlarmNextFireDate;
@@ -397,9 +440,10 @@ export interface ReminderTimelineGroup<T> {
 
 /**
  * Groups and sorts reminders chronologically into timeline sections matching the Figma design:
- * - "วันนี้" (Today): due today or overdue
+ * - "วันนี้" (Today): due today
  * - "พรุ่งนี้" (Tomorrow): due tomorrow
  * - "หลังจากนั้น" (Later): due after tomorrow
+ * - "อื่นๆ" (Other): undated or past items
  * Items within each section are sorted chronologically ascending (soonest first).
  */
 export function groupRemindersByTimeline<
@@ -460,12 +504,14 @@ export function groupRemindersByTimeline<
     const diffTime = startOfTarget.getTime() - startOfBase.getTime();
     const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays <= 0) {
+    if (diffDays === 0) {
       todayGroup.items.push(item);
     } else if (diffDays === 1) {
       tomorrowGroup.items.push(item);
-    } else {
+    } else if (diffDays > 1) {
       laterGroup.items.push(item);
+    } else {
+      otherGroup.items.push(item);
     }
   }
 

@@ -135,6 +135,39 @@ describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
       expect(notesRef).not.toHaveBeenCalled();
     });
 
+    it('filters out reminders with enabled: false', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({
+        lineUserId: TEST_USER_ID,
+      });
+      const remindersQuery = {
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({
+          docs: [
+            {
+              id: 'r1',
+              data: () => ({ message: 'Active reminder', enabled: true, status: 'pending' }),
+            },
+            {
+              id: 'r2',
+              data: () => ({ message: 'Disabled reminder', enabled: false, status: 'fired' }),
+            },
+          ],
+        }),
+      };
+      vi.mocked(remindersRef).mockReturnValue(remindersQuery as any);
+
+      const request = new NextRequest('http://localhost:3000/api/liff/items?type=reminders', {
+        headers: { authorization: 'Bearer valid-line-id-token' },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.reminders).toHaveLength(1);
+      expect(data.reminders[0].id).toBe('r1');
+    });
+
     it('strictly rejects unverified x-line-userid in production mode (S1)', async () => {
       vi.stubEnv('NODE_ENV', 'production');
 

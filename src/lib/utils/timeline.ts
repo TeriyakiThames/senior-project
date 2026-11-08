@@ -1,4 +1,9 @@
-import { parseTimestamp, getAlarmNextFireDate, getTimerNextFireDate } from '@/lib/utils/date';
+import {
+  parseTimestamp,
+  getAlarmNextFireDate,
+  getTimerNextFireDate,
+  getReminderNextFireDate,
+} from '@/lib/utils/date';
 import type { TimerItem } from '@/components/liff/TimerCard';
 import type { ReminderItem } from '@/components/liff/ReminderCard';
 
@@ -39,8 +44,8 @@ export function buildUpcomingTimelineItems({
 
   // 1. Process active reminders
   for (const rem of reminders) {
-    if (rem.status === 'done') continue;
-    const fireDate = parseTimestamp(rem.nextFireAt);
+    if (rem.status === 'done' || rem.enabled === false) continue;
+    const fireDate = getReminderNextFireDate(rem, now);
     if (!fireDate) continue;
 
     const hours = String(fireDate.getHours()).padStart(2, '0');

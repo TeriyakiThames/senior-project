@@ -67,7 +67,9 @@ export async function GET(request: NextRequest) {
           .where('status', 'in', ['pending', 'snoozed', 'fired'])
           .orderBy('nextFireAt')
           .get();
-        reminderDocs = snaps.docs.map((d) => ({ id: d.id, ...d.data() }));
+        reminderDocs = snaps.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((d) => (d as { enabled?: boolean }).enabled !== false);
       } catch (err: unknown) {
         const error = err as { code?: number; message?: string };
         if (
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
             .get();
           reminderDocs = snaps.docs
             .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((d) => (d as { enabled?: boolean }).enabled !== false)
             .sort((a, b) => {
               const remA = a as { nextFireAt?: { toMillis?: () => number; seconds?: number } };
               const remB = b as { nextFireAt?: { toMillis?: () => number; seconds?: number } };

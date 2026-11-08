@@ -94,12 +94,15 @@ export async function handleListItems(
   if (itemType === 'reminder' || itemType === 'all') {
     const snap = await remindersRef(uid)
       .where('status', 'in', ['pending', 'snoozed', 'fired'])
-      .limit(5)
+      .limit(10)
       .get();
-    if (!snap.empty) {
+    const activeDocs = snap.docs
+      .filter((d) => (d.data() as ReminderDoc).enabled !== false)
+      .slice(0, 5);
+    if (activeDocs.length > 0) {
       hasReminderItems = true;
       const lines = ['📋 การเตือน:'];
-      snap.docs.forEach((doc, i) => {
+      activeDocs.forEach((doc, i) => {
         const d = doc.data() as ReminderDoc;
         const fireDate = d.nextFireAt?.toDate?.() ?? d.scheduledAt?.toDate?.();
         const timeStr = formatReminderTime(fireDate);

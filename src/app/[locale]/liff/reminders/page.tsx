@@ -26,9 +26,23 @@ export default function RemindersPage() {
   const [showToast, setShowToast] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Filter out any completed items to strictly guarantee only active reminders are shown
+  // Filter out any completed or disabled items, as well as past one-off reminders
   const reminders = useMemo(
-    () => (data?.reminders ?? []).filter((r) => r.status !== 'done'),
+    () =>
+      (data?.reminders ?? []).filter((r) => {
+        if (r.status === 'done' || r.enabled === false) return false;
+        if (!r.recurrence || r.recurrence === 'once') {
+          const target = parseTimestamp(r.nextFireAt || r.scheduledAt);
+          if (target) {
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            if (target.getTime() < startOfToday.getTime()) {
+              return false;
+            }
+          }
+        }
+        return true;
+      }),
     [data?.reminders],
   );
 
