@@ -3,6 +3,7 @@ import { timersRef } from '@/lib/firebase/collections';
 import { saveAndScheduleTask, cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { extractTimerParams } from '@/lib/ai/parameter-extractor';
 import { buildTimerConfirmationCard } from '@/lib/line/flex-messages';
+import { isValidDocumentId } from '@/lib/utils/security';
 import type { TimerDoc, UserDoc } from '@/types/firestore';
 import type { TimerParams } from '@/types/jev';
 import type { ToolResult } from './index';
@@ -138,6 +139,13 @@ export async function handleDeleteTimer(
 ): Promise<ToolResult> {
   const uid = user.lineUserId;
   const cancelTask = options?.cancelTaskFn ?? cancelScheduledTask;
+
+  if (!isValidDocumentId(timerId)) {
+    return {
+      success: false,
+      message: 'ไม่พบตัวจับเวลาที่จะลบค่ะ คุณตาคุณยาย',
+    };
+  }
 
   try {
     const docRef = timersRef(uid).doc(timerId);
