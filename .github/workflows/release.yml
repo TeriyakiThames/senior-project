@@ -39,3 +39,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         run: pnpm exec semantic-release
+
+      - name: Trigger Vercel Production Deployment
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "::warning ::VERCEL_DEPLOY_HOOK_URL secret is not configured in GitHub repository secrets. Skipping Vercel deployment trigger."
+            exit 0
+          fi
+          echo "Triggering Vercel production deployment via Deploy Hook..."
+          response=$(curl -s -w "\n%{http_code}" -X POST "$VERCEL_DEPLOY_HOOK_URL")
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          echo "Vercel response ($http_code): $body"
+          if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
+            echo "Successfully triggered Vercel deployment."
+          else
+            echo "::error ::Failed to trigger Vercel deployment (HTTP $http_code)"
+            exit 1
+          fi
