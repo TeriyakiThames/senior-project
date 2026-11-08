@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import liff from '@line/liff';
+import { isMockAllowed } from '@/lib/utils/env';
 
 export interface LiffContextType {
   isReady: boolean;
@@ -41,27 +42,11 @@ export function isPlaceholderLiffId(id?: string | null): boolean {
 
 /**
  * Determines whether mock user fallback is permitted.
- * Strictly prevents mock user activation on deployed staging or production environments (S7).
+ * Strictly prevents mock user activation on deployed production environments (S7),
+ * while permitting mock user in local development and Vercel preview environments.
  */
 export function shouldEnableMockUser(): boolean {
-  if (process.env.NODE_ENV === 'production') {
-    return false;
-  }
-
-  if (process.env.NODE_ENV === 'test') {
-    return true;
-  }
-
-  if (process.env.NEXT_PUBLIC_ENABLE_MOCK_USER === 'true') {
-    return true;
-  }
-
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
-  }
-
-  return false;
+  return isMockAllowed();
 }
 
 export function LiffProvider({ children }: { children: ReactNode }) {
@@ -117,6 +102,10 @@ export function LiffProvider({ children }: { children: ReactNode }) {
         }
 
         if (!liff.isLoggedIn()) {
+          if (shouldEnableMockUser()) {
+            if (isMounted) setState(MOCK_USER);
+            return;
+          }
           liff.login();
           return;
         }

@@ -3,6 +3,7 @@ import { alarmsRef, remindersRef, notesRef } from '@/lib/firebase/collections';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
 import { getMockItems } from '@/lib/liff/mock-items';
 import { isValidDocumentId } from '@/lib/utils/security';
+import { isMockAllowed } from '@/lib/utils/env';
 
 export async function GET(request: NextRequest) {
   const userId = await getAuthorizedUserId(request);
@@ -11,10 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   // In production, strictly reject any mock user access
-  if (
-    process.env.NODE_ENV === 'production' &&
-    (userId === 'mock-user-123' || userId.startsWith('mock-'))
-  ) {
+  if (!isMockAllowed() && (userId === 'mock-user-123' || userId.startsWith('mock-'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -24,11 +22,8 @@ export async function GET(request: NextRequest) {
 
   const type = request.nextUrl.searchParams.get('type') || 'all';
 
-  // In non-production, allow mock data for offline development
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    (userId === 'mock-user-123' || userId.startsWith('mock-'))
-  ) {
+  // In non-production or preview, allow mock data for offline development
+  if (isMockAllowed() && (userId === 'mock-user-123' || userId.startsWith('mock-'))) {
     return NextResponse.json(getMockItems(type));
   }
 

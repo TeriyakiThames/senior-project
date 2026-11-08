@@ -4,6 +4,7 @@ import { cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
 import { deleteMockItem } from '@/lib/liff/mock-items';
 import { isValidDocumentId } from '@/lib/utils/security';
+import { isMockAllowed } from '@/lib/utils/env';
 
 const VALID_TYPES = ['alarm', 'timer', 'reminder', 'note'] as const;
 type ItemType = (typeof VALID_TYPES)[number];
@@ -18,10 +19,7 @@ export async function DELETE(
   }
 
   // In production, strictly reject any mock user access
-  if (
-    process.env.NODE_ENV === 'production' &&
-    (userId === 'mock-user-123' || userId.startsWith('mock-'))
-  ) {
+  if (!isMockAllowed() && (userId === 'mock-user-123' || userId.startsWith('mock-'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -43,11 +41,8 @@ export async function DELETE(
     );
   }
 
-  // In non-production, allow mock item deletion for offline development
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    (userId === 'mock-user-123' || userId.startsWith('mock-'))
-  ) {
+  // In non-production or preview, allow mock item deletion for offline development
+  if (isMockAllowed() && (userId === 'mock-user-123' || userId.startsWith('mock-'))) {
     const deleted = deleteMockItem(id, type === 'timer' ? 'alarm' : type);
     if (!deleted) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
