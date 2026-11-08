@@ -1270,10 +1270,36 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).not.toHaveBeenCalled();
     });
 
-    it('ignores non-message events (e.g. follow) safely', async () => {
+    it('handles follow event by replying with stylized welcome Flex Message', async () => {
       const event = {
         type: 'follow' as const,
-        replyToken: 'token-follow',
+        replyToken: 'token-follow-123',
+        source: { userId: 'user-123', type: 'user' },
+      } as unknown as webhook.Event;
+
+      await handleWebhookEvent(event);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          replyToken: 'token-follow-123',
+          messages: [
+            expect.objectContaining({
+              type: 'flex',
+              altText: expect.stringContaining('ยินดีที่ได้รู้จัก'),
+            }),
+          ],
+        }),
+      );
+      expect(saveMessages).toHaveBeenCalledWith(
+        'user-123',
+        'EVENT:FOLLOW',
+        expect.stringContaining('ยินดีที่ได้รู้จัก'),
+      );
+    });
+
+    it('ignores unsupported non-message events (e.g. unfollow, join, leave) safely', async () => {
+      const event = {
+        type: 'unfollow' as const,
       } as unknown as webhook.Event;
 
       await handleWebhookEvent(event);

@@ -6,6 +6,7 @@ import {
   buildTimerNotification,
   buildTimerConfirmationCard,
   buildReminderNotification,
+  buildWelcomeFlexMessage,
 } from '@/lib/line/flex-messages';
 import type { messagingApi } from '@line/bot-sdk';
 
@@ -425,6 +426,187 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       expect((dismissBtn.action as messagingApi.PostbackAction).data).toBe(
         'action=dismiss_reminder&id=rem-123&nid=notif-456',
       );
+    });
+  });
+
+  describe('buildWelcomeFlexMessage', () => {
+    it('generates a valid, beautifully stylized Welcome Flex message matching the SVG specification by default', () => {
+      const flex = buildWelcomeFlexMessage();
+
+      expect(flex.type).toBe('flex');
+      expect(flex.altText).toContain('สวัสดีค่ะ ยินดีที่ได้รู้จักนะคะ');
+      expect(flex.altText).toContain('หนูช่วยคุณตาคุณยายได้ตามนี้เลยค่ะ');
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      expect(bubble.type).toBe('bubble');
+      expect(bubble.size).toBe('kilo');
+
+      // Header check: Royal blue container (#4869EA) with white bold greeting
+      const headerBox = bubble.header as messagingApi.FlexBox;
+      expect(headerBox.layout).toBe('vertical');
+      expect(headerBox.backgroundColor).toBe('#4869EA');
+      const headerText = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerText.text).toBe('สวัสดีค่ะ ยินดีที่ได้รู้จักนะคะ');
+      expect(headerText.color).toBe('#FFFFFF');
+      expect(headerText.weight).toBe('bold');
+
+      // Body check: Heading, 4 category rows with dividers, and tip card banner
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      expect(bodyBox.layout).toBe('vertical');
+      expect(bodyBox.backgroundColor).toBe('#FFFFFF');
+
+      const introTitle = bodyBox.contents[0] as messagingApi.FlexText;
+      expect(introTitle.text).toBe('หนูช่วยคุณตาคุณยายได้ตามนี้เลยค่ะ');
+      expect(introTitle.color).toBe('#21215C');
+      expect(introTitle.weight).toBe('bold');
+      expect(introTitle.size).toBe('xl');
+
+      // Row 1: Reminders (🔔 / #E1E8F8)
+      const row1 = bodyBox.contents[1] as messagingApi.FlexBox;
+      expect(row1.layout).toBe('horizontal');
+      const row1Badge = row1.contents[0] as messagingApi.FlexBox;
+      expect(row1Badge.backgroundColor).toBe('#E1E8F8');
+      const row1Icon = row1Badge.contents[0] as messagingApi.FlexText;
+      expect(row1Icon.text).toBe('🔔');
+      const row1TextStack = row1.contents[1] as messagingApi.FlexBox;
+      const row1Title = row1TextStack.contents[0] as messagingApi.FlexText;
+      expect(row1Title.text).toBe('ตั้งเตือนความจำ');
+      expect(row1Title.color).toBe('#21215C');
+      const row1Example = row1TextStack.contents[1] as messagingApi.FlexText;
+      expect(row1Example.text).toBe('เช่น “เตือนกินยาตอนสองทุ่ม”');
+      expect(row1Example.color).toBe('#7D84A3');
+
+      // Divider 1
+      const div1 = bodyBox.contents[2] as messagingApi.FlexSeparator;
+      expect(div1.type).toBe('separator');
+      expect(div1.color).toBe('#EAF0F6');
+
+      // Row 2: Alarms (⏰ / #FBEFD8)
+      const row2 = bodyBox.contents[3] as messagingApi.FlexBox;
+      const row2Badge = row2.contents[0] as messagingApi.FlexBox;
+      expect(row2Badge.backgroundColor).toBe('#FBEFD8');
+      const row2Icon = row2Badge.contents[0] as messagingApi.FlexText;
+      expect(row2Icon.text).toBe('⏰');
+      const row2TextStack = row2.contents[1] as messagingApi.FlexBox;
+      const row2Title = row2TextStack.contents[0] as messagingApi.FlexText;
+      expect(row2Title.text).toBe('ตั้งนาฬิกาปลุก');
+      const row2Example = row2TextStack.contents[1] as messagingApi.FlexText;
+      expect(row2Example.text).toBe('เช่น “ปลุกหกโมงเช้า”');
+
+      // Divider 2
+      const div2 = bodyBox.contents[4] as messagingApi.FlexSeparator;
+      expect(div2.type).toBe('separator');
+
+      // Row 3: Notes (📝 / #EEE1FA)
+      const row3 = bodyBox.contents[5] as messagingApi.FlexBox;
+      const row3Badge = row3.contents[0] as messagingApi.FlexBox;
+      expect(row3Badge.backgroundColor).toBe('#EEE1FA');
+      const row3Icon = row3Badge.contents[0] as messagingApi.FlexText;
+      expect(row3Icon.text).toBe('📝');
+      const row3TextStack = row3.contents[1] as messagingApi.FlexBox;
+      const row3Title = row3TextStack.contents[0] as messagingApi.FlexText;
+      expect(row3Title.text).toBe('จดบันทึกข้อความ');
+      const row3Example = row3TextStack.contents[1] as messagingApi.FlexText;
+      expect(row3Example.text).toBe('เช่น “ช่วยจดว่าต้องซื้อนม”');
+
+      // Divider 3
+      const div3 = bodyBox.contents[6] as messagingApi.FlexSeparator;
+      expect(div3.type).toBe('separator');
+
+      // Row 4: View & Delete (📋 / #DAEEE3)
+      const row4 = bodyBox.contents[7] as messagingApi.FlexBox;
+      const row4Badge = row4.contents[0] as messagingApi.FlexBox;
+      expect(row4Badge.backgroundColor).toBe('#DAEEE3');
+      const row4Icon = row4Badge.contents[0] as messagingApi.FlexText;
+      expect(row4Icon.text).toBe('📋');
+      const row4TextStack = row4.contents[1] as messagingApi.FlexBox;
+      const row4Title = row4TextStack.contents[0] as messagingApi.FlexText;
+      expect(row4Title.text).toBe('ดูหรือลบรายการที่ตั้งไว้');
+      const row4Example = row4TextStack.contents[1] as messagingApi.FlexText;
+      expect(row4Example.text).toBe('เช่น “ดูรายการเตือน”');
+
+      // Bottom Tip Card Banner
+      const tipBanner = bodyBox.contents[8] as messagingApi.FlexBox;
+      expect(tipBanner.layout).toBe('horizontal');
+      expect(tipBanner.backgroundColor).toBe('#E1E8F8');
+      expect(tipBanner.cornerRadius).toBe('xxl');
+
+      const micBadge = tipBanner.contents[0] as messagingApi.FlexBox;
+      expect(micBadge.backgroundColor).toBe('#FFFFFF');
+      const micIcon = micBadge.contents[0] as messagingApi.FlexText;
+      expect(micIcon.text).toBe('🎙️');
+
+      const tipText = tipBanner.contents[1] as messagingApi.FlexText;
+      expect(tipText.text).toBe('ส่งข้อความเสียงคุยกับหนูแทนการพิมพ์ได้ตลอดเลยนะคะ');
+      expect(tipText.color).toBe('#21215C');
+      expect(tipText.weight).toBe('bold');
+    });
+
+    it('adapts phrasing politely to male persona particles', () => {
+      const flex = buildWelcomeFlexMessage({
+        profile: { facts: ['particle:ครับ', 'gender:male'] },
+      });
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const headerBox = bubble.header as messagingApi.FlexBox;
+      const headerText = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerText.text).toBe('สวัสดีครับ ยินดีที่ได้รู้จักนะครับ');
+
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const introTitle = bodyBox.contents[0] as messagingApi.FlexText;
+      expect(introTitle.text).toBe('หนูช่วยคุณหลานได้ตามนี้เลยครับ');
+
+      const tipBanner = bodyBox.contents[8] as messagingApi.FlexBox;
+      const tipText = tipBanner.contents[1] as messagingApi.FlexText;
+      expect(tipText.text).toBe('ส่งข้อความเสียงคุยกับหนูแทนการพิมพ์ได้ตลอดเลยนะครับ');
+    });
+
+    it('adapts phrasing politely to intimate grandmother persona particles', () => {
+      const flex = buildWelcomeFlexMessage({
+        userDoc: { profile: { facts: ['ยายใจดี', 'จ้ะ'] } },
+      });
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      const headerBox = bubble.header as messagingApi.FlexBox;
+      const headerText = headerBox.contents[0] as messagingApi.FlexText;
+      expect(headerText.text).toBe('สวัสดีจ้ะ ยินดีที่ได้รู้จักนะจ้ะ');
+
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const introTitle = bodyBox.contents[0] as messagingApi.FlexText;
+      expect(introTitle.text).toBe('หนูช่วยคุณยายได้ตามนี้เลยจ้ะ');
+
+      const tipBanner = bodyBox.contents[8] as messagingApi.FlexBox;
+      const tipText = tipBanner.contents[1] as messagingApi.FlexText;
+      expect(tipText.text).toBe('ส่งข้อความเสียงคุยกับหนูแทนการพิมพ์ได้ตลอดเลยนะจ้ะ');
+    });
+
+    it('supports custom image URLs for icons and custom bubble size', () => {
+      const flex = buildWelcomeFlexMessage({
+        size: 'mega',
+        iconUrls: {
+          reminder: 'https://example.com/icons/bell.png',
+          alarm: 'https://example.com/icons/alarm.png',
+          note: 'https://example.com/icons/note.png',
+          list: 'https://example.com/icons/list.png',
+          mic: 'https://example.com/icons/mic.png',
+        },
+      });
+
+      const bubble = flex.contents as messagingApi.FlexBubble;
+      expect(bubble.size).toBe('mega');
+
+      const bodyBox = bubble.body as messagingApi.FlexBox;
+      const row1 = bodyBox.contents[1] as messagingApi.FlexBox;
+      const row1Badge = row1.contents[0] as messagingApi.FlexBox;
+      const row1Img = row1Badge.contents[0] as messagingApi.FlexImage;
+      expect(row1Img.type).toBe('image');
+      expect(row1Img.url).toBe('https://example.com/icons/bell.png');
+
+      const tipBanner = bodyBox.contents[8] as messagingApi.FlexBox;
+      const micBadge = tipBanner.contents[0] as messagingApi.FlexBox;
+      const micImg = micBadge.contents[0] as messagingApi.FlexImage;
+      expect(micImg.type).toBe('image');
+      expect(micImg.url).toBe('https://example.com/icons/mic.png');
     });
   });
 });

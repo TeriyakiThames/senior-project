@@ -1,5 +1,6 @@
 import type { messagingApi } from '@line/bot-sdk';
 import { getBangkokComponents } from '@/lib/utils/recurrence';
+import { resolvePersonaParticles, type PersonaUserInput } from '@/lib/ai/persona';
 
 /**
  * Builds an interactive Flex Message bubble asking the elderly user to confirm or cancel
@@ -660,6 +661,381 @@ export function buildReminderNotification(
   return {
     type: 'flex',
     altText: `📋 แจ้งเตือน: ${message}`,
+    contents: bubble,
+  };
+}
+
+export interface WelcomeFlexMessageOptions {
+  userDoc?: PersonaUserInput | null;
+  size?: 'kilo' | 'mega' | 'giga';
+  iconUrls?: {
+    reminder?: string;
+    alarm?: string;
+    note?: string;
+    list?: string;
+    mic?: string;
+  };
+}
+
+/**
+ * Builds an elderly-friendly, stylized Welcome Flex Message bubble introducing the bot's
+ * core capabilities matching the design specification:
+ * - Header: Royal Blue (#4869EA) banner with polite greeting ("สวัสดีค่ะ ยินดีที่ได้รู้จักนะคะ")
+ * - Intro text: "หนูช่วยคุณตาคุณยายได้ตามนี้เลยค่ะ"
+ * - 4 Category items with pastel squircles and clear guidance:
+ *   1. Reminders (#E1E8F8): "ตั้งเตือนความจำ" - เช่น “เตือนกินยาตอนสองทุ่ม”
+ *   2. Alarms (#FBEFD8): "ตั้งนาฬิกาปลุก" - เช่น “ปลุกหกโมงเช้า”
+ *   3. Notes (#EEE1FA): "จดบันทึกข้อความ" - เช่น “ช่วยจดว่าต้องซื้อนม”
+ *   4. List/Delete (#DAEEE3): "ดูหรือลบรายการที่ตั้งไว้" - เช่น “ดูรายการเตือน”
+ * - Bottom Tip Card Banner (#E1E8F8): White circular mic badge + voice prompt guidance.
+ */
+export function buildWelcomeFlexMessage(
+  optionsOrUser?: WelcomeFlexMessageOptions | PersonaUserInput | null,
+): messagingApi.FlexMessage {
+  const options: WelcomeFlexMessageOptions =
+    optionsOrUser && 'profile' in optionsOrUser && !('userDoc' in optionsOrUser)
+      ? { userDoc: optionsOrUser as PersonaUserInput }
+      : ((optionsOrUser as WelcomeFlexMessageOptions) ?? {});
+
+  const userDoc = options.userDoc;
+  const particles = resolvePersonaParticles(userDoc);
+  const titlePart = particles.title ? `คุณ${particles.title}` : 'คุณตาคุณยาย';
+
+  const greetingParticle =
+    particles.affirmative === 'จ้ะ'
+      ? 'จ้ะ ยินดีที่ได้รู้จักนะจ้ะ'
+      : particles.affirmative === 'ครับ'
+        ? 'ครับ ยินดีที่ได้รู้จักนะครับ'
+        : 'ค่ะ ยินดีที่ได้รู้จักนะคะ';
+
+  const introEnding = particles.affirmative; // 'ค่ะ', 'ครับ', 'จ้ะ'
+
+  const voiceEnding =
+    particles.affirmative === 'จ้ะ'
+      ? 'ได้ตลอดเลยนะจ้ะ'
+      : particles.affirmative === 'ครับ'
+        ? 'ได้ตลอดเลยนะครับ'
+        : 'ได้ตลอดเลยนะคะ';
+
+  const headerText = `สวัสดี${greetingParticle}`;
+  const introText = `หนูช่วย${titlePart}ได้ตามนี้เลย${introEnding}`;
+  const voiceTipText = `ส่งข้อความเสียงคุยกับหนูแทนการพิมพ์${voiceEnding}`;
+
+  const iconUrls = options.iconUrls;
+
+  const buildIcon = (emoji: string, url?: string): messagingApi.FlexComponent => {
+    if (url) {
+      return {
+        type: 'image',
+        url,
+        size: 'xxs',
+        aspectRatio: '1:1',
+        aspectMode: 'fit',
+        align: 'center',
+        gravity: 'center',
+      };
+    }
+    return {
+      type: 'text',
+      text: emoji,
+      size: 'xl',
+      align: 'center',
+      gravity: 'center',
+    };
+  };
+
+  const bubble: messagingApi.FlexBubble = {
+    type: 'bubble',
+    size: options.size ?? 'kilo',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: '#4869EA',
+      paddingAll: 'lg',
+      paddingTop: 'xl',
+      paddingBottom: 'xl',
+      contents: [
+        {
+          type: 'text',
+          text: headerText,
+          weight: 'bold',
+          size: 'lg',
+          color: '#FFFFFF',
+          wrap: true,
+        },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: 'xl',
+      backgroundColor: '#FFFFFF',
+      contents: [
+        {
+          type: 'text',
+          text: introText,
+          weight: 'bold',
+          size: 'xl',
+          color: '#21215C',
+          wrap: true,
+        },
+        // Row 1: Reminders
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          alignItems: 'center',
+          margin: 'xl',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '48px',
+              height: '48px',
+              cornerRadius: 'xl',
+              backgroundColor: '#E1E8F8',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flex: 0,
+              contents: [buildIcon('🔔', iconUrls?.reminder)],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                {
+                  type: 'text',
+                  text: 'ตั้งเตือนความจำ',
+                  weight: 'bold',
+                  size: 'lg',
+                  color: '#21215C',
+                  wrap: true,
+                },
+                {
+                  type: 'text',
+                  text: 'เช่น “เตือนกินยาตอนสองทุ่ม”',
+                  size: 'md',
+                  color: '#7D84A3',
+                  wrap: true,
+                  margin: 'xs',
+                },
+              ],
+            },
+          ],
+        },
+        // Divider 1
+        {
+          type: 'separator',
+          color: '#EAF0F6',
+          margin: 'md',
+        },
+        // Row 2: Alarms
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          alignItems: 'center',
+          margin: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '48px',
+              height: '48px',
+              cornerRadius: 'xl',
+              backgroundColor: '#FBEFD8',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flex: 0,
+              contents: [buildIcon('⏰', iconUrls?.alarm)],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                {
+                  type: 'text',
+                  text: 'ตั้งนาฬิกาปลุก',
+                  weight: 'bold',
+                  size: 'lg',
+                  color: '#21215C',
+                  wrap: true,
+                },
+                {
+                  type: 'text',
+                  text: 'เช่น “ปลุกหกโมงเช้า”',
+                  size: 'md',
+                  color: '#7D84A3',
+                  wrap: true,
+                  margin: 'xs',
+                },
+              ],
+            },
+          ],
+        },
+        // Divider 2
+        {
+          type: 'separator',
+          color: '#EAF0F6',
+          margin: 'md',
+        },
+        // Row 3: Notes
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          alignItems: 'center',
+          margin: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '48px',
+              height: '48px',
+              cornerRadius: 'xl',
+              backgroundColor: '#EEE1FA',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flex: 0,
+              contents: [buildIcon('📝', iconUrls?.note)],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                {
+                  type: 'text',
+                  text: 'จดบันทึกข้อความ',
+                  weight: 'bold',
+                  size: 'lg',
+                  color: '#21215C',
+                  wrap: true,
+                },
+                {
+                  type: 'text',
+                  text: 'เช่น “ช่วยจดว่าต้องซื้อนม”',
+                  size: 'md',
+                  color: '#7D84A3',
+                  wrap: true,
+                  margin: 'xs',
+                },
+              ],
+            },
+          ],
+        },
+        // Divider 3
+        {
+          type: 'separator',
+          color: '#EAF0F6',
+          margin: 'md',
+        },
+        // Row 4: View / Delete
+        {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'md',
+          alignItems: 'center',
+          margin: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '48px',
+              height: '48px',
+              cornerRadius: 'xl',
+              backgroundColor: '#DAEEE3',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flex: 0,
+              contents: [buildIcon('📋', iconUrls?.list)],
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              flex: 1,
+              contents: [
+                {
+                  type: 'text',
+                  text: 'ดูหรือลบรายการที่ตั้งไว้',
+                  weight: 'bold',
+                  size: 'lg',
+                  color: '#21215C',
+                  wrap: true,
+                },
+                {
+                  type: 'text',
+                  text: 'เช่น “ดูรายการเตือน”',
+                  size: 'md',
+                  color: '#7D84A3',
+                  wrap: true,
+                  margin: 'xs',
+                },
+              ],
+            },
+          ],
+        },
+        // Tip Card Banner
+        {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#E1E8F8',
+          cornerRadius: 'xxl',
+          paddingAll: 'lg',
+          margin: 'xl',
+          spacing: 'md',
+          alignItems: 'center',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              width: '44px',
+              height: '44px',
+              cornerRadius: 'xxl',
+              backgroundColor: '#FFFFFF',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flex: 0,
+              contents: [
+                iconUrls?.mic
+                  ? {
+                      type: 'image',
+                      url: iconUrls.mic,
+                      size: 'xxs',
+                      aspectRatio: '1:1',
+                      aspectMode: 'fit',
+                      align: 'center',
+                      gravity: 'center',
+                    }
+                  : {
+                      type: 'text',
+                      text: '🎙️',
+                      size: 'lg',
+                      align: 'center',
+                      gravity: 'center',
+                    },
+              ],
+            },
+            {
+              type: 'text',
+              text: voiceTipText,
+              weight: 'bold',
+              size: 'md',
+              color: '#21215C',
+              wrap: true,
+              flex: 1,
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  return {
+    type: 'flex',
+    altText: `${headerText} ${introText}: ตั้งเตือนความจำ, ตั้งนาฬิกาปลุก, จดบันทึกข้อความ, ดูหรือลบรายการที่ตั้งไว้ และ${voiceTipText}`,
     contents: bubble,
   };
 }
