@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useLiff } from '@/components/liff/LiffProvider';
+import { isMockAllowed } from '@/lib/utils/env';
 import type { AlarmDoc, ReminderDoc, NoteDoc } from '@/types/firestore';
 
 export interface LiffItemsData {
@@ -23,7 +24,7 @@ export function useLiffData<T = LiffItemsData>(
     const headers: Record<string, string> = {};
     if (idToken) {
       headers['Authorization'] = `Bearer ${idToken}`;
-    } else if (process.env.NODE_ENV !== 'production' && userId?.startsWith('mock-')) {
+    } else if (isMockAllowed() && userId?.startsWith('mock-')) {
       headers['x-line-userid'] = userId;
     }
     return headers;

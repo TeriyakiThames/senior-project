@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { auth } from '@/lib/firebase/admin';
 import { verifyLineIdToken } from '@/lib/line/verify-token';
+import { isMockAllowed } from '@/lib/utils/env';
 
 export async function getAuthorizedUserId(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('authorization');
@@ -23,8 +24,8 @@ export async function getAuthorizedUserId(request: NextRequest): Promise<string 
     }
   }
 
-  // Reject spoofable x-line-userid header in production
-  if (process.env.NODE_ENV === 'production') {
+  // Reject spoofable x-line-userid header in production (strictly allowed only when mock is enabled)
+  if (!isMockAllowed()) {
     return null;
   }
 
