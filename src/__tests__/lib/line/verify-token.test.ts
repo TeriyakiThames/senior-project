@@ -43,13 +43,17 @@ describe('verifyLineIdToken (SEC-01)', () => {
       email: 'somchai@example.com',
     });
 
-    expect(fetchMock).toHaveBeenCalledWith('https://api.line.me/oauth2/v2.1/verify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'id_token=valid-jwt-token-string&client_id=1234567890',
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.line.me/oauth2/v2.1/verify',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'id_token=valid-jwt-token-string&client_id=1234567890',
+        signal: expect.any(Object),
+      }),
+    );
   });
 
   it('falls back to channel id extracted from NEXT_PUBLIC_LIFF_ID prefix', async () => {
@@ -109,6 +113,21 @@ describe('verifyLineIdToken (SEC-01)', () => {
   it('rejects oversized tokens and tokens with CRLF characters', async () => {
     expect(await verifyLineIdToken('a'.repeat(4097))).toBeNull();
     expect(await verifyLineIdToken('valid-token\r\ninjected')).toBeNull();
+  });
+
+  it('rejects verification if token audience does not match expected channel ID', async () => {
+    vi.stubEnv('LINE_LOGIN_CHANNEL_ID', '1234567890');
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        sub: 'U_ATTACKER_OR_OTHER_USER',
+        aud: '9999999999', // Mismatched audience from different channel
+      }),
+    } as Response);
+
+    const result = await verifyLineIdToken('token-with-foreign-audience');
+    expect(result).toBeNull();
   });
 
   it('rejects verification in production mode when channel ID is unconfigured', async () => {

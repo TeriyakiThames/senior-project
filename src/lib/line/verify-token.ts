@@ -64,6 +64,7 @@ export async function verifyLineIdToken(
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -72,6 +73,14 @@ export async function verifyLineIdToken(
 
     const data = await response.json();
     if (!data.sub || typeof data.sub !== 'string') {
+      return null;
+    }
+
+    // Verify audience matches expected channel ID if returned by LINE endpoint
+    if (channelId && data.aud && typeof data.aud === 'string' && data.aud !== channelId) {
+      console.error(
+        `[verifyLineIdToken] Security Alert: Token audience (${data.aud}) does not match expected channel ID (${channelId})`,
+      );
       return null;
     }
 
