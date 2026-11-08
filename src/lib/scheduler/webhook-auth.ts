@@ -34,17 +34,17 @@ export function isValidWebhookSecret(clientSecret?: string | null): boolean {
     }
   }
 
-  const clientBuf = Buffer.from(clientSecret);
+  // Hash candidate and configured secrets using SHA-256 to ensure constant-length
+  // (32-byte) comparisons, preventing length-based timing leakages and exceptions.
+  const clientHash = crypto.createHash('sha256').update(clientSecret).digest();
+  let matched = false;
 
   for (const configured of configuredSecrets) {
-    const configuredBuf = Buffer.from(configured);
-    if (
-      clientBuf.length === configuredBuf.length &&
-      crypto.timingSafeEqual(clientBuf, configuredBuf)
-    ) {
-      return true;
+    const configuredHash = crypto.createHash('sha256').update(configured).digest();
+    if (crypto.timingSafeEqual(clientHash, configuredHash)) {
+      matched = true;
     }
   }
 
-  return false;
+  return matched;
 }

@@ -88,5 +88,9 @@ describe('verifyLineSignature', () => {
     process.env.LINE_CHANNEL_SECRET = 'placeholder_line_channel_secret';
     const validSignature = createValidSignature(testPayload, 'placeholder_line_channel_secret');
     expect(verifyLineSignature(testPayload, validSignature)).toBe(false);
+
+    process.env.LINE_CHANNEL_SECRET = 'example_channel_secret';
+    const validExampleSig = createValidSignature(testPayload, 'example_channel_secret');
+    expect(verifyLineSignature(testPayload, validExampleSig)).toBe(false);
   });
 });
