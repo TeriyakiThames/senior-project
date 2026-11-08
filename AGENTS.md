@@ -8,14 +8,16 @@
 
 Any AI assistant or agent operating in this repository must strictly adhere to these rules:
 
-1. **Never Commit or Merge Code:**
-   - The AI writes code, creates branches, and runs tests locally.
-   - The AI must **NEVER** run `git commit`, `git merge`, or merge any branch or Merge / Pull Request (MR / PR).
-   - The AI must **NEVER** push code changes (`git push` after code edits/commits).
-2. **Review Before Commit:**
-   - After code changes and local checks pass, the AI pauses and presents the diff to the human developer.
-   - The human developer performs all commits, code pushes (`git push`), and PR creations.
-3. **Branch Creation & Instant Remote Publishing per Chat:**
+1. **Working Branch Commits & Pushes Allowed (Never on `main`):**
+   - The AI is permitted to stage (`git add`), commit (`git commit`), and push (`git push`) code changes to the active working branch (`origin/<branch-name>`) once all local validation checks pass.
+   - **Strict Read-Only Protection on `main`:** Only read-only commands are allowed on `main` (e.g. `git checkout main`, `git pull origin main`, `git status`, `git log`).
+   - The AI must **NEVER** commit directly to `main`, push directly to `main` or `origin/main`, run `git merge`, or merge any branch or Pull Request (PR). All PR merges into `main` are performed by the human developer.
+2. **Review & Validation Before Commit:**
+   - Before committing and pushing, all local checks must pass (`pnpm format:check`, `pnpm type-check`, `pnpm test:run`, `pnpm build`).
+   - Commit messages must follow Conventional Commits (e.g. `feat: ...`, `fix: ...`, `chore: ...`) and be strictly under 50 characters.
+3. **No Destructive Deletion Commands Without Explicit Permission:**
+   - Destructive file deletion or history rewrite commands (e.g. `rm -rf`, `rm -f`, `Remove-Item -Force`, `git reset --hard`, `git clean -fd`) must **NEVER** be executed unless the human developer explicitly authorizes them in the chat.
+4. **Branch Creation & Instant Remote Publishing per Chat:**
    - Each chat session or task must start on a new branch created from `main`:
      ```bash
      git checkout main && git pull origin main && git checkout -b <branch-name> --no-track
@@ -26,14 +28,14 @@ Any AI assistant or agent operating in this repository must strictly adhere to t
      ```bash
      git push -u origin <branch-name>
      ```
-     This automatically links the working branch to `origin/<branch-name>` so the developer never has to manually type `git push -u origin ...` and can simply run `git push` once their commit is ready.
-4. **Safe Remote & Upstream Tracking:**
+     This automatically links the working branch to `origin/<branch-name>`.
+5. **Safe Remote & Upstream Tracking:**
    - Every working branch must strictly track its own remote branch (`origin/<branch-name>`).
    - **NEVER** set `main` or `origin/main` as the remote/upstream tracking branch for a working branch. This ensures `git push` or `git push --force` can never accidentally overwrite or push into `main`.
    - _Developer Tip:_ The developer can also optionally configure Git globally via `git config --global push.autoSetupRemote true` as an additional layer of convenience.
-5. **Manual External Setup:**
+6. **Manual External Setup:**
    - Whenever external console configurations are required (LINE Developers, Firebase Console, Google Cloud Console, Vercel), the AI must outline clear, step-by-step instructions and wait for the developer to perform them.
-6. **Package Manager:**
+7. **Package Manager:**
    - Use **`pnpm`** exclusively across all environments and scripts. Never use `npm` or `yarn`.
 
 ---
@@ -227,4 +229,4 @@ After completing work and verifying each task, the AI assistant must summarize e
 
 **Leftover/handoff tasks if any:**
 
-- Actionable manual steps for the developer (console setups, env vars, PR reviews, etc.). Since the remote branch was already published upon creation, the developer only needs to run `git push` after committing.
+- Actionable manual steps for the developer (console setups, env vars, PR reviews, merging PR, etc.).
