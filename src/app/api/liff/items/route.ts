@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { alarmsRef, remindersRef, notesRef } from '@/lib/firebase/collections';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
 import { getMockItems } from '@/lib/liff/mock-items';
+import { isValidDocumentId } from '@/lib/utils/security';
 
 export async function GET(request: NextRequest) {
   const userId = await getAuthorizedUserId(request);
@@ -15,6 +16,10 @@ export async function GET(request: NextRequest) {
     (userId === 'mock-user-123' || userId.startsWith('mock-'))
   ) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!isValidDocumentId(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
   const type = request.nextUrl.searchParams.get('type') || 'all';

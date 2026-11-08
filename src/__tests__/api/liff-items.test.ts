@@ -273,6 +273,24 @@ describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
       expect(response.status).toBe(400);
     });
 
+    it('returns 400 when item id contains path traversal slashes (Security Hardening)', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/liff/items/..%2F..%2Fvictim?type=alarm',
+        {
+          method: 'DELETE',
+          headers: { authorization: 'Bearer valid-line-token' },
+        },
+      );
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: '../../victim' }),
+      });
+      expect(response.status).toBe(400);
+      const json = await response.json();
+      expect(json.error).toBe('Invalid item ID format');
+    });
+
     it('returns 404 when item does not exist', async () => {
       vi.mocked(verifyLineIdToken).mockResolvedValueOnce({ lineUserId: TEST_USER_ID });
 

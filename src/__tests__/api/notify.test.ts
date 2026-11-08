@@ -37,6 +37,39 @@ describe('POST /api/notify (SCHED-08)', () => {
   });
 
   describe('Authentication & Security', () => {
+    it('returns 413 when payload exceeds maximum size limit (DoS hardening)', async () => {
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': '999999',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: 'u1', itemId: 'a1', itemType: 'alarm' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(413);
+      const data = await response.json();
+      expect(data).toEqual({ error: 'Payload too large' });
+    });
+
+    it('returns 400 when userId or itemId contains path traversal slashes (Security Hardening)', async () => {
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: '../../victim', itemId: 'a1', itemType: 'alarm' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data).toEqual({ error: 'Invalid payload' });
+    });
+
     it('returns 401 when x-webhook-secret is missing', async () => {
       const request = new NextRequest('http://localhost:3000/api/notify', {
         method: 'POST',
