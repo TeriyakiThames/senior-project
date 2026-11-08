@@ -168,6 +168,35 @@ describe('List and Delete Tool Handlers (SCHED-06)', () => {
       expect(result.message).toContain('1. กินยาลดความดัน');
     });
 
+    it('excludes disabled reminders (enabled: false) when listing reminders', async () => {
+      vi.mocked(extractor.classifyItemType).mockResolvedValue({
+        itemType: 'reminder',
+        confidence: 0.95,
+      });
+
+      const reminderDocs = [
+        {
+          id: 'rem-disabled',
+          data: () => ({
+            message: 'การเตือนที่ปิดแล้ว',
+            status: 'fired',
+            enabled: false,
+          }),
+        },
+      ];
+
+      vi.mocked(collections.remindersRef).mockReturnValue({
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ empty: false, docs: reminderDocs }),
+      } as any);
+
+      const result = await handleListItems('ดูการเตือน', '', mockUser);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('ตอนนี้ยังไม่มีการเตือนที่ตั้งไว้ค่ะ คุณตาคุณยาย');
+    });
+
     it('returns category-specific empty message when a single category is requested and empty', async () => {
       vi.mocked(extractor.classifyItemType).mockResolvedValue({
         itemType: 'alarm',

@@ -13,6 +13,7 @@ import {
   getAlarmNextFireDate,
   formatReminderCardHeader,
   groupRemindersByTimeline,
+  getReminderNextFireDate,
 } from '@/lib/utils/date';
 
 describe('formatDashboardDate (FE-03)', () => {
@@ -466,5 +467,57 @@ describe('groupRemindersByTimeline', () => {
     expect(groups[0]?.id).toBe('today');
     expect(groups[1]?.id).toBe('other');
     expect(groups[1]?.label).toBe('อื่นๆ');
+  });
+
+  it('places past reminders in other group instead of today group', () => {
+    const reminders = [
+      { id: 'past-1', nextFireAt: new Date(2026, 9, 15, 10, 0) }, // 7 days ago
+      { id: 'past-2', nextFireAt: new Date(2026, 9, 21, 14, 0) }, // yesterday
+      { id: 'today-1', nextFireAt: new Date(2026, 9, 22, 12, 0) }, // today
+    ];
+
+    const groups = groupRemindersByTimeline(reminders, 'th', baseNow);
+    expect(groups.length).toBe(2);
+
+    // Today group must strictly contain only today's item
+    const todayGroup = groups.find((g) => g.id === 'today');
+    expect(todayGroup).toBeDefined();
+    expect(todayGroup?.items.map((i) => i.id)).toEqual(['today-1']);
+
+    // Past items must be placed into other group, not today
+    const otherGroup = groups.find((g) => g.id === 'other');
+    expect(otherGroup).toBeDefined();
+    expect(otherGroup?.items.map((i) => i.id)).toEqual(['past-1', 'past-2']);
+  });
+});
+
+describe('getReminderNextFireDate', () => {
+  const baseNow = new Date('2026-10-22T10:00:00.000Z');
+
+  it('returns parsed date if nextFireAt is in the future', () => {
+    const futureDate = new Date('2026-10-22T14:00:00.000Z');
+    const result = getReminderNextFireDate({ nextFireAt: futureDate, recurrence: 'once' }, baseNow);
+    expect(result?.toISOString()).toBe(futureDate.toISOString());
+  });
+
+  it('returns null for past one-off reminder', () => {
+    const pastDate = new Date('2026-10-20T08:00:00.000Z');
+    const result = getReminderNextFireDate({ nextFireAt: pastDate, recurrence: 'once' }, baseNow);
+    expect(result).toBeNull();
+  });
+
+  it('calculates next upcoming occurrence for past recurring reminder', () => {
+    const pastDate = new Date('2026-10-20T08:00:00.000Z');
+    const result = getReminderNextFireDate(
+      { nextFireAt: pastDate, scheduledAt: pastDate, recurrence: 'daily' },
+      baseNow,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.getTime()).toBeGreaterThan(baseNow.getTime());
+  });
+
+  it('returns null if reminder has no valid fire times', () => {
+    const result = getReminderNextFireDate({ nextFireAt: null, scheduledAt: null }, baseNow);
+    expect(result).toBeNull();
   });
 });
