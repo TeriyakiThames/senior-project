@@ -32,6 +32,55 @@ describe('POST /api/auth/line (SEC-02 / S2 & S4)', () => {
     vi.clearAllMocks();
   });
 
+  it('returns 413 when payload exceeds maximum size limit (DoS hardening)', async () => {
+    const request = new NextRequest('http://localhost:3000/api/auth/line', {
+      method: 'POST',
+      headers: { 'content-length': '999999' },
+      body: JSON.stringify({ idToken: 'some-token' }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    const data = await response.json();
+    expect(data.error).toBe('Payload too large');
+  });
+
+  it('returns 400 when lineUserId has invalid document ID / path traversal characters', async () => {
+    vi.mocked(verifyLineIdToken).mockResolvedValue({
+      lineUserId: '../../victim/user',
+      displayName: 'Attacker',
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/auth/line', {
+      method: 'POST',
+      body: JSON.stringify({ idToken: 'valid-token' }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe('Invalid LINE user ID format');
+  });
+
+  it('returns 401 when mock user ID is encountered in production mode', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.mocked(verifyLineIdToken).mockResolvedValue({
+      lineUserId: 'mock-user-123',
+      displayName: 'Mock User',
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/auth/line', {
+      method: 'POST',
+      body: JSON.stringify({ idToken: 'mock-token-123' }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(401);
+    const data = await response.json();
+    expect(data.error).toBe('Unauthorized');
+    vi.unstubAllEnvs();
+  });
+
   it('returns 400 when idToken is missing', async () => {
     const request = new NextRequest('http://localhost:3000/api/auth/line', {
       method: 'POST',
