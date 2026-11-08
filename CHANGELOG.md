@@ -1,3 +1,10 @@
+## [1.33.6](https://github.com/TeriyakiThames/senior-project/compare/v1.33.5...v1.33.6) (2026-11-08)
+
+
+### Bug Fixes
+
+* filter expired reminders from upcoming timeline ([#126](https://github.com/TeriyakiThames/senior-project/issues/126)) ([d0353df](https://github.com/TeriyakiThames/senior-project/commit/d0353df79eef8669ef725dc4ead6eff45910221d))
+
 ## [1.33.5](https://github.com/TeriyakiThames/senior-project/compare/v1.33.4...v1.33.5) (2026-11-04)
 
 
