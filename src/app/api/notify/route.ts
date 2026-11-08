@@ -13,8 +13,13 @@ import { REMINDER_REPEAT_INTERVAL_MS, TIMER_REPEAT_INTERVAL_MS } from '@/lib/too
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AlarmDoc, ReminderDoc } from '@/types/firestore';
 import { logError } from '@/lib/utils/errors';
+import { isValidDocumentId, isPayloadSizeWithinLimit } from '@/lib/utils/security';
 
 export async function POST(request: NextRequest) {
+  if (!isPayloadSizeWithinLimit(request, 32 * 1024)) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+
   const secret = request.headers.get('x-webhook-secret');
   const authHeader = request.headers.get('authorization');
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
@@ -28,7 +33,11 @@ export async function POST(request: NextRequest) {
 
   let body: { userId?: string; itemId?: string; itemType?: string; idempotencyKey?: string };
   try {
-    body = (await request.json()) as {
+    const rawText = await request.text();
+    if (rawText.length > 32 * 1024) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+    body = JSON.parse(rawText) as {
       userId?: string;
       itemId?: string;
       itemType?: string;
@@ -43,6 +52,8 @@ export async function POST(request: NextRequest) {
   if (
     !userId ||
     !itemId ||
+    !isValidDocumentId(userId) ||
+    !isValidDocumentId(itemId) ||
     (itemType !== 'alarm' && itemType !== 'reminder' && itemType !== 'timer')
   ) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });

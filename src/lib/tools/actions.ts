@@ -1,5 +1,6 @@
 import { alarmsRef, remindersRef } from '@/lib/firebase/collections';
 import { scheduleNotification, cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
+import { isValidDocumentId } from '@/lib/utils/security';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { AlarmDoc, ReminderDoc, UserDoc } from '@/types/firestore';
 import type { ToolResult } from './index';
@@ -136,6 +137,9 @@ export async function handleSnooze(
   // 1. Explicit Timer Snooze (+15m)
   if (timerMatch) {
     const timerId = timerMatch[1].trim();
+    if (!isValidDocumentId(timerId)) {
+      return { success: false, message: 'ไม่พบตัวจับเวลาที่จะเลื่อนค่ะ คุณตาคุณยาย' };
+    }
     const docRef = alarmsRef(uid).doc(timerId);
     const snap = await docRef.get();
     if (!snap.exists) {
@@ -197,6 +201,9 @@ export async function handleSnooze(
   // 2. Explicit Alarm Snooze (+5m)
   if (alarmMatch) {
     const alarmId = alarmMatch[1].trim();
+    if (!isValidDocumentId(alarmId)) {
+      return { success: false, message: 'ไม่พบนาฬิกาปลุกที่จะเลื่อนค่ะ คุณตาคุณยาย' };
+    }
     const docRef = alarmsRef(uid).doc(alarmId);
     const snap = await docRef.get();
     if (!snap.exists) {
@@ -257,6 +264,9 @@ export async function handleSnooze(
   // 2. Explicit Reminder Snooze
   if (reminderMatch) {
     const reminderId = reminderMatch[1].trim();
+    if (!isValidDocumentId(reminderId)) {
+      return { success: false, message: 'ไม่พบการเตือนที่จะเลื่อนค่ะ คุณตาคุณยาย' };
+    }
     const docRef = remindersRef(uid).doc(reminderId);
     const snap = await docRef.get();
     if (!snap.exists) {
@@ -363,6 +373,9 @@ export async function handleDismiss(
   // 1. Explicit Timer Dismiss
   if (timerMatch) {
     const timerId = timerMatch[1].trim();
+    if (!isValidDocumentId(timerId)) {
+      return { success: false, message: 'ไม่พบตัวจับเวลาที่จะปิดค่ะ คุณตาคุณยาย' };
+    }
     const docRef = alarmsRef(uid).doc(timerId);
     const snap = await docRef.get();
     if (!snap.exists) {
@@ -415,6 +428,9 @@ export async function handleDismiss(
   // 2. Explicit Alarm Dismiss
   if (alarmMatch) {
     const alarmId = alarmMatch[1].trim();
+    if (!isValidDocumentId(alarmId)) {
+      return { success: false, message: 'ไม่พบนาฬิกาปลุกที่จะปิดค่ะ คุณตาคุณยาย' };
+    }
     const docRef = alarmsRef(uid).doc(alarmId);
     const snap = await docRef.get();
     if (!snap.exists) {
@@ -468,6 +484,9 @@ export async function handleDismiss(
   // 2. Explicit Reminder Dismiss
   if (reminderMatch) {
     const reminderId = reminderMatch[1].trim();
+    if (!isValidDocumentId(reminderId)) {
+      return { success: false, message: 'ไม่พบการเตือนที่จะปิดค่ะ คุณตาคุณยาย' };
+    }
     const docRef = remindersRef(uid).doc(reminderId);
     const snap = await docRef.get();
     if (!snap.exists) {

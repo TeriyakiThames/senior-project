@@ -21,17 +21,30 @@ export function isValidWebhookSecret(clientSecret?: string | null): boolean {
     return false;
   }
 
-  const clientBuf = Buffer.from(clientSecret);
-
-  for (const configured of configuredSecrets) {
-    const configuredBuf = Buffer.from(configured);
-    if (
-      clientBuf.length === configuredBuf.length &&
-      crypto.timingSafeEqual(clientBuf, configuredBuf)
-    ) {
-      return true;
+  // In production, strictly reject default placeholder secrets
+  if (process.env.NODE_ENV === 'production') {
+    const hasPlaceholder = configuredSecrets.some(
+      (s) => s.toLowerCase().includes('placeholder') || s.toLowerCase().includes('example'),
+    );
+    if (hasPlaceholder) {
+      console.error(
+        '[webhook-auth] Security Alert: Refusing to authenticate webhook with placeholder secret in production.',
+      );
+      return false;
     }
   }
 
-  return false;
+  // Hash candidate and configured secrets using SHA-256 to ensure constant-length
+  // (32-byte) comparisons, preventing length-based timing leakages and exceptions.
+  const clientHash = crypto.createHash('sha256').update(clientSecret).digest();
+  let matched = false;
+
+  for (const configured of configuredSecrets) {
+    const configuredHash = crypto.createHash('sha256').update(configured).digest();
+    if (crypto.timingSafeEqual(clientHash, configuredHash)) {
+      matched = true;
+    }
+  }
+
+  return matched;
 }

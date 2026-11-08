@@ -2,10 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebase/admin';
 import { userRef } from '@/lib/firebase/collections';
 import { verifyLineIdToken } from '@/lib/line/verify-token';
+import { isValidDocumentId, isPayloadSizeWithinLimit } from '@/lib/utils/security';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    if (!isPayloadSizeWithinLimit(request, 32 * 1024)) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+
+    const rawText = await request.text();
+    if (rawText.length > 32 * 1024) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+
+    let body: { idToken?: unknown };
+    try {
+      body = JSON.parse(rawText);
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    }
     const { idToken } = body;
 
     if (!idToken || typeof idToken !== 'string') {
@@ -18,6 +33,17 @@ export async function POST(request: NextRequest) {
     }
 
     const { lineUserId, displayName } = verified;
+
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (lineUserId === 'mock-user-123' || lineUserId.startsWith('mock-'))
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (!isValidDocumentId(lineUserId)) {
+      return NextResponse.json({ error: 'Invalid LINE user ID format' }, { status: 400 });
+    }
 
     let firebaseUid = lineUserId;
     try {

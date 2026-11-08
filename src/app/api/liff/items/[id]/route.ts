@@ -3,6 +3,7 @@ import { alarmsRef, remindersRef, notesRef } from '@/lib/firebase/collections';
 import { cancelScheduledTask } from '@/lib/scheduler/cloud-tasks';
 import { getAuthorizedUserId } from '@/lib/liff/auth';
 import { deleteMockItem } from '@/lib/liff/mock-items';
+import { isValidDocumentId } from '@/lib/utils/security';
 
 const VALID_TYPES = ['alarm', 'timer', 'reminder', 'note'] as const;
 type ItemType = (typeof VALID_TYPES)[number];
@@ -24,7 +25,15 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (!isValidDocumentId(userId)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
+  }
+
   const { id } = await params;
+  if (!isValidDocumentId(id)) {
+    return NextResponse.json({ error: 'Invalid item ID format' }, { status: 400 });
+  }
+
   const type = request.nextUrl.searchParams.get('type') as ItemType | null;
 
   if (!type || !VALID_TYPES.includes(type)) {

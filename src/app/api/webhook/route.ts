@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { verifyLineSignature } from '@/lib/line/signature';
 import { processWebhookEvents } from '@/lib/line/dispatcher';
 import { logError } from '@/lib/utils/errors';
+import { isPayloadSizeWithinLimit } from '@/lib/utils/security';
 import type { webhook } from '@line/bot-sdk';
 
 // Configures maximum serverless function execution duration (in seconds)
@@ -10,7 +11,14 @@ export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
+    if (!isPayloadSizeWithinLimit(request, 512 * 1024)) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+
     const body = await request.text();
+    if (body.length > 512 * 1024) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
     const signature = request.headers.get('x-line-signature');
 
     // 1. Validate signature against raw string before parsing

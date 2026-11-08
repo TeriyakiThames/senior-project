@@ -28,16 +28,22 @@ export function verifyLineSignature(
       return false;
     }
 
-    const expectedSignature = crypto.createHmac('SHA256', secret).update(body).digest('base64');
-
-    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-    const actualBuffer = Buffer.from(trimmedSignature, 'utf8');
-
-    if (expectedBuffer.length !== actualBuffer.length) {
+    // In production, strictly reject default placeholder channel secrets
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (secret.toLowerCase().includes('placeholder') || secret.toLowerCase().includes('example'))
+    ) {
       return false;
     }
 
-    return crypto.timingSafeEqual(expectedBuffer, actualBuffer);
+    const expectedSignature = crypto.createHmac('SHA256', secret).update(body).digest('base64');
+
+    // Hash both signatures with SHA-256 to ensure constant-length (32-byte) comparisons,
+    // eliminating any timing leakage based on signature length.
+    const expectedHash = crypto.createHash('sha256').update(expectedSignature).digest();
+    const actualHash = crypto.createHash('sha256').update(trimmedSignature).digest();
+
+    return crypto.timingSafeEqual(expectedHash, actualHash);
   } catch {
     return false;
   }

@@ -1,10 +1,14 @@
 import { db } from './admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { assertValidDocumentId } from '@/lib/utils/security';
 import type { UserDoc, MessageDoc } from '@/types/firestore';
 
 // User document
 export const usersRef = () => db.collection('users');
-export const userRef = (lineUserId: string) => usersRef().doc(lineUserId);
+export const userRef = (lineUserId: string) => {
+  assertValidDocumentId(lineUserId, 'lineUserId');
+  return usersRef().doc(lineUserId);
+};
 
 // Subcollections
 export const messagesRef = (uid: string) => userRef(uid).collection('messages');

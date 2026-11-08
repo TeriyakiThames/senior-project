@@ -11,6 +11,19 @@ out/
 .env
 .env*.local
 !.env.example
+.env.development
+.env.production
+.env.test
+.env.staging
+
+# Credentials, Keys & Certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*.json
+service-account*.json
+serviceAccountKey*.json
 
 # Logs
 npm-debug.log*

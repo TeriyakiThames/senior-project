@@ -35,6 +35,39 @@ describe('POST /api/webhook', () => {
     expect(maxDuration).toBe(60);
   });
 
+  it('returns 413 when payload exceeds maximum size limit (DoS hardening)', async () => {
+    const request = new NextRequest('http://localhost:3000/api/webhook', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': '9999999',
+        'x-line-signature': 'some-sig',
+      },
+      body: JSON.stringify({ events: [] }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    const body = await response.json();
+    expect(body).toEqual({ error: 'Payload too large' });
+  });
+
+  it('returns 413 when body length exceeds 512KB even if content-length header is absent (chunked DoS hardening)', async () => {
+    const request = new NextRequest('http://localhost:3000/api/webhook', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-line-signature': 'some-sig',
+      },
+      body: 'a'.repeat(512 * 1024 + 1),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    const body = await response.json();
+    expect(body).toEqual({ error: 'Payload too large' });
+  });
+
   it('returns 401 when signature verification fails', async () => {
     vi.mocked(verifyLineSignature).mockReturnValue(false);
 

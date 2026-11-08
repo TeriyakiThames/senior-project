@@ -847,6 +847,46 @@ describe('Snooze and Dismiss Tool Handlers (SCHED-07)', () => {
       expect(result.success).toBe(true);
       expect(result.message).toBe('ปิดการเตือนแล้วค่ะ ✓');
     });
+
+    it('rejects path traversal and unsafe item IDs in handleSnooze without querying Firestore', async () => {
+      const docSpy = vi.fn();
+      vi.mocked(collections.alarmsRef).mockReturnValue({ doc: docSpy } as any);
+      vi.mocked(collections.remindersRef).mockReturnValue({ doc: docSpy } as any);
+
+      const resAlarm = await handleSnooze('snooze_alarm:../../malicious', mockUser);
+      expect(resAlarm.success).toBe(false);
+      expect(resAlarm.message).toBe('ไม่พบนาฬิกาปลุกที่จะเลื่อนค่ะ คุณตาคุณยาย');
+
+      const resTimer = await handleSnooze('snooze_timer:../../malicious', mockUser);
+      expect(resTimer.success).toBe(false);
+      expect(resTimer.message).toBe('ไม่พบตัวจับเวลาที่จะเลื่อนค่ะ คุณตาคุณยาย');
+
+      const resRem = await handleSnooze('snooze_reminder:../../malicious', mockUser);
+      expect(resRem.success).toBe(false);
+      expect(resRem.message).toBe('ไม่พบการเตือนที่จะเลื่อนค่ะ คุณตาคุณยาย');
+
+      expect(docSpy).not.toHaveBeenCalled();
+    });
+
+    it('rejects path traversal and unsafe item IDs in handleDismiss without querying Firestore', async () => {
+      const docSpy = vi.fn();
+      vi.mocked(collections.alarmsRef).mockReturnValue({ doc: docSpy } as any);
+      vi.mocked(collections.remindersRef).mockReturnValue({ doc: docSpy } as any);
+
+      const resAlarm = await handleDismiss('dismiss_alarm:../../malicious', mockUser);
+      expect(resAlarm.success).toBe(false);
+      expect(resAlarm.message).toBe('ไม่พบนาฬิกาปลุกที่จะปิดค่ะ คุณตาคุณยาย');
+
+      const resTimer = await handleDismiss('dismiss_timer:../../malicious', mockUser);
+      expect(resTimer.success).toBe(false);
+      expect(resTimer.message).toBe('ไม่พบตัวจับเวลาที่จะปิดค่ะ คุณตาคุณยาย');
+
+      const resRem = await handleDismiss('dismiss_reminder:../../malicious', mockUser);
+      expect(resRem.success).toBe(false);
+      expect(resRem.message).toBe('ไม่พบการเตือนที่จะปิดค่ะ คุณตาคุณยาย');
+
+      expect(docSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('Flex Message Builders', () => {

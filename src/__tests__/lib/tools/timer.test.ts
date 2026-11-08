@@ -247,6 +247,19 @@ describe('Timer Tool Handler (Timer Feature)', () => {
       expect(result.message).toBe('ไม่พบตัวจับเวลาที่จะลบค่ะ คุณตาคุณยาย');
     });
 
+    it('rejects path traversal and unsafe timer IDs without calling Firestore', async () => {
+      const docSpy = vi.fn();
+      vi.mocked(collections.timersRef).mockReturnValue({
+        doc: docSpy,
+      } as any);
+
+      const result = await handleDeleteTimer('../../other_user_data', mockUser);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('ไม่พบตัวจับเวลาที่จะลบค่ะ คุณตาคุณยาย');
+      expect(docSpy).not.toHaveBeenCalled();
+    });
+
     it('returns already handled message when timer is already canceled / done', async () => {
       const mockDocRef = {
         get: vi.fn().mockResolvedValue({

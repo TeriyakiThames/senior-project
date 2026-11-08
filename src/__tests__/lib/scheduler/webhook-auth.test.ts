@@ -47,4 +47,13 @@ describe('isValidWebhookSecret (S5 Security Hardening)', () => {
       false,
     );
   });
+
+  it('rejects placeholder secrets in production mode (SEC Hardening)', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('WEBHOOK_SECRET', 'placeholder_shared_webhook_secret');
+    expect(isValidWebhookSecret('placeholder_shared_webhook_secret')).toBe(false);
+
+    vi.stubEnv('WEBHOOK_SECRET', 'example_webhook_secret');
+    expect(isValidWebhookSecret('example_webhook_secret')).toBe(false);
+  });
 });
