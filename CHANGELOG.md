@@ -1,3 +1,10 @@
+# [1.34.0](https://github.com/TeriyakiThames/senior-project/compare/v1.33.6...v1.34.0) (2026-11-08)
+
+
+### Features
+
+* add stylized welcome flex message ([#127](https://github.com/TeriyakiThames/senior-project/issues/127)) ([5343313](https://github.com/TeriyakiThames/senior-project/commit/53433137fdf9d21d803252461259b7893589ee72))
+
 ## [1.33.6](https://github.com/TeriyakiThames/senior-project/compare/v1.33.5...v1.33.6) (2026-11-08)
 
 
