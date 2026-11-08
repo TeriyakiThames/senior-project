@@ -1,3 +1,10 @@
+## [1.34.1](https://github.com/TeriyakiThames/senior-project/compare/v1.34.0...v1.34.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* comprehensive security audit and vulnerability patch ([#125](https://github.com/TeriyakiThames/senior-project/issues/125)) ([db04785](https://github.com/TeriyakiThames/senior-project/commit/db04785694ad6b044f9235d6a48c6c74ed6bf64c))
+
 # [1.34.0](https://github.com/TeriyakiThames/senior-project/compare/v1.33.6...v1.34.0) (2026-11-08)
 
 
