@@ -10,7 +10,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
     }
 
-    const body = await request.json();
+    const rawText = await request.text();
+    if (rawText.length > 32 * 1024) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+
+    let body: { idToken?: unknown };
+    try {
+      body = JSON.parse(rawText);
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    }
     const { idToken } = body;
 
     if (!idToken || typeof idToken !== 'string') {

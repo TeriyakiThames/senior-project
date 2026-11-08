@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.text();
+    if (body.length > 512 * 1024) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
     const signature = request.headers.get('x-line-signature');
 
     // 1. Validate signature against raw string before parsing

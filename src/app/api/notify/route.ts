@@ -33,7 +33,11 @@ export async function POST(request: NextRequest) {
 
   let body: { userId?: string; itemId?: string; itemType?: string; idempotencyKey?: string };
   try {
-    body = (await request.json()) as {
+    const rawText = await request.text();
+    if (rawText.length > 32 * 1024) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+    body = JSON.parse(rawText) as {
       userId?: string;
       itemId?: string;
       itemType?: string;

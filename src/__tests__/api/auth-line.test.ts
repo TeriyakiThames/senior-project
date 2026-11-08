@@ -45,6 +45,18 @@ describe('POST /api/auth/line (SEC-02 / S2 & S4)', () => {
     expect(data.error).toBe('Payload too large');
   });
 
+  it('returns 413 when body length exceeds 32KB even without content-length header (chunked DoS)', async () => {
+    const request = new NextRequest('http://localhost:3000/api/auth/line', {
+      method: 'POST',
+      body: 'a'.repeat(32 * 1024 + 1),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    const data = await response.json();
+    expect(data.error).toBe('Payload too large');
+  });
+
   it('returns 400 when lineUserId has invalid document ID / path traversal characters', async () => {
     vi.mocked(verifyLineIdToken).mockResolvedValue({
       lineUserId: '../../victim/user',

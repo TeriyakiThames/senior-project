@@ -54,6 +54,22 @@ describe('POST /api/notify (SCHED-08)', () => {
       expect(data).toEqual({ error: 'Payload too large' });
     });
 
+    it('returns 413 when body length exceeds 32KB even without content-length header (chunked DoS)', async () => {
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: 'a'.repeat(32 * 1024 + 1),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(413);
+      const data = await response.json();
+      expect(data).toEqual({ error: 'Payload too large' });
+    });
+
     it('returns 400 when userId or itemId contains path traversal slashes (Security Hardening)', async () => {
       const request = new NextRequest('http://localhost:3000/api/notify', {
         method: 'POST',
