@@ -1,6 +1,7 @@
 import { webhook, type messagingApi } from '@line/bot-sdk';
 import { lineClient } from './client';
 import { startLoadingAnimation } from './loading';
+import { buildWelcomeFlexMessage } from './flex-messages';
 import { processAudioMessage, getUserProfile } from '@/lib/speech/handler';
 import { resolvePersonaParticles } from '@/lib/ai/persona';
 import { AppError, logError, getFallbackMessage, type ErrorStage } from '@/lib/utils/errors';
@@ -734,6 +735,57 @@ export async function handleAudioMessage(
 }
 
 /**
+ * Handles incoming follow events when a user adds the bot as a friend or unblocks it:
+ * 1. Resolves user profile from LINE (or cached displayName).
+ * 2. Initializes/updates user record in Firestore.
+ * 3. Builds the stylized welcome Flex Message bubble.
+ * 4. Replies to LINE using the event's replyToken.
+ * 5. Saves the conversation start to Firestore messages history.
+ */
+export async function handleFollowEvent(event: webhook.FollowEvent): Promise<void> {
+  const replyToken = event.replyToken;
+  if (!replyToken) {
+    return;
+  }
+
+  const userId = event.source?.userId;
+  let displayName = 'คุณตาคุณยาย';
+
+  if (userId) {
+    const cachedName = getCachedDisplayName(userId);
+    if (cachedName) {
+      displayName = cachedName;
+    } else {
+      try {
+        const profile = await lineClient.getProfile(userId);
+        if (profile?.displayName) {
+          displayName = profile.displayName;
+          setCachedDisplayName(userId, profile.displayName);
+        }
+      } catch {
+        // Gracefully continue with default display name if profile fetch fails
+      }
+    }
+  }
+
+  const user = userId ? await getOrCreateUser(userId, displayName) : null;
+  if (user?.displayName && userId && !getCachedDisplayName(userId)) {
+    setCachedDisplayName(userId, user.displayName);
+  }
+
+  const welcomeFlex = buildWelcomeFlexMessage(user);
+
+  await lineClient.replyMessage({
+    replyToken,
+    messages: [welcomeFlex],
+  });
+
+  if (userId) {
+    await saveMessages(userId, 'EVENT:FOLLOW', welcomeFlex.altText);
+  }
+}
+
+/**
  * Routes a single webhook event to the appropriate message handler.
  * Ignores unsupported message types and non-message events safely.
  */
@@ -751,6 +803,8 @@ export async function handleWebhookEvent(event: webhook.Event): Promise<void> {
     }
   } else if (event.type === 'postback') {
     await handlePostbackEvent(event as webhook.PostbackEvent);
+  } else if (event.type === 'follow') {
+    await handleFollowEvent(event as webhook.FollowEvent);
   }
 }
 
