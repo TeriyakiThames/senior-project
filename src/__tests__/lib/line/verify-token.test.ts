@@ -106,6 +106,24 @@ describe('verifyLineIdToken (SEC-01)', () => {
     expect(result).toBeNull();
   });
 
+  it('rejects oversized tokens and tokens with CRLF characters', async () => {
+    expect(await verifyLineIdToken('a'.repeat(4097))).toBeNull();
+    expect(await verifyLineIdToken('valid-token\r\ninjected')).toBeNull();
+  });
+
+  it('rejects verification in production mode when channel ID is unconfigured', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('LINE_LOGIN_CHANNEL_ID', '');
+    vi.stubEnv('NEXT_PUBLIC_LIFF_ID', '');
+    vi.stubEnv('LIFF_ID', '');
+    vi.stubEnv('LINE_CHANNEL_ID', '');
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    const result = await verifyLineIdToken('some-jwt-token');
+    expect(result).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('supports simulated mock-token in non-production mode', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const fetchMock = vi.spyOn(globalThis, 'fetch');

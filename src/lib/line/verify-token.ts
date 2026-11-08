@@ -22,6 +22,11 @@ export async function verifyLineIdToken(
 
   const cleanToken = idToken.trim();
 
+  // Guard against oversized tokens or illegal characters (e.g. CRLF injection)
+  if (cleanToken.length > 4096 || /[\r\n]/.test(cleanToken)) {
+    return null;
+  }
+
   // In non-production environments (test/development), allow mock-token prefixes for offline development
   if (process.env.NODE_ENV !== 'production' && cleanToken.startsWith('mock-token-')) {
     const suffix = cleanToken.slice('mock-token-'.length) || '123';
@@ -37,6 +42,14 @@ export async function verifyLineIdToken(
     process.env.NEXT_PUBLIC_LIFF_ID?.split('-')[0] ||
     process.env.LIFF_ID?.split('-')[0] ||
     process.env.LINE_CHANNEL_ID;
+
+  // In production, refusing to verify without a client_id prevents confused deputy token substitution attacks
+  if (process.env.NODE_ENV === 'production' && (!channelId || !channelId.trim())) {
+    console.error(
+      '[verifyLineIdToken] Security Alert: LINE channel ID (client_id) is not configured in production.',
+    );
+    return null;
+  }
 
   try {
     const params = new URLSearchParams();
