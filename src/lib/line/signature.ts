@@ -28,6 +28,11 @@ export function verifyLineSignature(
       return false;
     }
 
+    // In production, strictly reject default placeholder channel secrets
+    if (process.env.NODE_ENV === 'production' && secret.toLowerCase().includes('placeholder')) {
+      return false;
+    }
+
     const expectedSignature = crypto.createHmac('SHA256', secret).update(body).digest('base64');
 
     const expectedBuffer = Buffer.from(expectedSignature, 'utf8');

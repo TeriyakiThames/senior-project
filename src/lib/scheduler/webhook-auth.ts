@@ -21,6 +21,19 @@ export function isValidWebhookSecret(clientSecret?: string | null): boolean {
     return false;
   }
 
+  // In production, strictly reject default placeholder secrets
+  if (process.env.NODE_ENV === 'production') {
+    const hasPlaceholder = configuredSecrets.some(
+      (s) => s.toLowerCase().includes('placeholder') || s.toLowerCase().includes('example'),
+    );
+    if (hasPlaceholder) {
+      console.error(
+        '[webhook-auth] Security Alert: Refusing to authenticate webhook with placeholder secret in production.',
+      );
+      return false;
+    }
+  }
+
   const clientBuf = Buffer.from(clientSecret);
 
   for (const configured of configuredSecrets) {

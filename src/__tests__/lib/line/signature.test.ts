@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { verifyLineSignature } from '@/lib/line/signature';
 
 describe('verifyLineSignature', () => {
@@ -81,5 +81,12 @@ describe('verifyLineSignature', () => {
 
     // Passes when custom secret is passed explicitly
     expect(verifyLineSignature(testPayload, validSignature, customSecret)).toBe(true);
+  });
+
+  it('rejects placeholder channel secrets in production mode', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    process.env.LINE_CHANNEL_SECRET = 'placeholder_line_channel_secret';
+    const validSignature = createValidSignature(testPayload, 'placeholder_line_channel_secret');
+    expect(verifyLineSignature(testPayload, validSignature)).toBe(false);
   });
 });
