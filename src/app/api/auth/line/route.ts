@@ -3,6 +3,7 @@ import { auth } from '@/lib/firebase/admin';
 import { userRef } from '@/lib/firebase/collections';
 import { verifyLineIdToken } from '@/lib/line/verify-token';
 import { isValidDocumentId, isPayloadSizeWithinLimit } from '@/lib/utils/security';
+import { isMockAllowed } from '@/lib/utils/env';
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,10 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { lineUserId, displayName } = verified;
 
-    if (
-      process.env.NODE_ENV === 'production' &&
-      (lineUserId === 'mock-user-123' || lineUserId.startsWith('mock-'))
-    ) {
+    if (!isMockAllowed() && (lineUserId === 'mock-user-123' || lineUserId.startsWith('mock-'))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

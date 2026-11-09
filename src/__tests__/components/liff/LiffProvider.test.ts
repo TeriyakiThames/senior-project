@@ -79,5 +79,48 @@ describe('LiffProvider Environment & Mock Safeguards (S7 Security Hardening)', (
 
       globalThis.window = originalWindow;
     });
+
+    it('returns true when running in Vercel preview environment via VERCEL_ENV=preview', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('VERCEL_ENV', 'preview');
+      expect(shouldEnableMockUser()).toBe(true);
+    });
+
+    it('returns true when running in Vercel preview environment via NEXT_PUBLIC_VERCEL_ENV=preview', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('NEXT_PUBLIC_VERCEL_ENV', 'preview');
+      expect(shouldEnableMockUser()).toBe(true);
+    });
+
+    it('returns true on Vercel preview hostname even in production build', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+
+      const originalWindow = globalThis.window;
+      globalThis.window = {
+        location: {
+          hostname: 'senior-project-git-feat-activity-mock-teriyakithames-projects.vercel.app',
+        },
+      } as unknown as Window & typeof globalThis;
+
+      expect(shouldEnableMockUser()).toBe(true);
+
+      globalThis.window = originalWindow;
+    });
+
+    it('strictly returns false on Vercel production hostname', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('VERCEL_ENV', 'production');
+
+      const originalWindow = globalThis.window;
+      globalThis.window = {
+        location: {
+          hostname: 'senior-project-eta-two.vercel.app',
+        },
+      } as unknown as Window & typeof globalThis;
+
+      expect(shouldEnableMockUser()).toBe(false);
+
+      globalThis.window = originalWindow;
+    });
   });
 });
