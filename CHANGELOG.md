@@ -1,3 +1,10 @@
+# [1.35.0](https://github.com/TeriyakiThames/senior-project/compare/v1.34.2...v1.35.0) (2026-11-09)
+
+
+### Features
+
+* enable mock mode on vercel preview builds ([#129](https://github.com/TeriyakiThames/senior-project/issues/129)) ([a05b9ea](https://github.com/TeriyakiThames/senior-project/commit/a05b9ea60cb312c5e1ca484ef268e0fcfd36c4f0))
+
 ## [1.34.2](https://github.com/TeriyakiThames/senior-project/compare/v1.34.1...v1.34.2) (2026-11-08)
 
 ## [1.34.1](https://github.com/TeriyakiThames/senior-project/compare/v1.34.0...v1.34.1) (2026-11-08)

@@ -9,10 +9,7 @@
  * (such as Vercel preview deployments) or local development.
  */
 export function isVercelPreview(): boolean {
-  if (
-    process.env.VERCEL_ENV === 'preview' ||
-    process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview'
-  ) {
+  if (process.env.VERCEL_ENV === 'preview' || process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview') {
     return true;
   }
 
