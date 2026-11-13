@@ -346,6 +346,47 @@ describe('POST /api/notify (SCHED-08)', () => {
       );
     });
 
+    it('stops repeating and deactivates timer when max notification repeats is reached', async () => {
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            label: 'ต้มไข่',
+            durationMinutes: 10,
+            repeatCount: 3,
+          }),
+        }),
+        update: mockUpdate,
+      };
+      vi.mocked(alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof alarmsRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'timer-1', itemType: 'timer' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json).toEqual({ status: 'ok', reason: 'max_repeats_reached' });
+      expect(scheduleNotification).not.toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: false,
+          status: 'done',
+          cloudTaskName: null,
+        }),
+      );
+    });
+
     it('pushes notification card and reschedules recurring alarm', async () => {
       const mockUpdate = vi.fn().mockResolvedValue(undefined);
       const mockDoc = {
@@ -544,7 +585,50 @@ describe('POST /api/notify (SCHED-08)', () => {
         nextFireAt: expect.any(Object),
         lastHandledNotificationId: null,
         lastHandledAction: null,
+        repeatCount: 1,
       });
+    });
+
+    it('stops repeating and deactivates reminder when max notification repeats is reached', async () => {
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            status: 'fired',
+            message: 'ทานยาหลังอาหาร',
+            recurrence: 'once',
+            repeatCount: 3,
+          }),
+        }),
+        update: mockUpdate,
+      };
+      vi.mocked(remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof remindersRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'rem-1', itemType: 'reminder' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json).toEqual({ status: 'ok', reason: 'max_repeats_reached' });
+      expect(scheduleNotification).not.toHaveBeenCalled();
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: false,
+          status: 'done',
+          cloudTaskName: null,
+        }),
+      );
     });
 
     it('reschedules 5-minute auto-repeat when fired again (second nagging cycle)', async () => {
@@ -597,6 +681,7 @@ describe('POST /api/notify (SCHED-08)', () => {
         lastHandledNotificationId: null,
         lastHandledAction: null,
         lastNotificationId: 'tasks/queue/task-second-fire',
+        repeatCount: 1,
       });
     });
 
@@ -644,6 +729,7 @@ describe('POST /api/notify (SCHED-08)', () => {
         lastHandledNotificationId: null,
         lastHandledAction: null,
         lastNotificationId: 'tasks/queue/task-snooze-fire',
+        repeatCount: 1,
       });
     });
 

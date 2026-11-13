@@ -42,6 +42,7 @@ export interface AlarmDoc {
   lastNotificationId?: string | null;
   lastHandledNotificationId?: string | null;
   lastHandledAction?: 'snooze' | 'dismiss' | null;
+  repeatCount?: number;
   status?: 'pending' | 'fired' | 'snoozed' | 'done';
   createdAt: Timestamp;
 }
@@ -60,6 +61,7 @@ export interface ReminderDoc {
   lastNotificationId?: string | null;
   lastHandledNotificationId?: string | null;
   lastHandledAction?: 'snooze' | 'dismiss' | null;
+  repeatCount?: number;
   status: 'pending' | 'fired' | 'snoozed' | 'done';
   createdAt: Timestamp;
 }

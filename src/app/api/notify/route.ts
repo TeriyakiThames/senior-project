@@ -15,6 +15,8 @@ import type { AlarmDoc, ReminderDoc } from '@/types/firestore';
 import { logError } from '@/lib/utils/errors';
 import { isValidDocumentId, isPayloadSizeWithinLimit } from '@/lib/utils/security';
 
+const MAX_NOTIFICATION_REPEATS = 3;
+
 export async function POST(request: NextRequest) {
   if (!isPayloadSizeWithinLimit(request, 32 * 1024)) {
     return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
@@ -108,7 +110,21 @@ async function handleTimerFire(userId: string, timerId: string, idempotencyKey?:
     messages: [buildTimerNotification(label, timerId, idempotencyKey || undefined)],
   });
 
-  // For timer, repeat message every 5 minutes until user snoozes or dismisses
+  // For timer, repeat message every 5 minutes until user snoozes, dismisses, or reaches MAX_NOTIFICATION_REPEATS
+  const currentRepeats = timer.repeatCount ?? 0;
+  if (currentRepeats >= MAX_NOTIFICATION_REPEATS) {
+    const finalUpdate: Record<string, unknown> = {
+      enabled: false,
+      status: 'done',
+      cloudTaskName: null,
+    };
+    if (idempotencyKey) {
+      finalUpdate.lastNotificationId = idempotencyKey;
+    }
+    await ref.update(finalUpdate);
+    return { status: 'ok', reason: 'max_repeats_reached' };
+  }
+
   const nextRepeatAt = new Date(Date.now() + TIMER_REPEAT_INTERVAL_MS);
   const taskName = await scheduleNotification({
     userId,
@@ -124,6 +140,7 @@ async function handleTimerFire(userId: string, timerId: string, idempotencyKey?:
     nextFireAt: Timestamp.fromDate(nextRepeatAt),
     lastHandledNotificationId: null,
     lastHandledAction: null,
+    repeatCount: currentRepeats + 1,
   };
   if (idempotencyKey) {
     updateData.lastNotificationId = idempotencyKey;
@@ -281,8 +298,22 @@ async function handleReminderFire(
     ],
   });
 
-  // For one-off, repeat message every 5 minutes until user snoozes or dismisses
+  // For one-off, repeat message every 5 minutes until user snoozes, dismisses, or reaches MAX_NOTIFICATION_REPEATS
   if (reminder.recurrence === 'once') {
+    const currentRepeats = reminder.repeatCount ?? 0;
+    if (currentRepeats >= MAX_NOTIFICATION_REPEATS) {
+      const finalUpdate: Record<string, unknown> = {
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+      };
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'ok', reason: 'max_repeats_reached' };
+    }
+
     const nextRepeatAt = new Date(Date.now() + REMINDER_REPEAT_INTERVAL_MS);
     const taskName = await scheduleNotification({
       userId,
@@ -298,6 +329,7 @@ async function handleReminderFire(
       nextFireAt: Timestamp.fromDate(nextRepeatAt),
       lastHandledNotificationId: null,
       lastHandledAction: null,
+      repeatCount: currentRepeats + 1,
     };
     if (idempotencyKey) {
       updateData.lastNotificationId = idempotencyKey;
