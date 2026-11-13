@@ -257,6 +257,7 @@ export async function handleTextMessage(
   }
 
   const userId = event.source?.userId;
+  const isDirectUserChat = event.source?.type !== 'group' && event.source?.type !== 'room';
 
   // 1. Fetch display name & retrieve or create user
   let displayName = 'คุณตาคุณยาย';
@@ -295,7 +296,7 @@ export async function handleTextMessage(
         messages: [{ type: 'text', text: replyText }],
       });
 
-      if (userId) {
+      if (userId && isDirectUserChat) {
         await saveMessages(userId, userText, replyText);
       }
       return;
@@ -367,7 +368,7 @@ export async function handleTextMessage(
         messages,
       });
 
-      if (userId) {
+      if (userId && isDirectUserChat) {
         await saveMessages(userId, userText, replyText);
       }
       return;
@@ -379,8 +380,7 @@ export async function handleTextMessage(
   }
 
   // 4. Trigger LINE Loading Animation before initiating heavy AI & tool processing
-  const isDirectUserChat = event.source?.type === 'user' && !!userId;
-  if (isDirectUserChat && !options?.loadingAlreadyStarted) {
+  if (isDirectUserChat && userId && !options?.loadingAlreadyStarted) {
     void startLoadingAnimation(userId, { loadingSeconds: 60 });
   }
 
@@ -439,7 +439,16 @@ export async function handleTextMessage(
 
   let toolResult: ToolResult;
   try {
-    if (currentUser) {
+    if (
+      !isDirectUserChat &&
+      (intentResult.intent === 'list_items' || intentResult.intent === 'delete_item')
+    ) {
+      toolResult = {
+        success: false,
+        message:
+          'เพื่อความปลอดภัยและความเป็นส่วนตัว กรุณาตรวจสอบหรือจัดการรายการในแชตส่วนตัวแบบ 1 ต่อ 1 กับหนูนะคะ',
+      };
+    } else if (currentUser) {
       const messageSource: 'voice' | 'text' = transcribedText ? 'voice' : 'text';
       toolResult = await executeTool({
         intent: intentResult,
@@ -510,7 +519,7 @@ export async function handleTextMessage(
   });
 
   // 8. Save messages to Firestore history
-  if (userId) {
+  if (userId && isDirectUserChat) {
     try {
       await saveMessages(userId, userText, savedAssistantText);
     } catch (saveError) {
@@ -551,6 +560,7 @@ export async function handlePostbackEvent(
   }
 
   const userId = event.source?.userId;
+  const isDirectUserChat = event.source?.type !== 'group' && event.source?.type !== 'room';
   if (!userId) {
     return;
   }
@@ -575,7 +585,6 @@ export async function handlePostbackEvent(
   }
   const data = event.postback.data ?? '';
 
-  const isDirectUserChat = event.source?.type === 'user';
   if (isDirectUserChat) {
     void startLoadingAnimation(userId, { loadingSeconds: 20 });
   }
@@ -658,7 +667,9 @@ export async function handlePostbackEvent(
         replyToken,
         messages: [{ type: 'text', text: replyText }],
       });
-      await saveMessages(userId, displayUserText, replyText);
+      if (userId && isDirectUserChat) {
+        await saveMessages(userId, displayUserText, replyText);
+      }
       return;
     } catch (error) {
       throw error instanceof AppError
@@ -680,7 +691,9 @@ export async function handlePostbackEvent(
         replyToken,
         messages: [{ type: 'text', text: replyText }],
       });
-      await saveMessages(userId, 'ลบตัวจับเวลา', replyText);
+      if (userId && isDirectUserChat) {
+        await saveMessages(userId, 'ลบตัวจับเวลา', replyText);
+      }
       return;
     } catch (error) {
       throw error instanceof AppError
@@ -710,7 +723,9 @@ export async function handlePostbackEvent(
       replyToken,
       messages,
     });
-    await saveMessages(userId, 'ยืนยัน', replyText);
+    if (userId && isDirectUserChat) {
+      await saveMessages(userId, 'ยืนยัน', replyText);
+    }
     return;
   }
 
@@ -733,7 +748,9 @@ export async function handlePostbackEvent(
       replyToken,
       messages,
     });
-    await saveMessages(userId, 'ยกเลิก', replyText);
+    if (userId && isDirectUserChat) {
+      await saveMessages(userId, 'ยกเลิก', replyText);
+    }
     return;
   }
 
@@ -751,13 +768,17 @@ export async function handlePostbackEvent(
       });
       const flexAltText =
         (toolRes.flexMessage as { altText?: string }).altText ?? 'เปลี่ยนเวลาแจ้งเตือน';
-      await saveMessages(userId, `เปลี่ยนเวลาเป็น ${selectedDatetime}`, flexAltText);
+      if (userId && isDirectUserChat) {
+        await saveMessages(userId, `เปลี่ยนเวลาเป็น ${selectedDatetime}`, flexAltText);
+      }
     } else if (toolRes.message) {
       await lineClient.replyMessage({
         replyToken,
         messages: [{ type: 'text', text: toolRes.message }],
       });
-      await saveMessages(userId, `เปลี่ยนเวลาเป็น ${selectedDatetime}`, toolRes.message);
+      if (userId && isDirectUserChat) {
+        await saveMessages(userId, `เปลี่ยนเวลาเป็น ${selectedDatetime}`, toolRes.message);
+      }
     }
     return;
   }
@@ -791,7 +812,8 @@ export async function handleAudioMessage(
   }
 
   const userId = event.source?.userId;
-  const isDirectUserChat = event.source?.type === 'user' && !!userId;
+  const isDirectUserChat =
+    event.source?.type !== 'group' && event.source?.type !== 'room' && !!userId;
   if (isDirectUserChat) {
     void startLoadingAnimation(userId, { loadingSeconds: 60 });
   }
