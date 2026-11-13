@@ -924,5 +924,44 @@ describe('POST /api/notify (SCHED-08)', () => {
       expect(data).toEqual({ status: 'skipped', reason: 'already_notified' });
       expect(lineClient.pushMessage).not.toHaveBeenCalled();
     });
+
+    it('ignores idempotencyKey with invalid characters or excessive length to prevent parameter injection', async () => {
+      vi.mocked(lineClient.pushMessage).mockResolvedValue({} as any);
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            status: 'pending',
+            label: 'ปลุกเช้า',
+            recurrence: 'once',
+          }),
+        }),
+        update: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof alarmsRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+          'x-idempotency-key': 'malicious&action=hacked\r\n',
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'alarm-1', itemType: 'alarm' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      expect(mockDoc.update).toHaveBeenCalledWith({
+        enabled: false,
+        cloudTaskName: null,
+      });
+      expect(mockDoc.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ lastNotificationId: 'malicious&action=hacked\r\n' }),
+      );
+    });
   });
 });

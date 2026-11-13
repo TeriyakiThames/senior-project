@@ -61,11 +61,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   }
 
-  const idempotencyKey =
+  const rawIdempotencyKey =
     request.headers.get('x-cloudtasks-taskname') ||
     request.headers.get('x-idempotency-key') ||
     body.idempotencyKey ||
     null;
+
+  // Validate idempotencyKey charset and length to prevent parameter injection into postbacks
+  const idempotencyKey =
+    rawIdempotencyKey &&
+    rawIdempotencyKey.length <= 512 &&
+    /^[a-zA-Z0-9_\-.:/]+$/.test(rawIdempotencyKey)
+      ? rawIdempotencyKey
+      : null;
 
   try {
     if (itemType === 'timer') {

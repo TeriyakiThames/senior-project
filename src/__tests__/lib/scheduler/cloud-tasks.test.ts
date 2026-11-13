@@ -135,6 +135,39 @@ describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
         }),
       );
     });
+
+    it('prevents payload from overriding core properties userId, itemId, and itemType', async () => {
+      const fireAt = new Date('2026-10-16T08:00:00.000Z');
+      const mockCreateTask = vi.fn().mockResolvedValue([{ name: 'task-1' }]);
+      const mockClient = {
+        createTask: mockCreateTask,
+        queuePath: vi.fn().mockReturnValue('queue-path'),
+      } as unknown as CloudTasksClient;
+
+      await scheduleNotification({
+        userId: 'real-user',
+        itemId: 'real-item',
+        itemType: 'reminder',
+        fireAt,
+        client: mockClient,
+        payload: {
+          userId: 'malicious-user',
+          itemId: 'malicious-item',
+          itemType: 'alarm',
+          extraData: 'safe-value',
+        },
+      });
+
+      const callArgs = mockCreateTask.mock.calls[0][0];
+      const decodedBody = JSON.parse(
+        Buffer.from(callArgs.task.httpRequest.body, 'base64').toString('utf-8'),
+      );
+
+      expect(decodedBody.userId).toBe('real-user');
+      expect(decodedBody.itemId).toBe('real-item');
+      expect(decodedBody.itemType).toBe('reminder');
+      expect(decodedBody.extraData).toBe('safe-value');
+    });
   });
 
   describe('saveAndScheduleTask', () => {
