@@ -111,7 +111,7 @@ null`;
       store: false,
     });
   } catch (apiError) {
-    logError('ai_parameter_extractor', apiError, { model, userText });
+    logError('ai_parameter_extractor', apiError, { model, textLength: userText.length });
     throw apiError;
   }
 
@@ -218,7 +218,7 @@ null`;
       store: false,
     });
   } catch (apiError) {
-    logError('ai_parameter_extractor', apiError, { model, userText });
+    logError('ai_parameter_extractor', apiError, { model, textLength: userText.length });
     throw apiError;
   }
 
@@ -329,7 +329,7 @@ null`;
       store: false,
     });
   } catch (apiError) {
-    logError('ai_parameter_extractor', apiError, { model, userText });
+    logError('ai_parameter_extractor', apiError, { model, textLength: userText.length });
     throw apiError;
   }
 
@@ -431,7 +431,7 @@ Do not return conversational text or markdown code fences. Return ONLY the JSON 
       store: false,
     });
   } catch (apiError) {
-    logError('ai_parameter_extractor', apiError, { model, userText });
+    logError('ai_parameter_extractor', apiError, { model, textLength: userText.length });
     throw apiError;
   }
 
