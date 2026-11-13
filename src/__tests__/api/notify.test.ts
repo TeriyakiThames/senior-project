@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/notify/route';
 import { lineClient } from '@/lib/line/client';
-import { alarmsRef, remindersRef } from '@/lib/firebase/collections';
+import { alarmsRef, remindersRef, userRef } from '@/lib/firebase/collections';
 import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -18,6 +18,7 @@ vi.mock('@/lib/line/client', async () => {
 vi.mock('@/lib/firebase/collections', () => ({
   alarmsRef: vi.fn(),
   remindersRef: vi.fn(),
+  userRef: vi.fn(),
 }));
 
 vi.mock('@/lib/scheduler/cloud-tasks', () => ({
@@ -34,6 +35,9 @@ describe('POST /api/notify (SCHED-08)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.WEBHOOK_SECRET = TEST_SECRET;
+    vi.mocked(userRef).mockReturnValue({
+      get: vi.fn().mockResolvedValue({ exists: false }),
+    } as any);
   });
 
   describe('Authentication & Security', () => {
@@ -731,6 +735,58 @@ describe('POST /api/notify (SCHED-08)', () => {
         lastNotificationId: 'tasks/queue/task-snooze-fire',
         repeatCount: 1,
       });
+    });
+
+    it('respects user-configured notificationRepeatCap from user settings', async () => {
+      vi.mocked(userRef).mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            settings: { notificationRepeatCap: 5 },
+          }),
+        }),
+      } as any);
+
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            status: 'fired',
+            message: 'ทานยาหลังอาหาร',
+            recurrence: 'once',
+            repeatCount: 4,
+          }),
+        }),
+        update: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof remindersRef>);
+      vi.mocked(scheduleNotification).mockResolvedValue('tasks/queue/task-5th-repeat');
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({
+          userId: 'user-custom-cap',
+          itemId: 'rem-custom',
+          itemType: 'reminder',
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      expect(scheduleNotification).toHaveBeenCalled();
+      expect(mockDoc.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'fired',
+          repeatCount: 5,
+        }),
+      );
     });
 
     it('pushes reminder card and reschedules recurring reminder', async () => {

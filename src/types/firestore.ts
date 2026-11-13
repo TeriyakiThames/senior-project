@@ -1,5 +1,9 @@
 import { Timestamp } from 'firebase-admin/firestore';
 
+export interface UserSettings {
+  notificationRepeatCap?: number; // 1 to 12 (default: 3)
+}
+
 export interface UserDoc {
   lineUserId: string;
   displayName: string;
@@ -17,6 +21,7 @@ export interface UserDoc {
     summary: string;
     generatedAt: Timestamp;
   };
+  settings?: UserSettings;
 }
 
 export interface MessageDoc {

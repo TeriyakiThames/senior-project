@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useLiff } from '@/components/liff/LiffProvider';
 import { DetailHeader } from '@/components/layout/DetailHeader';
+import { RepeatCapSlider } from '@/components/settings/RepeatCapSlider';
+import { isMockAllowed } from '@/lib/utils/env';
 import { APP_VERSION } from '@/lib/constants/version';
 
 export default function SettingsPage() {
@@ -12,7 +15,76 @@ export default function SettingsPage() {
   const t = useTranslations('dashboard');
   const router = useRouter();
   const pathname = usePathname() || '';
-  const { isReady, displayName, userId } = useLiff();
+  const { isReady, displayName, userId, idToken } = useLiff();
+  const [repeatCap, setRepeatCap] = useState<number>(3);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (idToken) {
+      headers['Authorization'] = `Bearer ${idToken}`;
+    } else if (isMockAllowed() && userId?.startsWith('mock-')) {
+      headers['x-line-userid'] = userId;
+    }
+    return headers;
+  }, [idToken, userId]);
+
+  useEffect(() => {
+    if (!isReady || !userId) return;
+
+    let isMounted = true;
+    async function fetchSettings() {
+      try {
+        const res = await fetch('/api/liff/settings', {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && typeof data.notificationRepeatCap === 'number') {
+            setRepeatCap(data.notificationRepeatCap);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load settings', err);
+      }
+    }
+
+    fetchSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, [isReady, userId, getAuthHeaders]);
+
+  const handleRepeatCapChange = async (newVal: number) => {
+    setRepeatCap(newVal);
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      const res = await fetch('/api/liff/settings', {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ notificationRepeatCap: newVal }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update settings');
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+    } catch (err) {
+      console.error('Error saving settings', err);
+      setSaveError(t('settingsSaveFailed'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!isReady) {
     return (
@@ -130,6 +202,45 @@ export default function SettingsPage() {
                 )}
               </button>
             </div>
+          </div>
+        </section>
+
+        {/* Notification Repeat Cap Card */}
+        <section aria-labelledby="notification-cap-heading">
+          <div className="bg-white rounded-3xl p-5 shadow-[0_2px_6px_rgba(33,33,92,0.06),0_8px_24px_rgba(33,33,92,0.08)]">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl" aria-hidden="true">
+                  🔁
+                </span>
+                <div>
+                  <h2 id="notification-cap-heading" className="text-xl font-bold text-[#21215C]">
+                    {t('notificationRepeatCap')}
+                  </h2>
+                  <p className="text-xs sm:text-sm font-medium text-[#7D84A3]">
+                    {t('notificationRepeatCapSubtitle')}
+                  </p>
+                </div>
+              </div>
+              {saveSuccess && (
+                <span className="text-xs font-bold text-[#06C755] bg-[#E8F8EE] px-2.5 py-1 rounded-full">
+                  ✓ {t('settingsSaved')}
+                </span>
+              )}
+            </div>
+
+            <RepeatCapSlider
+              value={repeatCap}
+              onChange={handleRepeatCapChange}
+              disabled={isSaving}
+              isSaving={isSaving}
+            />
+
+            {saveError && (
+              <p className="text-xs font-bold text-[#942626] bg-[#FEE2E2] p-2.5 rounded-xl mt-3">
+                {saveError}
+              </p>
+            )}
           </div>
         </section>
 
