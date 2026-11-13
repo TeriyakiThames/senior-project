@@ -116,6 +116,57 @@ export function markEventProcessed(event: webhook.Event): void {
   }
 }
 
+interface RateLimitBucket {
+  timestamps: number[];
+}
+
+const rateLimitBuckets = new Map<string, RateLimitBucket>();
+
+export function getEventSenderId(event: webhook.Event): string {
+  const source = event.source as { userId?: string; groupId?: string; roomId?: string } | undefined;
+  return source?.userId || source?.groupId || source?.roomId || 'unknown';
+}
+
+/**
+ * Checks whether an event sender has exceeded the sliding-window rate limit.
+ * Helps prevent unmetered LLM / STT spend and DoS attacks.
+ */
+export function isRateLimited(
+  senderId: string,
+  limit = 20,
+  windowMs = 60_000,
+  now = Date.now(),
+): boolean {
+  if (!senderId || senderId === 'unknown') return false;
+
+  // Periodic housekeeping if cache grows large
+  if (rateLimitBuckets.size > 2000) {
+    const cutoff = now - windowMs;
+    for (const [key, b] of rateLimitBuckets.entries()) {
+      if (b.timestamps.length === 0 || b.timestamps[b.timestamps.length - 1] < cutoff) {
+        rateLimitBuckets.delete(key);
+      }
+    }
+  }
+
+  const bucket = rateLimitBuckets.get(senderId) ?? { timestamps: [] };
+  const windowStart = now - windowMs;
+  bucket.timestamps = bucket.timestamps.filter((ts) => ts > windowStart);
+
+  if (bucket.timestamps.length >= limit) {
+    rateLimitBuckets.set(senderId, bucket);
+    return true;
+  }
+
+  bucket.timestamps.push(now);
+  rateLimitBuckets.set(senderId, bucket);
+  return false;
+}
+
+export function resetRateLimitBuckets(): void {
+  rateLimitBuckets.clear();
+}
+
 /**
  * Clears the in-memory deduplication cache (useful for testing).
  */
@@ -719,6 +770,26 @@ export async function handlePostbackEvent(
 export async function handleAudioMessage(
   event: webhook.MessageEvent & { message: webhook.AudioMessageContent },
 ): Promise<void> {
+  const senderId = getEventSenderId(event);
+  if (isRateLimited(`audio:${senderId}`, 10, 60_000)) {
+    console.warn(`[Dispatcher] Audio rate limit exceeded for sender: ${senderId}`);
+    const replyToken = event.replyToken;
+    if (replyToken) {
+      try {
+        await lineClient.replyMessage({
+          replyToken,
+          messages: [
+            {
+              type: 'text',
+              text: 'คุณตาคุณยายส่งข้อความเสียงถี่เกินไปแล้วค่ะ รบกวนรอสักครู่แล้วค่อยส่งใหม่นะคะ',
+            },
+          ],
+        });
+      } catch {}
+    }
+    return;
+  }
+
   const userId = event.source?.userId;
   const isDirectUserChat = event.source?.type === 'user' && !!userId;
   if (isDirectUserChat) {
@@ -816,7 +887,7 @@ export async function handleWebhookEvent(event: webhook.Event): Promise<void> {
  */
 export async function processWebhookEvents(
   events: webhook.Event[],
-  options?: { timeoutMs?: number; skipDeduplication?: boolean },
+  options?: { timeoutMs?: number; skipDeduplication?: boolean; skipRateLimit?: boolean },
 ): Promise<void> {
   const timeoutMs = options?.timeoutMs ?? DEFAULT_EVENT_TIMEOUT_MS;
 
@@ -826,6 +897,29 @@ export async function processWebhookEvents(
     }
     if (!options?.skipDeduplication) {
       markEventProcessed(event);
+    }
+
+    const senderId = getEventSenderId(event);
+    if (!options?.skipRateLimit && isRateLimited(senderId, 20, 60_000)) {
+      console.warn(`[Dispatcher] Rate limit exceeded for sender: ${senderId}`);
+      const replyToken =
+        'replyToken' in event && typeof (event as { replyToken?: unknown }).replyToken === 'string'
+          ? (event as { replyToken: string }).replyToken
+          : undefined;
+      if (replyToken) {
+        try {
+          await lineClient.replyMessage({
+            replyToken,
+            messages: [
+              {
+                type: 'text',
+                text: 'คุณตาคุณยายส่งข้อความเร็วเกินไปแล้วค่ะ รบกวนรอสักครู่แล้วค่อยคุยกับหนูใหม่อีกครั้งนะคะ',
+              },
+            ],
+          });
+        } catch {}
+      }
+      continue;
     }
 
     try {
