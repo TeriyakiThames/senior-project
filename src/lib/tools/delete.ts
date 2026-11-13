@@ -106,7 +106,11 @@ export async function handleDeleteItem(
       }
     }
 
-    await targetDoc.ref.update({ enabled: false });
+    await targetDoc.ref.update({
+      enabled: false,
+      status: 'done',
+      cloudTaskName: null,
+    });
 
     const labelPart = data.label ? ` (${data.label})` : '';
     const isTimer = itemType === 'timer' || data.durationMinutes !== undefined;
@@ -186,6 +190,7 @@ export async function handleDeleteItem(
     await targetDoc.ref.update({
       status: 'done',
       enabled: false,
+      cloudTaskName: null,
     });
 
     return {
