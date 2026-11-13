@@ -15,10 +15,13 @@ export async function getAuthorizedUserId(request: NextRequest): Promise<string 
       return lineVerified.lineUserId;
     }
 
-    // 2. Try verifying as Firebase ID Token (custom claim lineUserId or uid)
+    // 2. Try verifying as Firebase ID Token with checkRevoked enabled (strictly requiring lineUserId claim)
     try {
-      const decoded = await auth.verifyIdToken(token);
-      return (decoded.lineUserId as string) || decoded.uid;
+      const decoded = await auth.verifyIdToken(token, true);
+      if (typeof decoded.lineUserId === 'string' && decoded.lineUserId.trim()) {
+        return decoded.lineUserId.trim();
+      }
+      return null;
     } catch {
       return null;
     }
