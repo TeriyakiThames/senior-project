@@ -7,6 +7,7 @@ import {
   buildTimerConfirmationCard,
   buildReminderNotification,
   buildWelcomeFlexMessage,
+  clampAltText,
 } from '@/lib/line/flex-messages';
 import type { messagingApi } from '@line/bot-sdk';
 
@@ -607,6 +608,28 @@ describe('Flex Message Builders (LINE-04, LINE-07)', () => {
       const micImg = micBadge.contents[0] as messagingApi.FlexImage;
       expect(micImg.type).toBe('image');
       expect(micImg.url).toBe('https://example.com/icons/mic.png');
+    });
+  });
+
+  describe('clampAltText & AltText Length Safeguards', () => {
+    it('returns original text when length is <= 400 characters', () => {
+      const shortText = 'สวัสดีตอนเช้าค่ะ';
+      expect(clampAltText(shortText)).toBe(shortText);
+      expect(clampAltText('')).toBe('');
+    });
+
+    it('clamps text longer than 400 characters with ellipsis', () => {
+      const longText = 'a'.repeat(500);
+      const clamped = clampAltText(longText);
+      expect(clamped.length).toBe(400);
+      expect(clamped.endsWith('...')).toBe(true);
+    });
+
+    it('ensures buildNoteConfirmation clamps altText when summary is oversized', () => {
+      const hugeSummary = 'x'.repeat(600);
+      const card = buildNoteConfirmation(hugeSummary);
+      expect(card.altText.length).toBeLessThanOrEqual(400);
+      expect(card.altText.endsWith('...')).toBe(true);
     });
   });
 });

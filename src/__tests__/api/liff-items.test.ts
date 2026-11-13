@@ -356,7 +356,11 @@ describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
       const response = await DELETE(request, { params: Promise.resolve({ id: 'a1' }) });
       expect(response.status).toBe(200);
       expect(cancelScheduledTask).toHaveBeenCalledWith('tasks/task-alarm-1');
-      expect(docMock.update).toHaveBeenCalledWith({ enabled: false });
+      expect(docMock.update).toHaveBeenCalledWith({
+        enabled: false,
+        status: 'done',
+        cloudTaskName: null,
+      });
     });
 
     it('cancels cloud task and soft-disables reminder (status: done, enabled: false)', async () => {
@@ -381,7 +385,11 @@ describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
       const response = await DELETE(request, { params: Promise.resolve({ id: 'r1' }) });
       expect(response.status).toBe(200);
       expect(cancelScheduledTask).toHaveBeenCalledWith('tasks/task-reminder-1');
-      expect(docMock.update).toHaveBeenCalledWith({ status: 'done', enabled: false });
+      expect(docMock.update).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+      });
     });
 
     it('strictly rejects mock delete in production mode (S3)', async () => {

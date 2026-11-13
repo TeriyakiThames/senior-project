@@ -1666,4 +1666,91 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalled();
     });
   });
+
+  describe('Webhook Spend & Rate Limiting', () => {
+    beforeEach(async () => {
+      const { resetRateLimitBuckets } = await import('@/lib/line/dispatcher');
+      resetRateLimitBuckets();
+    });
+
+    it('throttles rapid repeated webhook events exceeding rate limit per sender', async () => {
+      const { processWebhookEvents, isRateLimited } = await import('@/lib/line/dispatcher');
+
+      const testSender = 'user-spammer';
+      for (let i = 0; i < 20; i++) {
+        expect(isRateLimited(testSender, 20, 60_000)).toBe(false);
+      }
+      expect(isRateLimited(testSender, 20, 60_000)).toBe(true);
+
+      const throttledEvent = {
+        type: 'message',
+        source: { type: 'user', userId: testSender },
+        replyToken: 'token-throttled',
+        message: { id: 'msg-throttled', type: 'text', text: 'ฮัลโหล' },
+      } as unknown as webhook.MessageEvent;
+
+      await processWebhookEvents([throttledEvent]);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          replyToken: 'token-throttled',
+          messages: [
+            expect.objectContaining({
+              type: 'text',
+              text: expect.stringContaining('เร็วเกินไป'),
+            }),
+          ],
+        }),
+      );
+    });
+  });
+
+  describe('Group Chat Privacy Hardening', () => {
+    it('does not persist group messages to user private history', async () => {
+      const { handleTextMessage } = await import('@/lib/line/dispatcher');
+      const { saveMessages } = await import('@/lib/firebase/collections');
+
+      const groupEvent = {
+        type: 'message',
+        source: { type: 'group', groupId: 'group-999', userId: 'user-sender' },
+        replyToken: 'token-group-msg',
+        message: { id: 'msg-grp-1', type: 'text', text: 'สวัสดีทุกคน' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(groupEvent);
+
+      expect(saveMessages).not.toHaveBeenCalled();
+    });
+
+    it('protects private item listing and deletion when invoked in a group chat', async () => {
+      const { handleTextMessage } = await import('@/lib/line/dispatcher');
+      const { classifyIntent } = await import('@/lib/ai/jev');
+      vi.mocked(classifyIntent).mockResolvedValueOnce({
+        intent: 'list_items',
+        confidence: 1.0,
+        isAmbiguous: false,
+      });
+
+      const groupEvent = {
+        type: 'message',
+        source: { type: 'group', groupId: 'group-999', userId: 'user-sender' },
+        replyToken: 'token-group-list',
+        message: { id: 'msg-grp-list', type: 'text', text: 'ดูรายการเตือนของฉัน' },
+      } as unknown as webhook.MessageEvent & { message: webhook.TextMessageContent };
+
+      await handleTextMessage(groupEvent);
+
+      expect(lineClient.replyMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          replyToken: 'token-group-list',
+          messages: [
+            expect.objectContaining({
+              type: 'text',
+              text: expect.stringContaining('เพื่อความปลอดภัยและความเป็นส่วนตัว'),
+            }),
+          ],
+        }),
+      );
+    });
+  });
 });

@@ -3,6 +3,16 @@ import { getBangkokComponents } from '@/lib/utils/recurrence';
 import { resolvePersonaParticles, type PersonaUserInput } from '@/lib/ai/persona';
 
 /**
+ * Clamps altText to the LINE Messaging API limit of 400 characters (truncates with ellipsis if exceeded).
+ * Prevents LINE API 400 Bad Request error when user message/note content is very long.
+ */
+export function clampAltText(text: string, maxLen: number = 400): string {
+  if (!text) return '';
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 3) + '...';
+}
+
+/**
  * Builds an interactive Flex Message bubble asking the elderly user to confirm or cancel
  * saving a voice or typed note summary, styled with an input method source badge (🎤 เสียง / ⌨️ พิมพ์).
  */
@@ -122,7 +132,7 @@ export function buildNoteConfirmation(
 
   return {
     type: 'flex',
-    altText: `📝 สรุปบันทึก: ${summary}`,
+    altText: clampAltText(`📝 สรุปบันทึก: ${summary}`),
     contents: bubble,
   };
 }
@@ -255,7 +265,7 @@ export function buildReminderConfirmation(
 
   return {
     type: 'flex',
-    altText: `⏰ ยืนยันเตือน: ${message} เวลา ${formattedTime}`,
+    altText: clampAltText(`⏰ ยืนยันเตือน: ${message} เวลา ${formattedTime}`),
     contents: bubble,
   };
 }
@@ -417,7 +427,7 @@ export function buildTimerConfirmationCard({
 
   return {
     type: 'flex',
-    altText: `⏱️ เริ่มจับเวลา: ${durationText}${labelSuffix}`,
+    altText: clampAltText(`⏱️ เริ่มจับเวลา: ${durationText}${labelSuffix}`),
     contents: bubble,
   };
 }
@@ -498,7 +508,7 @@ export function buildTimerNotification(
 
   return {
     type: 'flex',
-    altText: `⏱️ ตัวจับเวลา: ${label}`,
+    altText: clampAltText(`⏱️ ตัวจับเวลา: ${label}`),
     contents: bubble,
   };
 }
@@ -579,7 +589,7 @@ export function buildAlarmNotification(
 
   return {
     type: 'flex',
-    altText: `⏰ นาฬิกาปลุก: ${label}`,
+    altText: clampAltText(`⏰ นาฬิกาปลุก: ${label}`),
     contents: bubble,
   };
 }
@@ -660,7 +670,7 @@ export function buildReminderNotification(
 
   return {
     type: 'flex',
-    altText: `📋 แจ้งเตือน: ${message}`,
+    altText: clampAltText(`📋 แจ้งเตือน: ${message}`),
     contents: bubble,
   };
 }
@@ -1035,7 +1045,9 @@ export function buildWelcomeFlexMessage(
 
   return {
     type: 'flex',
-    altText: `${headerText} ${introText}: ตั้งเตือนความจำ, ตั้งนาฬิกาปลุก, จดบันทึกข้อความ, ดูหรือลบรายการที่ตั้งไว้ และ${voiceTipText}`,
+    altText: clampAltText(
+      `${headerText} ${introText}: ตั้งเตือนความจำ, ตั้งนาฬิกาปลุก, จดบันทึกข้อความ, ดูหรือลบรายการที่ตั้งไว้ และ${voiceTipText}`,
+    ),
     contents: bubble,
   };
 }

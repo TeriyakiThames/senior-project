@@ -125,10 +125,10 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
   const url = `${sanitizedAppUrl}/api/notify`;
 
   const taskPayload = {
+    ...(payload ?? {}),
     userId,
     itemId,
     itemType,
-    ...(payload ?? {}),
   };
 
   const body = Buffer.from(JSON.stringify(taskPayload)).toString('base64');

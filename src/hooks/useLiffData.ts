@@ -38,7 +38,7 @@ export function useLiffData<T = LiffItemsData>(
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/liff/items?type=${type}`, {
+      const res = await fetch(`/api/liff/items?type=${encodeURIComponent(type)}`, {
         headers: getAuthHeaders(),
       });
       if (!res.ok) {
@@ -80,10 +80,13 @@ export function useLiffData<T = LiffItemsData>(
     async (id: string, itemType: 'timer' | 'reminder' | 'note' | 'alarm') => {
       if (!userId) return;
       try {
-        const res = await fetch(`/api/liff/items/${id}?type=${itemType}`, {
-          method: 'DELETE',
-          headers: getAuthHeaders(),
-        });
+        const res = await fetch(
+          `/api/liff/items/${encodeURIComponent(id)}?type=${encodeURIComponent(itemType)}`,
+          {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+          },
+        );
         if (!res.ok) {
           let msg = res.statusText;
           try {

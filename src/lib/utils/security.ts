@@ -61,3 +61,58 @@ export function isPayloadSizeWithinLimit(request: Request, maxBytes: number): bo
   }
   return true;
 }
+
+/**
+ * Safely reads a request body stream into a Buffer up to maxBytes.
+ * If the body exceeds maxBytes (either via Content-Length or stream chunk bytes),
+ * immediately aborts/cancels reading and returns null, preventing Memory Exhaustion / DoS.
+ */
+export async function readBoundedBuffer(
+  request: Request,
+  maxBytes: number,
+): Promise<Buffer | null> {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength) {
+    const size = parseInt(contentLength, 10);
+    if (!isNaN(size) && size > maxBytes) {
+      return null;
+    }
+  }
+
+  // Stream reader with early chunk size abort for real runtime
+  if (request.body && typeof request.body.getReader === 'function') {
+    const reader = request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          totalBytes += value.byteLength;
+          if (totalBytes > maxBytes) {
+            await reader.cancel();
+            return null;
+          }
+          chunks.push(value);
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return Buffer.concat(chunks);
+  }
+
+  // Fallback for environments where body.getReader is unavailable (e.g. test NextRequest)
+  try {
+    const arrayBuffer = await request.arrayBuffer();
+    if (arrayBuffer.byteLength > maxBytes) {
+      return null;
+    }
+    return Buffer.from(arrayBuffer);
+  } catch {
+    return Buffer.alloc(0);
+  }
+}

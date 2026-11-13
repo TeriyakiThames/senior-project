@@ -4,6 +4,18 @@ import packageJson from './package.json';
 
 const withNextIntl = createNextIntlPlugin('./src/lib/i18n/request.ts');
 
+const cspDirectives = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.line-scdn.net https://d.line-scdn.net",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://api.line.me https://*.line.me",
+  "frame-ancestors 'self' https://line.me https://*.line.me https://*.line-apps.com https://*.naver.jp",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join('; ');
+
 const securityHeaders = [
   {
     key: 'X-DNS-Prefetch-Control',
@@ -27,8 +39,7 @@ const securityHeaders = [
   },
   {
     key: 'Content-Security-Policy',
-    value:
-      "frame-ancestors 'self' https://line.me https://*.line.me https://*.line-apps.com https://*.naver.jp;",
+    value: cspDirectives,
   },
 ];
 

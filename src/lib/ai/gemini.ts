@@ -53,11 +53,11 @@ export async function generateResponse(
   });
 
   const historyContext = recentMessages
-    .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .map((m) => `<turn role="${m.role === 'user' ? 'user' : 'assistant'}">${m.content}</turn>`)
     .join('\n');
 
   const fullInput = historyContext
-    ? `Previous conversation:\n${historyContext}\n\nUser: ${userText}`
+    ? `Previous conversation:\n${historyContext}\n\n<turn role="user">${userText}</turn>`
     : userText;
 
   const interaction = await client.interactions.create({
