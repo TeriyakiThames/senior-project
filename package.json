@@ -20,7 +20,7 @@
     "@google/genai": "^2.3.0",
     "@line/bot-sdk": "^11.0.0",
     "@line/liff": "^2.24.0",
-    "@typesafe-ai/sdk": "latest",
+    "@typesafe-ai/sdk": "^0.7.0",
     "firebase-admin": "^12.0.0",
     "next": "^15.5.29",
     "next-intl": "^3.0.0",

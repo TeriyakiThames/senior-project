@@ -81,9 +81,11 @@ describe('Gemini 3.5 Flash-Lite Client (AI-02)', () => {
 
       // Context checks
       expect(callArgs.input).toContain('Previous conversation:');
-      expect(callArgs.input).toContain('User: สวัสดีหลาน');
-      expect(callArgs.input).toContain('Assistant: สวัสดีค่ะคุณยาย มีอะไรให้หลานช่วยไหมคะ');
-      expect(callArgs.input).toContain('User: เตือนกินยาด้วยนะ');
+      expect(callArgs.input).toContain('<turn role="user">สวัสดีหลาน</turn>');
+      expect(callArgs.input).toContain(
+        '<turn role="assistant">สวัสดีค่ะคุณยาย มีอะไรให้หลานช่วยไหมคะ</turn>',
+      );
+      expect(callArgs.input).toContain('<turn role="user">เตือนกินยาด้วยนะ</turn>');
 
       // System instruction checks
       expect(callArgs.system_instruction).toContain('กินยาความดันตอนเช้า');

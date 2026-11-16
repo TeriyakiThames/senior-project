@@ -105,7 +105,10 @@ describe('POST /api/webhook', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Invalid signature' });
-    expect(verifyLineSignature).toHaveBeenCalledWith(JSON.stringify({ events: [] }), null);
+    expect(verifyLineSignature).toHaveBeenCalledWith(
+      Buffer.from(JSON.stringify({ events: [] })),
+      null,
+    );
     expect(after).not.toHaveBeenCalled();
   });
 

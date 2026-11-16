@@ -246,7 +246,11 @@ describe('List and Delete Tool Handlers (SCHED-06)', () => {
       expect(tasks.cancelScheduledTask).toHaveBeenCalledWith(
         'projects/p/locations/l/queues/q/tasks/alarm-task-1',
       );
-      expect(updateMock).toHaveBeenCalledWith({ enabled: false });
+      expect(updateMock).toHaveBeenCalledWith({
+        enabled: false,
+        status: 'done',
+        cloudTaskName: null,
+      });
       expect(result.success).toBe(true);
       expect(result.message).toContain('ลบนาฬิกาปลุก 07:00');
     });
@@ -280,7 +284,11 @@ describe('List and Delete Tool Handlers (SCHED-06)', () => {
       expect(tasks.cancelScheduledTask).toHaveBeenCalledWith(
         'projects/p/locations/l/queues/q/tasks/rem-task-1',
       );
-      expect(updateMock).toHaveBeenCalledWith({ status: 'done', enabled: false });
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+      });
       expect(result.success).toBe(true);
       expect(result.message).toContain('ลบการเตือน "กินยาวันนี้"');
     });
@@ -316,7 +324,11 @@ describe('List and Delete Tool Handlers (SCHED-06)', () => {
       expect(tasks.cancelScheduledTask).toHaveBeenCalledWith(
         'projects/p/locations/l/queues/q/tasks/rem-repeat-task',
       );
-      expect(updateMock).toHaveBeenCalledWith({ status: 'done', enabled: false });
+      expect(updateMock).toHaveBeenCalledWith({
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+      });
       expect(result.success).toBe(true);
       expect(result.message).toContain('ลบการเตือน "กินยาวันนี้"');
     });

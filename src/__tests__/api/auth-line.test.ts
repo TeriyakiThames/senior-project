@@ -93,6 +93,27 @@ describe('POST /api/auth/line (SEC-02 / S2 & S4)', () => {
     vi.unstubAllEnvs();
   });
 
+  it('returns simulated mock token without calling Firebase Admin when mock user is allowed in preview/dev', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.mocked(verifyLineIdToken).mockResolvedValue({
+      lineUserId: 'mock-user-123',
+      displayName: 'Mock User',
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/auth/line', {
+      method: 'POST',
+      body: JSON.stringify({ idToken: 'mock-token-123' }),
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data).toEqual({ token: 'mock-custom-token-mock-user-123' });
+    expect(auth.createUser).not.toHaveBeenCalled();
+    expect(auth.createCustomToken).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
   it('returns 400 when idToken is missing', async () => {
     const request = new NextRequest('http://localhost:3000/api/auth/line', {
       method: 'POST',

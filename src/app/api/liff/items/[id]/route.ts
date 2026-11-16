@@ -77,9 +77,9 @@ export async function DELETE(
     if (type === 'note') {
       await docRef.delete();
     } else if (type === 'reminder') {
-      await docRef.update({ status: 'done', enabled: false });
+      await docRef.update({ status: 'done', enabled: false, cloudTaskName: null });
     } else {
-      await docRef.update({ enabled: false });
+      await docRef.update({ enabled: false, status: 'done', cloudTaskName: null });
     }
 
     return NextResponse.json({ success: true, status: 'deleted' });

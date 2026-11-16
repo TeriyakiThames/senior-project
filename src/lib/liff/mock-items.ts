@@ -1,3 +1,5 @@
+import type { UserSettings } from '@/types/firestore';
+
 export interface MockAlarm {
   id: string;
   time: string;
@@ -27,6 +29,7 @@ export interface MockStore {
   alarms: MockAlarm[];
   reminders: MockReminder[];
   notes: MockNote[];
+  settings: UserSettings;
 }
 
 function getDefaultMockStore(): MockStore {
@@ -34,6 +37,9 @@ function getDefaultMockStore(): MockStore {
   const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
 
   return {
+    settings: {
+      notificationRepeatCap: 3,
+    },
     alarms: [
       {
         id: 'mock-alarm-1',
@@ -188,4 +194,16 @@ export function deleteMockItem(id: string, type: string): boolean {
 
 export function resetMockStore(): void {
   mockStore = getDefaultMockStore();
+}
+
+export function getMockSettings(): UserSettings {
+  return { ...mockStore.settings };
+}
+
+export function updateMockSettings(settings: Partial<UserSettings>): UserSettings {
+  mockStore.settings = {
+    ...mockStore.settings,
+    ...settings,
+  };
+  return { ...mockStore.settings };
 }

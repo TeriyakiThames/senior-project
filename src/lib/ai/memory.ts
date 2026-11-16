@@ -191,8 +191,8 @@ Assistant response: "${assistantResponse}"`;
     console.error(
       '[Memory] Failed to parse extracted facts JSON:',
       error,
-      'Raw output:',
-      rawOutput,
+      'Output length:',
+      rawOutput.length,
     );
   }
 

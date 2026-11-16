@@ -35,8 +35,12 @@ export async function POST(request: NextRequest) {
 
     const { lineUserId, displayName } = verified;
 
-    if (!isMockAllowed() && (lineUserId === 'mock-user-123' || lineUserId.startsWith('mock-'))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (lineUserId === 'mock-user-123' || lineUserId.startsWith('mock-')) {
+      if (!isMockAllowed()) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      // Return a simulated mock token without minting real Firebase custom tokens or touching Auth records
+      return NextResponse.json({ token: `mock-custom-token-${lineUserId}` });
     }
 
     if (!isValidDocumentId(lineUserId)) {

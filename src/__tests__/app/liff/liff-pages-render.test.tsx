@@ -205,13 +205,14 @@ describe('LIFF Frontend Pages Smoke & Render Tests', () => {
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
-    it('renders Settings page properly with user profile info', () => {
+    it('renders Settings page properly with user profile info and repeat cap settings', () => {
       const html = renderWithIntl(<SettingsPage />, 'th');
       expect(html).toContain('ตั้งค่า');
       expect(html).toContain('คุณยายสมศรี');
       expect(html).toContain('test-user-001');
       expect(html).toContain('🇹🇭 ภาษาไทย');
       expect(html).toContain('🇬🇧 English');
+      expect(html).toContain('เตือนซ้ำสูงสุด');
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });

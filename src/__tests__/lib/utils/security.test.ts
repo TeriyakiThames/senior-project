@@ -3,6 +3,7 @@ import {
   isValidDocumentId,
   assertValidDocumentId,
   isPayloadSizeWithinLimit,
+  readBoundedBuffer,
 } from '@/lib/utils/security';
 import { AppError } from '@/lib/utils/errors';
 
@@ -92,6 +93,47 @@ describe('Security Utilities (security.ts)', () => {
         headers: { 'content-length': 'invalid-number' },
       });
       expect(isPayloadSizeWithinLimit(reqWithMalformed, 1024)).toBe(true);
+    });
+  });
+
+  describe('readBoundedBuffer', () => {
+    it('reads body buffer when size is within limit', async () => {
+      const text = 'hello world';
+      const req = new Request('http://localhost', {
+        method: 'POST',
+        body: text,
+      });
+      const buffer = await readBoundedBuffer(req, 1024);
+      expect(buffer).not.toBeNull();
+      expect(buffer?.toString('utf-8')).toBe(text);
+    });
+
+    it('returns null if content-length header exceeds limit', async () => {
+      const req = new Request('http://localhost', {
+        method: 'POST',
+        headers: { 'content-length': '2048' },
+        body: 'small',
+      });
+      const buffer = await readBoundedBuffer(req, 1024);
+      expect(buffer).toBeNull();
+    });
+
+    it('returns null if stream chunks exceed limit', async () => {
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(600));
+          controller.enqueue(new Uint8Array(600));
+          controller.close();
+        },
+      });
+      const req = new Request('http://localhost', {
+        method: 'POST',
+        body: stream,
+        // @ts-expect-error duplex needed for node fetch with stream
+        duplex: 'half',
+      });
+      const buffer = await readBoundedBuffer(req, 1000);
+      expect(buffer).toBeNull();
     });
   });
 });
