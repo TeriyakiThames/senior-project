@@ -31,32 +31,31 @@ export async function GET(request: NextRequest) {
 
   try {
     const fetchAlarms = async () => {
-      let alarmDocs: { id: string; [key: string]: unknown }[];
-      try {
-        const snaps = await alarmsRef(userId).where('enabled', '==', true).orderBy('time').get();
-        alarmDocs = snaps.docs.map((d) => ({ id: d.id, ...d.data() }));
-      } catch (err: unknown) {
-        const error = err as { code?: number; message?: string };
-        if (
-          error?.code === 9 ||
-          error?.message?.includes('FAILED_PRECONDITION') ||
-          error?.message?.includes('requires an index')
-        ) {
-          console.warn(
-            '[LIFF items] Missing composite index for alarms; falling back to in-memory sort',
-          );
-          const snaps = await alarmsRef(userId).where('enabled', '==', true).get();
-          alarmDocs = snaps.docs
-            .map((d) => ({ id: d.id, ...d.data() }))
-            .sort((a, b) =>
-              String((a as { time?: string }).time ?? '').localeCompare(
-                String((b as { time?: string }).time ?? ''),
-              ),
-            );
-        } else {
-          throw err;
-        }
-      }
+      const snaps = await alarmsRef(userId).where('enabled', '==', true).get();
+      const alarmDocs = snaps.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const docA = a as {
+            time?: string;
+            nextFireAt?: { toMillis?: () => number; seconds?: number };
+          };
+          const docB = b as {
+            time?: string;
+            nextFireAt?: { toMillis?: () => number; seconds?: number };
+          };
+          const tA =
+            docA.nextFireAt?.toMillis?.() ??
+            (docA.nextFireAt?.seconds ? docA.nextFireAt.seconds * 1000 : 0);
+          const tB =
+            docB.nextFireAt?.toMillis?.() ??
+            (docB.nextFireAt?.seconds ? docB.nextFireAt.seconds * 1000 : 0);
+          if (tA && tB && tA !== tB) {
+            return tA - tB;
+          }
+          if (tA && !tB) return -1;
+          if (!tA && tB) return 1;
+          return String(docA.time ?? '').localeCompare(String(docB.time ?? ''));
+        });
       return alarmDocs;
     };
 

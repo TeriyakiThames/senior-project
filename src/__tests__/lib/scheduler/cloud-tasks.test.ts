@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   cloudTasksClient,
   getCloudTasksClientOptions,
+  getAppUrl,
   scheduleNotification,
   cancelScheduledTask,
   saveAndScheduleTask,
@@ -44,6 +45,44 @@ describe('Google Cloud Tasks Scheduling Client (SCHED-01)', () => {
 
       const options = getCloudTasksClientOptions();
       expect(options.credentials).toBeUndefined();
+    });
+  });
+
+  describe('getAppUrl', () => {
+    it('returns NEXT_PUBLIC_APP_URL when defined', () => {
+      process.env.NEXT_PUBLIC_APP_URL = 'https://my-app.com';
+      delete process.env.APP_URL;
+      delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+      delete process.env.VERCEL_URL;
+
+      expect(getAppUrl()).toBe('https://my-app.com');
+    });
+
+    it('falls back to VERCEL_PROJECT_PRODUCTION_URL with https prefix', () => {
+      delete process.env.NEXT_PUBLIC_APP_URL;
+      delete process.env.APP_URL;
+      process.env.VERCEL_PROJECT_PRODUCTION_URL = 'senior-project-eta-two.vercel.app';
+      delete process.env.VERCEL_URL;
+
+      expect(getAppUrl()).toBe('https://senior-project-eta-two.vercel.app');
+    });
+
+    it('falls back to VERCEL_URL with https prefix', () => {
+      delete process.env.NEXT_PUBLIC_APP_URL;
+      delete process.env.APP_URL;
+      delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+      process.env.VERCEL_URL = 'senior-project-git-preview.vercel.app';
+
+      expect(getAppUrl()).toBe('https://senior-project-git-preview.vercel.app');
+    });
+
+    it('falls back to localhost when no environment variables are defined', () => {
+      delete process.env.NEXT_PUBLIC_APP_URL;
+      delete process.env.APP_URL;
+      delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
+      delete process.env.VERCEL_URL;
+
+      expect(getAppUrl()).toBe('http://localhost:3000');
     });
   });
 

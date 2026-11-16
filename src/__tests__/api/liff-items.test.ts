@@ -135,6 +135,50 @@ describe('LIFF Items API Routes (S1, S3, S4 Security Hardening)', () => {
       expect(notesRef).not.toHaveBeenCalled();
     });
 
+    it('returns timers (items without time field) sorted by nextFireAt when type=timers', async () => {
+      vi.mocked(verifyLineIdToken).mockResolvedValueOnce({
+        lineUserId: TEST_USER_ID,
+      });
+
+      const timerDoc1 = {
+        id: 't1',
+        data: () => ({
+          durationMinutes: 15,
+          enabled: true,
+          status: 'pending',
+          nextFireAt: { toMillis: () => 1700002000000 },
+        }),
+      };
+      const timerDoc2 = {
+        id: 't2',
+        data: () => ({
+          durationMinutes: 5,
+          enabled: true,
+          status: 'pending',
+          nextFireAt: { toMillis: () => 1700001000000 },
+        }),
+      };
+
+      const alarmsQuery = {
+        where: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({
+          docs: [timerDoc1, timerDoc2],
+        }),
+      };
+      vi.mocked(alarmsRef).mockReturnValue(alarmsQuery as any);
+
+      const request = new NextRequest('http://localhost:3000/api/liff/items?type=timers', {
+        headers: { authorization: 'Bearer valid-line-id-token' },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.timers).toHaveLength(2);
+      expect(data.timers[0].id).toBe('t2'); // Soonest fire first
+      expect(data.timers[1].id).toBe('t1');
+    });
+
     it('filters out reminders with enabled: false', async () => {
       vi.mocked(verifyLineIdToken).mockResolvedValueOnce({
         lineUserId: TEST_USER_ID,
