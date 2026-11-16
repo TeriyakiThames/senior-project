@@ -87,6 +87,29 @@ if (process.env.NODE_ENV !== 'production') {
 export const CLOUD_TASKS_MAX_SCHEDULE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /**
+ * Resolves the base application URL for scheduled webhooks.
+ * Prioritizes NEXT_PUBLIC_APP_URL and APP_URL, falling back to Vercel's
+ * automatic environment variables (VERCEL_PROJECT_PRODUCTION_URL, VERCEL_URL)
+ * before defaulting to localhost.
+ */
+export function getAppUrl(): string {
+  const rawUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ||
+    'http://localhost:3000';
+
+  const trimmed = rawUrl.trim().replace(/\/+$/, '');
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+/**
  * Enqueues a delayed HTTP POST task targeting /api/notify.
  *
  * @param opts Options including userId, itemId, itemType, fireAt, and optional overrides
@@ -103,7 +126,7 @@ export async function scheduleNotification(opts: ScheduleNotificationOptions): P
     projectId = process.env.GOOGLE_CLOUD_PROJECT_ID || 'senior-project-dummy',
     location = process.env.GCP_LOCATION || 'asia-southeast1',
     queueId = process.env.CLOUD_TASKS_QUEUE_ID || 'reminder-queue',
-    appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    appUrl = opts.appUrl || getAppUrl(),
   } = opts;
 
   const now = Date.now();
