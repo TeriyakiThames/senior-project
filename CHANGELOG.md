@@ -1,3 +1,10 @@
+## [1.35.1](https://github.com/TeriyakiThames/senior-project/compare/v1.35.0...v1.35.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* security audit hardening ([#130](https://github.com/TeriyakiThames/senior-project/issues/130)) ([aac7a32](https://github.com/TeriyakiThames/senior-project/commit/aac7a32f6cdc4ad9211533735584329d28181760))
+
 # [1.35.0](https://github.com/TeriyakiThames/senior-project/compare/v1.34.2...v1.35.0) (2026-11-09)
 
 
