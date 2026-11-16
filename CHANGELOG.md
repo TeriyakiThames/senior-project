@@ -1,3 +1,10 @@
+## [1.35.2](https://github.com/TeriyakiThames/senior-project/compare/v1.35.1...v1.35.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* resolve timer and reminder alert issues ([#131](https://github.com/TeriyakiThames/senior-project/issues/131)) ([c410853](https://github.com/TeriyakiThames/senior-project/commit/c41085318f81473ba5c54c97554eda5dff0424c8))
+
 ## [1.35.1](https://github.com/TeriyakiThames/senior-project/compare/v1.35.0...v1.35.1) (2026-11-16)
 
 
