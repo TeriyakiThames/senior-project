@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { lineClient } from '@/lib/line/client';
 import { alarmsRef, remindersRef, userRef } from '@/lib/firebase/collections';
 import {
   buildAlarmNotification,
   buildTimerNotification,
   buildReminderNotification,
 } from '@/lib/line/flex-messages';
+import { pushLineNotificationWithRetry, parseLineError } from '@/lib/line/push';
 import { scheduleNotification } from '@/lib/scheduler/cloud-tasks';
 import { isValidWebhookSecret } from '@/lib/scheduler/webhook-auth';
 import { calculateNextOccurrence } from '@/lib/utils/recurrence';
@@ -16,6 +16,7 @@ import { logError } from '@/lib/utils/errors';
 import { isValidDocumentId, isPayloadSizeWithinLimit } from '@/lib/utils/security';
 
 const DEFAULT_NOTIFICATION_REPEATS = 3;
+const MAX_CLOUD_TASK_RETRIES = 3;
 
 async function getUserNotificationRepeatCap(userId: string): Promise<number> {
   try {
@@ -91,6 +92,34 @@ export async function POST(request: NextRequest) {
       ? rawIdempotencyKey
       : null;
 
+  // Circuit breaker: halt runaway Cloud Tasks retry storms if retried >= MAX_CLOUD_TASK_RETRIES
+  const taskRetryCountHeader = request.headers.get('x-cloudtasks-taskretrycount');
+  const taskRetryCount = taskRetryCountHeader ? parseInt(taskRetryCountHeader, 10) : 0;
+
+  if (!isNaN(taskRetryCount) && taskRetryCount >= MAX_CLOUD_TASK_RETRIES) {
+    logError(
+      'notify_route',
+      new Error(`Cloud Task exceeded max retries (${taskRetryCount})`),
+      { userId, itemId, itemType, taskRetryCount },
+      'ALERT',
+    );
+    try {
+      const ref =
+        itemType === 'reminder' ? remindersRef(userId).doc(itemId) : alarmsRef(userId).doc(itemId);
+      const updateData: Record<string, unknown> = {
+        deliveryStatus: 'failed_max_retries',
+        lastDeliveryError: `Exceeded Cloud Tasks retry limit of ${MAX_CLOUD_TASK_RETRIES}`,
+      };
+      if (idempotencyKey) {
+        updateData.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(updateData);
+    } catch {
+      // Best effort update
+    }
+    return NextResponse.json({ status: 'halted', reason: 'max_retries_exceeded' }, { status: 200 });
+  }
+
   try {
     if (itemType === 'timer') {
       const result = await handleTimerFire(userId, itemId, idempotencyKey);
@@ -103,7 +132,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result, { status: 200 });
     }
   } catch (error) {
-    logError('notify_route', error, { userId, itemId, itemType });
+    const parsed = parseLineError(error);
+    if (parsed.isQuotaExceeded) {
+      return NextResponse.json({ status: 'skipped', reason: 'quota_exceeded' }, { status: 200 });
+    }
+    logError('notify_route', error, { userId, itemId, itemType, taskRetryCount });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -129,10 +162,43 @@ async function handleTimerFire(userId: string, timerId: string, idempotencyKey?:
   // Push LINE notification card
   const label = timer.label ? `⏱️ ถึงเวลา "${timer.label}" แล้วค่ะ!` : '⏱️ ครบกำหนดเวลาแล้วค่ะ!';
 
-  await lineClient.pushMessage({
+  const pushResult = await pushLineNotificationWithRetry({
     to: userId,
     messages: [buildTimerNotification(label, timerId, idempotencyKey || undefined)],
   });
+
+  if (!pushResult.success) {
+    if (pushResult.reason === 'quota_exceeded') {
+      const finalUpdate: Record<string, unknown> = {
+        enabled: false,
+        status: 'done',
+        cloudTaskName: null,
+        deliveryStatus: 'quota_exceeded',
+        lastDeliveryError: pushResult.errorMessage || 'LINE monthly message quota exceeded',
+      };
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'skipped', reason: 'quota_exceeded' };
+    }
+
+    if (pushResult.reason === 'blocked') {
+      const finalUpdate: Record<string, unknown> = {
+        enabled: false,
+        status: 'done',
+        cloudTaskName: null,
+        deliveryStatus: 'user_blocked',
+      };
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'skipped', reason: 'user_blocked' };
+    }
+
+    throw new Error(pushResult.errorMessage || 'LINE push failed');
+  }
 
   // For timer, repeat message every 5 minutes until user snoozes, dismisses, or reaches configured repeat cap
   const maxRepeats = await getUserNotificationRepeatCap(userId);
@@ -196,38 +262,47 @@ async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?:
     return { status: 'skipped', reason: 'already_notified' };
   }
 
-  // Evaluate recurrence and save the next schedule BEFORE sending the push
+  // Evaluate recurrence and save the next schedule BEFORE sending the push (if not already scheduled in future)
   if (alarm.recurrence && alarm.recurrence !== 'once') {
-    const nextFire = calculateNextOccurrence({
-      recurrence: alarm.recurrence,
-      time: alarm.time,
-      daysOfWeek: alarm.daysOfWeek,
-      dayOfMonth: alarm.dayOfMonth,
-      fromDate: new Date(),
-    });
+    const nextFireAtDate = alarm.nextFireAt?.toDate
+      ? alarm.nextFireAt.toDate()
+      : alarm.nextFireAt?.seconds
+        ? new Date(alarm.nextFireAt.seconds * 1000)
+        : null;
+    const isNextAlreadyScheduled = nextFireAtDate && nextFireAtDate.getTime() > Date.now();
 
-    if (nextFire) {
-      const taskName = await scheduleNotification({
-        userId,
-        itemId: alarmId,
-        itemType: 'alarm',
-        fireAt: nextFire,
+    if (!isNextAlreadyScheduled) {
+      const nextFire = calculateNextOccurrence({
+        recurrence: alarm.recurrence,
+        time: alarm.time,
+        daysOfWeek: alarm.daysOfWeek,
+        dayOfMonth: alarm.dayOfMonth,
+        fromDate: new Date(),
       });
 
-      await ref.update({
-        nextFireAt: Timestamp.fromDate(nextFire),
-        cloudTaskName: taskName,
-      });
-    } else {
-      await ref.update({
-        enabled: false,
-        cloudTaskName: null,
-      });
+      if (nextFire) {
+        const taskName = await scheduleNotification({
+          userId,
+          itemId: alarmId,
+          itemType: 'alarm',
+          fireAt: nextFire,
+        });
+
+        await ref.update({
+          nextFireAt: Timestamp.fromDate(nextFire),
+          cloudTaskName: taskName,
+        });
+      } else {
+        await ref.update({
+          enabled: false,
+          cloudTaskName: null,
+        });
+      }
     }
   }
 
   // Push LINE notification card
-  await lineClient.pushMessage({
+  const pushResult = await pushLineNotificationWithRetry({
     to: userId,
     messages: [
       buildAlarmNotification(
@@ -237,6 +312,41 @@ async function handleAlarmFire(userId: string, alarmId: string, idempotencyKey?:
       ),
     ],
   });
+
+  if (!pushResult.success) {
+    if (pushResult.reason === 'quota_exceeded') {
+      const finalUpdate: Record<string, unknown> = {
+        deliveryStatus: 'quota_exceeded',
+        lastDeliveryError: pushResult.errorMessage || 'LINE monthly message quota exceeded',
+      };
+      if (alarm.recurrence === 'once') {
+        finalUpdate.enabled = false;
+        finalUpdate.status = 'done';
+        finalUpdate.cloudTaskName = null;
+      }
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'skipped', reason: 'quota_exceeded' };
+    }
+
+    if (pushResult.reason === 'blocked') {
+      const finalUpdate: Record<string, unknown> = {
+        enabled: false,
+        status: 'done',
+        cloudTaskName: null,
+        deliveryStatus: 'user_blocked',
+      };
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'skipped', reason: 'user_blocked' };
+    }
+
+    throw new Error(pushResult.errorMessage || 'LINE push failed');
+  }
 
   // For one-off, deactivate and record notification key
   if (alarm.recurrence === 'once') {
@@ -280,48 +390,92 @@ async function handleReminderFire(
     return { status: 'skipped', reason: 'already_notified' };
   }
 
-  // Evaluate recurrence and save the next schedule BEFORE sending the push
+  // Evaluate recurrence and save the next schedule BEFORE sending the push (if not already scheduled in future)
   if (reminder.recurrence !== 'once') {
-    const scheduledAtDate = reminder.scheduledAt?.toDate
-      ? reminder.scheduledAt.toDate()
-      : new Date();
-    const nextFire = calculateNextOccurrence({
-      recurrence: reminder.recurrence,
-      scheduledAt: scheduledAtDate,
-      daysOfWeek: reminder.daysOfWeek,
-      dayOfMonth: reminder.dayOfMonth,
-      fromDate: new Date(),
-    });
+    const nextFireAtDate = reminder.nextFireAt?.toDate
+      ? reminder.nextFireAt.toDate()
+      : reminder.nextFireAt?.seconds
+        ? new Date(reminder.nextFireAt.seconds * 1000)
+        : null;
+    const isNextAlreadyScheduled = nextFireAtDate && nextFireAtDate.getTime() > Date.now();
 
-    if (nextFire) {
-      const taskName = await scheduleNotification({
-        userId,
-        itemId: reminderId,
-        itemType: 'reminder',
-        fireAt: nextFire,
+    if (!isNextAlreadyScheduled) {
+      const scheduledAtDate = reminder.scheduledAt?.toDate
+        ? reminder.scheduledAt.toDate()
+        : new Date();
+      const nextFire = calculateNextOccurrence({
+        recurrence: reminder.recurrence,
+        scheduledAt: scheduledAtDate,
+        daysOfWeek: reminder.daysOfWeek,
+        dayOfMonth: reminder.dayOfMonth,
+        fromDate: new Date(),
       });
 
-      await ref.update({
-        nextFireAt: Timestamp.fromDate(nextFire),
-        cloudTaskName: taskName,
-        status: 'pending',
-      });
-    } else {
-      await ref.update({
-        status: 'done',
-        enabled: false,
-        cloudTaskName: null,
-      });
+      if (nextFire) {
+        const taskName = await scheduleNotification({
+          userId,
+          itemId: reminderId,
+          itemType: 'reminder',
+          fireAt: nextFire,
+        });
+
+        await ref.update({
+          nextFireAt: Timestamp.fromDate(nextFire),
+          cloudTaskName: taskName,
+          status: 'pending',
+        });
+      } else {
+        await ref.update({
+          status: 'done',
+          enabled: false,
+          cloudTaskName: null,
+        });
+      }
     }
   }
 
   // Push LINE notification card
-  await lineClient.pushMessage({
+  const pushResult = await pushLineNotificationWithRetry({
     to: userId,
     messages: [
       buildReminderNotification(reminder.message, reminderId, idempotencyKey || undefined),
     ],
   });
+
+  if (!pushResult.success) {
+    if (pushResult.reason === 'quota_exceeded') {
+      const finalUpdate: Record<string, unknown> = {
+        deliveryStatus: 'quota_exceeded',
+        lastDeliveryError: pushResult.errorMessage || 'LINE monthly message quota exceeded',
+      };
+      if (reminder.recurrence === 'once') {
+        finalUpdate.status = 'done';
+        finalUpdate.enabled = false;
+        finalUpdate.cloudTaskName = null;
+      }
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'skipped', reason: 'quota_exceeded' };
+    }
+
+    if (pushResult.reason === 'blocked') {
+      const finalUpdate: Record<string, unknown> = {
+        status: 'done',
+        enabled: false,
+        cloudTaskName: null,
+        deliveryStatus: 'user_blocked',
+      };
+      if (idempotencyKey) {
+        finalUpdate.lastNotificationId = idempotencyKey;
+      }
+      await ref.update(finalUpdate);
+      return { status: 'skipped', reason: 'user_blocked' };
+    }
+
+    throw new Error(pushResult.errorMessage || 'LINE push failed');
+  }
 
   // For one-off, repeat message every 5 minutes until user snoozes, dismisses, or reaches configured repeat cap
   if (reminder.recurrence === 'once') {

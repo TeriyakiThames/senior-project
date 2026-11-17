@@ -49,6 +49,14 @@ export interface AlarmDoc {
   lastHandledAction?: 'snooze' | 'dismiss' | null;
   repeatCount?: number;
   status?: 'pending' | 'fired' | 'snoozed' | 'done';
+  deliveryStatus?:
+    | 'delivered'
+    | 'quota_exceeded'
+    | 'user_blocked'
+    | 'rate_limited'
+    | 'failed'
+    | 'failed_max_retries';
+  lastDeliveryError?: string | null;
   createdAt: Timestamp;
 }
 
@@ -68,6 +76,14 @@ export interface ReminderDoc {
   lastHandledAction?: 'snooze' | 'dismiss' | null;
   repeatCount?: number;
   status: 'pending' | 'fired' | 'snoozed' | 'done';
+  deliveryStatus?:
+    | 'delivered'
+    | 'quota_exceeded'
+    | 'user_blocked'
+    | 'rate_limited'
+    | 'failed'
+    | 'failed_max_retries';
+  lastDeliveryError?: string | null;
   createdAt: Timestamp;
 }
 

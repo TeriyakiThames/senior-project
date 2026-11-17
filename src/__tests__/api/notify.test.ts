@@ -1019,5 +1019,137 @@ describe('POST /api/notify (SCHED-08)', () => {
         expect.objectContaining({ lastNotificationId: 'malicious&action=hacked\r\n' }),
       );
     });
+
+    it('handles LINE 429 monthly quota exhaustion gracefully without triggering Cloud Tasks retries', async () => {
+      const quotaError = new Error('429 - Too Many Requests');
+      (quotaError as any).status = 429;
+      (quotaError as any).body = JSON.stringify({
+        message: 'You have reached your monthly limit.',
+      });
+      vi.mocked(lineClient.pushMessage).mockRejectedValue(quotaError);
+
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            status: 'pending',
+            message: 'กินยาหลังอาหาร',
+            recurrence: 'once',
+          }),
+        }),
+        update: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof remindersRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+          'x-cloudtasks-taskname': 'task-quota-test',
+        },
+        body: JSON.stringify({
+          userId: 'user-1',
+          itemId: 'reminder-quota-1',
+          itemType: 'reminder',
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({ status: 'skipped', reason: 'quota_exceeded' });
+
+      // Verifies document is disabled and marked as quota exceeded, no repeat scheduled
+      expect(mockDoc.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'done',
+          enabled: false,
+          deliveryStatus: 'quota_exceeded',
+          lastNotificationId: 'task-quota-test',
+        }),
+      );
+      expect(scheduleNotification).not.toHaveBeenCalled();
+    });
+
+    it('halts runaway Cloud Tasks retries when x-cloudtasks-taskretrycount reaches max threshold', async () => {
+      const mockDoc = {
+        update: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(remindersRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof remindersRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+          'x-cloudtasks-taskname': 'task-runaway-123',
+          'x-cloudtasks-taskretrycount': '3',
+        },
+        body: JSON.stringify({ userId: 'user-1', itemId: 'reminder-123', itemType: 'reminder' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({ status: 'halted', reason: 'max_retries_exceeded' });
+
+      // Ensure push message was never called
+      expect(lineClient.pushMessage).not.toHaveBeenCalled();
+      expect(mockDoc.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deliveryStatus: 'failed_max_retries',
+          lastNotificationId: 'task-runaway-123',
+        }),
+      );
+    });
+
+    it('handles blocked user gracefully with status 200 and deactivates item', async () => {
+      const blockedError = new Error('400 - Bad Request: user is not a friend');
+      (blockedError as any).status = 400;
+      vi.mocked(lineClient.pushMessage).mockRejectedValue(blockedError);
+
+      const mockDoc = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            enabled: true,
+            status: 'pending',
+            durationMinutes: 10,
+            recurrence: 'once',
+          }),
+        }),
+        update: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.mocked(alarmsRef).mockReturnValue({
+        doc: vi.fn().mockReturnValue(mockDoc),
+      } as unknown as ReturnType<typeof alarmsRef>);
+
+      const request = new NextRequest('http://localhost:3000/api/notify', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-webhook-secret': TEST_SECRET,
+        },
+        body: JSON.stringify({ userId: 'user-blocked', itemId: 'timer-1', itemType: 'timer' }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data).toEqual({ status: 'skipped', reason: 'user_blocked' });
+      expect(mockDoc.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: false,
+          status: 'done',
+          deliveryStatus: 'user_blocked',
+        }),
+      );
+    });
   });
 });
