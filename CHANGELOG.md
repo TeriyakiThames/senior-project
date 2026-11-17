@@ -1,3 +1,10 @@
+## [1.35.4](https://github.com/TeriyakiThames/senior-project/compare/v1.35.3...v1.35.4) (2026-11-17)
+
+
+### Bug Fixes
+
+* combine suggestions into single message ([#133](https://github.com/TeriyakiThames/senior-project/issues/133)) ([a67d337](https://github.com/TeriyakiThames/senior-project/commit/a67d33772e5e3bccbeb479d2fb7918ad02df4337))
+
 ## [1.35.3](https://github.com/TeriyakiThames/senior-project/compare/v1.35.2...v1.35.3) (2026-11-17)
 
 
