@@ -344,9 +344,9 @@ export async function handleTextMessage(
         toolRes.message ||
         (isCancel ? 'ยกเลิกเรียบร้อยแล้วค่ะ' : 'ดำเนินการเรียบร้อยแล้วค่ะ คุณตาคุณยาย');
 
-      const messages: messagingApi.Message[] = [{ type: 'text', text: replyText }];
+      let combinedReplyText = replyText;
 
-      // Attach contextual suggestion bubble underneath confirmation/cancellation
+      // Attach contextual suggestion combined into single message bubble
       if (toolRes.success && !options?.disableSuggestions) {
         const actionType = isCancel
           ? 'cancel_action'
@@ -358,10 +358,12 @@ export async function handleTextMessage(
           userDoc: user,
           userText,
         });
-        if (suggestionBubble) {
-          messages.push(suggestionBubble);
+        if (suggestionBubble?.text) {
+          combinedReplyText = `${replyText}\n\n${suggestionBubble.text}`;
         }
       }
+
+      const messages: messagingApi.Message[] = [{ type: 'text', text: combinedReplyText }];
 
       await lineClient.replyMessage({
         replyToken,
@@ -501,15 +503,20 @@ export async function handleTextMessage(
     savedAssistantText = fallbackText;
   }
 
-  // Attach safe-guarded feature suggestions chat bubble underneath
+  // Attach safe-guarded feature suggestions combined into single message bubble
   if (toolResult.success && !options?.disableSuggestions) {
     const suggestionBubble = buildFeatureSuggestionBubble({
       intent: intentResult?.intent,
       userText,
       userDoc: currentUser,
     });
-    if (suggestionBubble) {
-      lineMessages.push(suggestionBubble);
+    if (suggestionBubble?.text) {
+      if (lineMessages.length === 1 && lineMessages[0].type === 'text') {
+        const primaryText = lineMessages[0].text;
+        const combinedText = `${primaryText}\n\n${suggestionBubble.text}`;
+        lineMessages = [{ type: 'text', text: combinedText }];
+        savedAssistantText = combinedText;
+      }
     }
   }
 
@@ -707,17 +714,19 @@ export async function handlePostbackEvent(
     const toolRes = isReminder ? await handleConfirmReminder(user) : await handleConfirmNote(user);
 
     const replyText = toolRes.message || 'ดำเนินการเรียบร้อยแล้วค่ะ';
-    const messages: messagingApi.Message[] = [{ type: 'text', text: replyText }];
+    let combinedReplyText = replyText;
 
     if (toolRes.success && !options?.disableSuggestions) {
       const suggestionBubble = buildFeatureSuggestionBubble({
         actionType: isReminder ? 'confirm_reminder' : 'confirm_note',
         userDoc: user,
       });
-      if (suggestionBubble) {
-        messages.push(suggestionBubble);
+      if (suggestionBubble?.text) {
+        combinedReplyText = `${replyText}\n\n${suggestionBubble.text}`;
       }
     }
+
+    const messages: messagingApi.Message[] = [{ type: 'text', text: combinedReplyText }];
 
     await lineClient.replyMessage({
       replyToken,
@@ -732,17 +741,19 @@ export async function handlePostbackEvent(
   if (data === 'action=cancel_reminder' || data === 'action=cancel_action') {
     const toolRes = await handleCancelAction(user);
     const replyText = toolRes.message || 'ยกเลิกเรียบร้อยแล้วค่ะ';
-    const messages: messagingApi.Message[] = [{ type: 'text', text: replyText }];
+    let combinedReplyText = replyText;
 
     if (toolRes.success && !options?.disableSuggestions) {
       const suggestionBubble = buildFeatureSuggestionBubble({
         actionType: 'cancel_action',
         userDoc: user,
       });
-      if (suggestionBubble) {
-        messages.push(suggestionBubble);
+      if (suggestionBubble?.text) {
+        combinedReplyText = `${replyText}\n\n${suggestionBubble.text}`;
       }
     }
+
+    const messages: messagingApi.Message[] = [{ type: 'text', text: combinedReplyText }];
 
     await lineClient.replyMessage({
       replyToken,
