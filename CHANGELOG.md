@@ -1,3 +1,10 @@
+## [1.35.3](https://github.com/TeriyakiThames/senior-project/compare/v1.35.2...v1.35.3) (2026-11-17)
+
+
+### Bug Fixes
+
+* handle LINE 429 quota and rate limits ([#132](https://github.com/TeriyakiThames/senior-project/issues/132)) ([d7011db](https://github.com/TeriyakiThames/senior-project/commit/d7011dbc87e154524ffa63a178cc0ada24280d3d))
+
 ## [1.35.2](https://github.com/TeriyakiThames/senior-project/compare/v1.35.1...v1.35.2) (2026-11-16)
 
 
