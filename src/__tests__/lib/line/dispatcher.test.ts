@@ -472,10 +472,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-confirm',
         messages: [
-          { type: 'text', text: 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย' },
           {
             type: 'text',
-            text: 'หากต้องการให้หนูช่วยตั้งเตือนความจำ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
+            text: 'บันทึกโน้ตเรียบร้อยแล้วค่ะ คุณตาคุณยาย\n\nหากต้องการให้หนูช่วยตั้งเตือนความจำ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
           },
         ],
       });
@@ -507,10 +506,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-confirm-rem',
         messages: [
-          { type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' },
           {
             type: 'text',
-            text: 'หากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
+            text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.\n\nหากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
           },
         ],
       });
@@ -536,10 +534,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-cancel',
         messages: [
-          { type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' },
           {
             type: 'text',
-            text: 'คุณตาคุณยายสามารถบอกให้หนูช่วยตั้งเตือน ตั้งนาฬิกาปลุก หรือจดบันทึกเรื่องอื่นได้เสมอนะคะ',
+            text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ\n\nคุณตาคุณยายสามารถบอกให้หนูช่วยตั้งเตือน ตั้งนาฬิกาปลุก หรือจดบันทึกเรื่องอื่นได้เสมอนะคะ',
           },
         ],
       });
@@ -619,10 +616,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-pb-confirm',
         messages: [
-          { type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.' },
           {
             type: 'text',
-            text: 'หากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
+            text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยา เวลา 19:00 น.\n\nหากต้องการให้หนูช่วยจดบันทึกข้อความ หรือตั้งนาฬิกาปลุก บอกหนูได้ตลอดเวลาเลยนะคะ',
           },
         ],
       });
@@ -649,10 +645,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-pb-cancel',
         messages: [
-          { type: 'text', text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ' },
           {
             type: 'text',
-            text: 'คุณตาคุณยายสามารถบอกให้หนูช่วยตั้งเตือน ตั้งนาฬิกาปลุก หรือจดบันทึกเรื่องอื่นได้เสมอนะคะ',
+            text: 'ยกเลิกการบันทึกเรียบร้อยแล้วค่ะ\n\nคุณตาคุณยายสามารถบอกให้หนูช่วยตั้งเตือน ตั้งนาฬิกาปลุก หรือจดบันทึกเรื่องอื่นได้เสมอนะคะ',
           },
         ],
       });
@@ -981,7 +976,7 @@ describe('LINE Webhook Dispatcher', () => {
   });
 
   describe('Contextual Feature Suggestions Chat Bubble', () => {
-    it('attaches complementary suggestions underneath note flex message when saving a note', async () => {
+    it('sends flex message without second suggestion bubble to prevent double texting when saving a note', async () => {
       const mockFlex: messagingApi.FlexMessage = {
         type: 'flex',
         altText: '📝 สรุปบันทึก: ซื้อนม 2 กล่อง',
@@ -1015,13 +1010,7 @@ describe('LINE Webhook Dispatcher', () => {
 
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-note-suggest',
-        messages: [
-          mockFlex,
-          {
-            type: 'text',
-            text: 'หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ อยากให้หนูช่วยตั้งเตือนหรือตั้งนาฬิกาปลุกเรื่องนี้ด้วยไหมคะ',
-          },
-        ],
+        messages: [mockFlex],
       });
     });
 
@@ -1090,10 +1079,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-alarm-suggest',
         messages: [
-          { type: 'text', text: 'ตั้งนาฬิกาปลุกเวลา 06:00 น. เรียบร้อยแล้วค่ะ ⏰' },
           {
             type: 'text',
-            text: 'นอกจากนี้ หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือช่วยจดบันทึกข้อความให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
+            text: 'ตั้งนาฬิกาปลุกเวลา 06:00 น. เรียบร้อยแล้วค่ะ ⏰\n\nนอกจากนี้ หนูยังช่วยตั้งเตือนความจำ (เช่น เตือนกินยา) หรือช่วยจดบันทึกข้อความให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
           },
         ],
       });
@@ -1127,10 +1115,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-rem-suggest',
         messages: [
-          { type: 'text', text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยาตอนสองทุ่ม 🔔' },
           {
             type: 'text',
-            text: 'นอกจากนี้ หนูยังช่วยจดบันทึกข้อความ (เช่น จดเรื่องสำคัญ) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
+            text: 'ตั้งเตือนเรียบร้อยแล้วค่ะ: กินยาตอนสองทุ่ม 🔔\n\nนอกจากนี้ หนูยังช่วยจดบันทึกข้อความ (เช่น จดเรื่องสำคัญ) หรือตั้งนาฬิกาปลุกให้ได้ด้วยนะคะ บอกหนูได้ตลอดเวลาเลยนะคะ',
           },
         ],
       });
@@ -1164,10 +1151,9 @@ describe('LINE Webhook Dispatcher', () => {
       expect(lineClient.replyMessage).toHaveBeenCalledWith({
         replyToken: 'token-capabilities-suggest',
         messages: [
-          { type: 'text', text: 'ยินดีค่ะคุณยาย' },
           {
             type: 'text',
-            text: expect.stringContaining('• ตั้งเตือนความจำ'),
+            text: expect.stringMatching(/ยินดีค่ะคุณยาย[\s\S]*• ตั้งเตือนความจำ/),
           },
         ],
       });
